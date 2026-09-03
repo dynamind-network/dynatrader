@@ -64,7 +64,7 @@
     "ink": "^5.2.0",
     "ink-password-input": "^2.0.0",
     "ink-text-input": "^6.0.0",
-    "inquirer": "^12.0.0",
+    "inquirer": "^14.2.0",
     "log-update": "^7.2.0",
     "ora": "^8.1.0",
     "picomatch": "^4.0.4",
