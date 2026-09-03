@@ -5,7 +5,7 @@
  * FTS5 is used for full-text search on messages.
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const SCHEMA = `
 -- -----------------------------------------------------------------------
@@ -203,6 +203,66 @@ CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
 
 -- UI compat columns for trades (exchange, strategy, rationale, fees)
 -- Added via reconcileColumns in state-db.ts
+
+-- -----------------------------------------------------------------------
+-- Trade Outcomes (structured extraction results from compaction)
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS trade_outcomes (
+  id              TEXT PRIMARY KEY,
+  session_id      TEXT NOT NULL,
+  symbol          TEXT NOT NULL DEFAULT '',
+  side            TEXT NOT NULL CHECK(side IN ('long','short')),
+  entry_price     REAL NOT NULL DEFAULT 0,
+  exit_price      REAL,
+  quantity        REAL NOT NULL DEFAULT 0,
+  pnl             REAL,
+  pnl_percent     REAL,
+  status          TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','closed','cancelled')),
+  strategy        TEXT,
+  rationale       TEXT,
+  risk_reward     REAL,
+  hold_duration   INTEGER,
+  lessons_learned TEXT NOT NULL DEFAULT '[]',
+  confidence      REAL NOT NULL DEFAULT 0.5 CHECK(confidence >= 0 AND confidence <= 1),
+  tags            TEXT NOT NULL DEFAULT '[]',
+  metadata        TEXT NOT NULL DEFAULT '{}',
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_trade_outcomes_session ON trade_outcomes(session_id);
+CREATE INDEX IF NOT EXISTS idx_trade_outcomes_symbol ON trade_outcomes(symbol);
+CREATE INDEX IF NOT EXISTS idx_trade_outcomes_status ON trade_outcomes(status);
+CREATE INDEX IF NOT EXISTS idx_trade_outcomes_strategy ON trade_outcomes(strategy);
+
+-- FTS5 virtual table for full-text search on trade outcomes
+CREATE VIRTUAL TABLE IF NOT EXISTS trade_outcomes_fts USING fts5(
+  symbol,
+  strategy,
+  rationale,
+  lessons_learned,
+  content='trade_outcomes',
+  content_rowid='rowid',
+  tokenize='porter'
+);
+
+-- Triggers to keep trade outcomes FTS index in sync
+CREATE TRIGGER IF NOT EXISTS trade_outcomes_ai AFTER INSERT ON trade_outcomes BEGIN
+  INSERT INTO trade_outcomes_fts(rowid, symbol, strategy, rationale, lessons_learned)
+  VALUES (new.rowid, new.symbol, new.strategy, new.rationale, new.lessons_learned);
+END;
+
+CREATE TRIGGER IF NOT EXISTS trade_outcomes_ad AFTER DELETE ON trade_outcomes BEGIN
+  INSERT INTO trade_outcomes_fts(trade_outcomes_fts, rowid, symbol, strategy, rationale, lessons_learned)
+  VALUES('delete', old.rowid, old.symbol, old.strategy, old.rationale, old.lessons_learned);
+END;
+
+CREATE TRIGGER IF NOT EXISTS trade_outcomes_au AFTER UPDATE ON trade_outcomes BEGIN
+  INSERT INTO trade_outcomes_fts(trade_outcomes_fts, rowid, symbol, strategy, rationale, lessons_learned)
+  VALUES('delete', old.rowid, old.symbol, old.strategy, old.rationale, old.lessons_learned);
+  INSERT INTO trade_outcomes_fts(rowid, symbol, strategy, rationale, lessons_learned)
+  VALUES (new.rowid, new.symbol, new.strategy, new.rationale, new.lessons_learned);
+END;
 
 -- -----------------------------------------------------------------------
 -- Positions
