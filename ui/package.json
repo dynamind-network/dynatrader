@@ -51,7 +51,7 @@
     "asciichart": "^1.5.25",
     "better-sqlite3": "^11.0.0",
     "brace-expansion": "^5.0.5",
-    "chalk": "^5.4.0",
+    "chalk": "^6.0.0",
     "cli-table3": "^0.6.5",
     "conf": "^15.1.0",
     "dotenv": "^16.3.1",
