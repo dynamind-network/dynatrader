@@ -3,12 +3,14 @@
  *
  * The core dreaming engine that runs periodic background reflection cycles.
  * Acts as a thin orchestrator delegating to focused modules:
- *   - dream-data-loader:     loadLearnings, loadSkills
- *   - dream-skill-review:    reviewAndArchiveSkills
- *   - dream-pattern-discovery: discoverPatterns
- *   - dream-insights:        generateInsights
- *   - dream-skill-creation:  createSkillsFromPatterns
+ *   - dream-data-loader:     loadSkills
+ *   - dream-skill-review:    reviewAndArchiveSkills (90-day archiving + duplicate merging)
  *   - dream-memory:          compactMemory, finalizeReport, persistReport, getDreamHistory
+ *
+ * Three phases (Light → REM → Deep):
+ * - Light: Load skills, review/archive old (>90 days), merge duplicates (Jaccard >= 0.95)
+ * - REM: Cross-session synthesis, extract insights → MEMORY.md
+ * - Deep: Full cluster analysis, theme extraction
  */
 
 import { Logger } from '../../orchestration/workspace/logger';
@@ -28,13 +30,9 @@ import type {
 } from './dream-types';
 import { DEFAULT_DREAM_CONFIG } from './dream-types';
 
-// Import from extracted modules
 import type { DreamContext } from './dream-context';
 import { loadSkills } from './dream-data-loader';
 import { reviewAndArchiveSkills } from './dream-skill-review';
-import { discoverPatterns } from './dream-pattern-discovery';
-import { generateInsights } from './dream-insights';
-import { createSkillsFromPatterns } from './dream-skill-creation';
 import {
   compactMemory,
   finalizeReport,
@@ -91,15 +89,13 @@ export class DreamEngine {
 
   /**
    * Run a full dreaming cycle:
-   * 1. Load all learnings from memory
-   * 2. Load all skills from memory
-   * 3. Review each skill — archive low-confidence ones
-   * 4. Discover patterns from learnings
-   * 5. Generate insights if enough learnings
-   * 6. Create new skills from discovered patterns
-   * 7. Compact memory
-   * 8. Persist DreamReport
-   * 9. Return DreamReport
+   * 1. Load all skills from memory
+   * 2. Review each skill — archive old (>90 days), merge duplicates
+   * 3. REM phase: cross-session synthesis, extract insights → MEMORY.md
+   * 4. Deep phase: full cluster analysis, theme extraction
+   * 5. Compact memory
+   * 6. Persist DreamReport
+   * 7. Return DreamReport
    */
   async runDreamCycle(): Promise<DreamReport> {
     const startTime = performance.now();
@@ -138,15 +134,14 @@ export class DreamEngine {
       });
     }
 
-    // Step 8-9: Persist and return DreamReport
+    // Step 5-7: Persist and return DreamReport
     const report = finalizeReport(startTime, state.actions, state.metrics);
     await persistReport(ctx, report);
     this.lastReport = report;
 
     this.logger.info(
       `Dream cycle complete: ${state.metrics.skillsReviewed} skills reviewed, ` +
-      `${state.metrics.skillsArchived} archived, ${state.metrics.skillsCreated} created, ` +
-      `${state.metrics.patternsFound} patterns found, ${state.metrics.insightsGenerated} insights`,
+      `${state.metrics.skillsArchived} archived, ${state.metrics.skillsCreated} created`,
     );
 
     return report;
@@ -219,6 +214,13 @@ export class DreamEngine {
     }
     context.state.metrics.skillsReviewed = context.state.skills.length;
     this.logger.info(`Loaded ${context.state.skills.length} skills`);
+
+    this.logger.debug('Reviewing and consolidating skills');
+    const { actions: reviewActions, archivedCount } =
+      await reviewAndArchiveSkills(this.createContext(), context.state.skills);
+    context.state.actions.push(...reviewActions);
+    context.state.metrics.skillsArchived = archivedCount;
+    this.logger.info(`Reviewed skills: ${archivedCount} archived`);
   }
 
   private async runRemPhase(context: DreamPhaseContext): Promise<void | { stop?: boolean }> {
@@ -235,21 +237,33 @@ export class DreamEngine {
       await reviewAndArchiveSkills(this.createContext(), context.state.skills);
     context.state.actions.push(...reviewActions);
     context.state.metrics.skillsArchived = archivedCount;
+    this.logger.info(`Archived ${archivedCount} skills`);
 
-    this.logger.debug('Discovering patterns');
-    const { patterns, actions: patternActions } =
-      await discoverPatterns(this.createContext());
-    context.state.actions.push(...patternActions);
-    context.state.patterns = patterns;
-    context.state.metrics.patternsFound = patterns.length;
-    this.logger.info(`Discovered ${patterns.length} patterns`);
-
-    this.logger.debug('Generating insights');
-    const { actions: insightActions } =
-      await generateInsights(this.createContext(), patterns);
-    context.state.actions.push(...insightActions);
-    context.state.metrics.insightsGenerated = insightActions.length;
-    this.logger.info(`Generated ${insightActions.length} insights`);
+    this.logger.debug('Cross-session synthesis and MEMORY.md extraction');
+    // Synthesize insights from cross-session recall for recent skills
+    if (this.crossSessionRecall && context.state.skills.length > 0) {
+      const recentSkills = context.state.skills.slice(0, 5);
+      const insights: string[] = [];
+      for (const skill of recentSkills) {
+        const results = await this.crossSessionRecall.search(skill.description);
+        if (results.length > 0) {
+          insights.push(...results.map(r => r.text));
+        }
+      }
+      if (insights.length > 0) {
+        await this.memoryStore.put({
+          scope: 'memory_md',
+          kind: 'rem_synthesis',
+          payload: { insights, timestamp: new Date().toISOString() },
+          ts: new Date(),
+        });
+        context.state.actions.push({
+          type: 'insight_generated',
+          description: `${insights.length} insights synthesized from cross-session recall`,
+        });
+        this.logger.info(`Synthesized ${insights.length} insights from cross-session recall`);
+      }
+    }
   }
 
   private async runDeepPhase(context: DreamPhaseContext): Promise<void | { stop?: boolean }> {
@@ -258,23 +272,6 @@ export class DreamEngine {
     if (context.state.skills.length === 0) {
       context.state.skills = await loadSkills(this.createContext());
       context.state.metrics.skillsReviewed = context.state.skills.length;
-    }
-
-    if (context.state.patterns.length === 0) {
-      this.logger.debug('No staged patterns available, deriving patterns in deep phase');
-      const { patterns, actions } = await discoverPatterns(this.createContext());
-      context.state.patterns = patterns;
-      context.state.actions.push(...actions);
-      context.state.metrics.patternsFound = patterns.length;
-    }
-
-    if (context.state.patterns.length > 0) {
-      this.logger.debug('Creating skills from patterns');
-      const { actions: skillActions } =
-        await createSkillsFromPatterns(this.createContext(), context.state.patterns);
-      context.state.actions.push(...skillActions);
-      context.state.metrics.skillsCreated = skillActions.length;
-      this.logger.info(`Created ${skillActions.length} new skills`);
     }
 
     this.logger.debug('Compacting memory');

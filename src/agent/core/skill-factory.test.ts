@@ -7,7 +7,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SkillFactory } from "./skill-factory";
-import type { Learning, MarketConditions } from "./types";
+import type { MarketConditions } from "./types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -19,23 +19,6 @@ function makeMarketConditions(overrides: Partial<MarketConditions> = {}): Market
     volatility: 0.03,
     trend: "bullish",
     volume: "normal",
-    ...overrides,
-  };
-}
-
-function makeLearning(overrides: Partial<Learning> = {}): Learning {
-  return {
-    id: `learning-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-    type: "pattern",
-    content: "test learning content",
-    confidence: 0.5,
-    evidence: ["trade-001"],
-    category: "entry",
-    applicableSymbols: ["BTC/USDT"],
-    applicableRegimes: ["trending"],
-    createdAt: Date.now(),
-    timesUsed: 0,
-    successRate: 0,
     ...overrides,
   };
 }
@@ -79,39 +62,13 @@ describe("SkillFactory", () => {
         },
       });
 
-      const strategy = noVenueFactory.createStrategy([
-        makeLearning({
-          category: "entry",
-          confidence: 0.85,
-          evidence: ["trade-1", "trade-2", "trade-3"],
-        }),
-        makeLearning({
-          category: "exit",
-          confidence: 0.85,
-          evidence: ["trade-4", "trade-5", "trade-6"],
-        }),
-      ], conditions, symbol);
+      const strategy = noVenueFactory.createStrategy(conditions, symbol);
 
       expect(strategy).toBeNull();
     });
 
-    it("should create a new SkillManifest from high-confidence learnings", () => {
-      const learnings: Learning[] = [
-        makeLearning({
-          category: "entry",
-          confidence: 0.85,
-          content: "RSI below 30 signals good entry in trending markets",
-          evidence: ["trade-1", "trade-2", "trade-3"],
-        }),
-        makeLearning({
-          category: "exit",
-          confidence: 0.85,
-          content: "Take profit at 2:1 risk-reward ratio works well",
-          evidence: ["trade-1", "trade-2", "trade-3"],
-        }),
-      ];
-
-      const strategy = factory.createStrategy(learnings, conditions, symbol);
+    it("should create a new SkillManifest from conditions", () => {
+      const strategy = factory.createStrategy(conditions, symbol);
 
       expect(strategy).not.toBeNull();
       expect(strategy!.symbol).toBe("BTC/USDT");
@@ -125,51 +82,8 @@ describe("SkillFactory", () => {
       expect(strategy!.timeframe).toBeUndefined();
     });
 
-    it("should return null when confidence is below threshold", () => {
-      const learnings: Learning[] = [
-        makeLearning({
-          category: "entry",
-          confidence: 0.15,
-          evidence: ["trade-1"],
-        }),
-      ];
-
-      const strategy = factory.createStrategy(learnings, conditions, symbol);
-
-      expect(strategy).toBeNull();
-    });
-
-    it("should return null when fewer than MIN_EVIDENCE_FOR_CREATION relevant learnings", () => {
-      const learnings: Learning[] = [
-        makeLearning({
-          category: "entry",
-          confidence: 0.85,
-          evidence: ["trade-1"], // only 1 evidence piece
-        }),
-      ];
-
-      const strategy = factory.createStrategy(learnings, conditions, symbol);
-
-      expect(strategy).toBeNull();
-    });
-
-    it("should merge multiple learnings into a coherent strategy", () => {
-      const learnings: Learning[] = [
-        makeLearning({
-          category: "entry",
-          confidence: 0.85,
-          content: "RSI below 30 signals good entry in trending markets",
-          evidence: ["trade-1", "trade-2", "trade-3"],
-        }),
-        makeLearning({
-          category: "exit",
-          confidence: 0.8,
-          content: "Risk-reward ratio of 2:1 is optimal for exits",
-          evidence: ["trade-4", "trade-5", "trade-6"],
-        }),
-      ];
-
-      const strategy = factory.createStrategy(learnings, conditions, symbol);
+    it("should merge multiple settings into a coherent strategy", () => {
+      const strategy = factory.createStrategy(conditions, symbol);
 
       expect(strategy).not.toBeNull();
 
@@ -182,55 +96,22 @@ describe("SkillFactory", () => {
       expect(exits.riskReward).toBeDefined();
     });
 
-    it("should filter learnings by symbol match", () => {
-      const learnings: Learning[] = [
-        makeLearning({
-          category: "entry",
-          confidence: 0.85,
-          applicableSymbols: ["ETH/USDT"],
-          evidence: ["trade-1", "trade-2", "trade-3"],
-        }),
-      ];
-
-      const strategy = factory.createStrategy(learnings, conditions, symbol);
+    it("should filter by symbol match", () => {
+      const strategy = factory.createStrategy(conditions, symbol);
 
       // No learnings match BTC/USDT, so should return null
       expect(strategy).toBeNull();
     });
 
-    it("should filter learnings by regime match", () => {
-      const learnings: Learning[] = [
-        makeLearning({
-          category: "entry",
-          confidence: 0.85,
-          applicableRegimes: ["volatile"],
-          evidence: ["trade-1", "trade-2", "trade-3"],
-        }),
-      ];
-
-      const strategy = factory.createStrategy(learnings, conditions, symbol);
+    it("should filter by regime match", () => {
+      const strategy = factory.createStrategy(conditions, symbol);
 
       // No learnings match trending regime, so should return null
       expect(strategy).toBeNull();
     });
 
-    it("should build risk config from risk learnings", () => {
-      const learnings: Learning[] = [
-        makeLearning({
-          category: "risk",
-          confidence: 0.85,
-          content: "Maximum position size of 5% of capital is safe",
-          evidence: ["trade-1", "trade-2", "trade-3"],
-        }),
-        makeLearning({
-          category: "entry",
-          confidence: 0.85,
-          content: "Entry on pullback to support works well",
-          evidence: ["trade-4", "trade-5", "trade-6"],
-        }),
-      ];
-
-      const strategy = factory.createStrategy(learnings, conditions, symbol);
+    it("should build risk config from default risk settings", () => {
+      const strategy = factory.createStrategy(conditions, symbol);
 
       expect(strategy).not.toBeNull();
       expect(strategy!.risk.maxPositionNotional).toBeGreaterThan(0);
@@ -238,23 +119,8 @@ describe("SkillFactory", () => {
       expect(strategy!.risk.maxOpenOrders).toBeGreaterThan(0);
     });
 
-    it("should ignore timing learnings when building reusable skills", () => {
-      const learnings: Learning[] = [
-        makeLearning({
-          category: "timing",
-          confidence: 0.85,
-          content: "Best entries occur during first hour of trading session",
-          evidence: ["trade-1", "trade-2", "trade-3"],
-        }),
-        makeLearning({
-          category: "entry",
-          confidence: 0.85,
-          content: "Entry on pullback to support works well",
-          evidence: ["trade-4", "trade-5", "trade-6"],
-        }),
-      ];
-
-      const strategy = factory.createStrategy(learnings, conditions, symbol);
+    it("should not set timeframe for reusable skills", () => {
+      const strategy = factory.createStrategy(conditions, symbol);
 
       expect(strategy).not.toBeNull();
       expect(strategy!.timeframe).toBeUndefined();
@@ -273,45 +139,11 @@ describe("SkillFactory", () => {
           },
         });
 
-        const strategy = persistentFactory.createStrategy(
-          [
-            makeLearning({
-              category: "entry",
-              confidence: 0.9,
-              content: "RSI below 30 signals good entry in trending markets",
-              evidence: ["trade-1", "trade-2", "trade-3"],
-            }),
-            makeLearning({
-              category: "exit",
-              confidence: 0.9,
-              content: "Take profit at 2:1 risk-reward ratio works well",
-              evidence: ["trade-4", "trade-5", "trade-6"],
-            }),
-          ],
-          conditions,
-          symbol,
-        );
+        const strategy = persistentFactory.createStrategy(conditions, symbol);
 
         expect(strategy).not.toBeNull();
 
-        const proposal = await persistentFactory.proposeStrategy(
-          strategy!,
-          [
-            makeLearning({
-              category: "entry",
-              confidence: 0.9,
-              content: "RSI below 30 signals good entry in trending markets",
-              evidence: ["trade-1", "trade-2", "trade-3"],
-            }),
-            makeLearning({
-              category: "exit",
-              confidence: 0.9,
-              content: "Take profit at 2:1 risk-reward ratio works well",
-              evidence: ["trade-4", "trade-5", "trade-6"],
-            }),
-          ],
-          conditions,
-        );
+        const proposal = await persistentFactory.proposeStrategy(strategy!, conditions);
 
         expect(proposal).not.toBeNull();
 
