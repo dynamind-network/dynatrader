@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/dynamind-network/dynatrader#readme
+    about: Check the README for documentation and guides
+  - name: Discussions
+    url: https://github.com/dynamind-network/dynatrader/discussions
+    about: Ask questions and discuss ideas

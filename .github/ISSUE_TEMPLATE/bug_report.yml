@@ -1,0 +1,139 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the form below.
+
+        Before submitting, please:
+        - Search [existing issues](https://github.com/dynamind-network/dynatrader/issues) to avoid duplicates
+        - Update to the latest version and check if the issue persists
+        - Run `dynatrader doctor` to check for common issues
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the behavior
+      placeholder: |
+        1. Run `dynatrader ...`
+        2. Do X
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of DynaTrader is affected?
+      multiple: true
+      options:
+        - CLI
+        - Terminal UI
+        - Agent Core
+        - Memory System
+        - Exchange Integration
+        - Risk Engine
+        - Gateway (Telegram/Discord)
+        - Cron Scheduler
+        - MCP Integration
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: trading-mode
+    attributes:
+      label: Trading Mode
+      description: Which trading mode were you using?
+      options:
+        - Paper Mode
+        - Live Trading
+        - Backtesting
+        - N/A
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Paste any relevant log output. Run `dynatrader logs` to view recent logs.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: DynaTrader Version
+      description: Run `dynatrader version` to find this
+      placeholder: "2.3.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version
+      description: Run `node --version` to find this
+      placeholder: "v22.19.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem (screenshots, configuration, etc.)
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I am using the latest version of DynaTrader
+          required: true
+        - label: I have run `dynatrader doctor` to check for common issues
+          required: false

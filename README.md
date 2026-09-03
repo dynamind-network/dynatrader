@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="https://github.com/dynamind-network/dynatrader/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/version-2.3.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/node-%3E%3D22.19.0-brightgreen" alt="Node">
@@ -212,6 +213,25 @@ bun run typecheck      # Type check
 bun run test           # Run tests
 bun run release:check  # Full release gate (typecheck + build + test)
 ```
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+
+- Setting up the development environment
+- Coding standards and conventions
+- Pull request process
+- Commit message format
+
+## Security
+
+For security vulnerabilities, please see our [Security Policy](SECURITY.md). Do not open public issues for security concerns.
+
+## Community
+
+- [GitHub Issues](https://github.com/dynamind-network/dynatrader/issues) — Bug reports and feature requests
+- [GitHub Discussions](https://github.com/dynamind-network/dynatrader/discussions) — Questions and ideas
+- [Pull Requests](https://github.com/dynamind-network/dynatrader/pulls) — Contributions
 
 ## License
 

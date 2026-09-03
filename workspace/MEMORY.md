@@ -1,11 +1,9 @@
 # Workspace MEMORY
 
-## 2026-05-21
-- Started workspace-native runtime implementation
-- Phase 8+ goal: Convert to workspace-native trading agent runtime
+## Learnings
 
-## Important Learnings
-- Hardcode removal is critical for true workspace autonomy
-- Governance files are safety rails, not optional features
-- SkillManifest prevents rogue model behavior
-- Audit trails enable learning from failures
+<!-- Add your trading learnings and insights here -->
+
+- Risk management is critical for long-term success
+- Paper trading helps validate strategies before live deployment
+- Market conditions change — adapt your approach accordingly

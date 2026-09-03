@@ -1,0 +1,80 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please fill out the form below.
+
+        Before submitting, please:
+        - Check if a similar feature [has been requested](https://github.com/dynamind-network/dynatrader/issues)
+        - Consider if this fits the project's goals
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What's the use case?
+      placeholder: I'm always frustrated when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this to work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative approaches?
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      options:
+        - New Tool
+        - New Skill
+        - CLI Improvement
+        - Terminal UI
+        - Gateway (Telegram/Discord)
+        - Risk Engine
+        - Exchange Integration
+        - Memory System
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Implementation Scope
+      description: Roughly how complex do you think this would be?
+      options:
+        - Small (quick fix or minor addition)
+        - Medium (new functionality, moderate changes)
+        - Large (significant new subsystem or major refactor)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, mockups, or examples
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to submit a PR for this feature
+          required: false

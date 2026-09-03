@@ -17,6 +17,11 @@
       "default": "./dist/kernel.js"
     }
   },
+  "files": [
+    "dist/**/*",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "build:ui": "cd ui && bun run build",
@@ -36,6 +41,17 @@
   "keywords": ["trading", "algorithmic", "typescript", "agent", "llm", "terminal", "tui"],
   "author": "DynaTrader Contributors",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dynamind-network/dynatrader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dynamind-network/dynatrader/issues"
+  },
+  "homepage": "https://github.com/dynamind-network/dynatrader#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22.19.0"
   },
