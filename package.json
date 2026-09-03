@@ -86,7 +86,7 @@
     "ccxt": "^4.3.48",
     "cheerio": "^1.2.0",
     "crypto-js": "^4.1.1",
-    "discord.js": "14.26.4",
+    "discord.js": "14.27.0",
     "emittery": "^1.0.1",
     "express": "^4.22.0",
     "js-yaml": "^4.1.0",
