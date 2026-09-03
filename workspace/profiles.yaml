@@ -1,0 +1,53 @@
+# Workspace Profiles
+# Configure your main agent and optional additional agents.
+#
+# Each agent gets its own SOUL.md and session scope.
+# Core profiles (base, memory, multi_agent, messaging, media, browser)
+# are always included. Plugin profiles (trading, risk) require plugins.
+#
+# Use multiple agents for: multi-trading systems, genetic algorithms,
+# specialized research pipelines, etc.
+
+main:
+  # The default agent. Reads SOUL.md from workspace root.
+  name: ""
+  description: ""
+  type: manager
+  team: ""
+  reportsTo: ""
+  roles: []
+  profiles:
+    - base
+    - memory
+    - multi_agent
+    - messaging
+    - media
+    - browser
+    - trading
+    - risk
+  heartbeat:
+    every: 4h
+  # max_subagents: <set explicitly>
+  # max_spawn_depth: <set explicitly>
+
+# Additional main agents — each gets its own SOUL.md + session scope.
+# Useful for multi-trading systems, genetic algorithms, etc.
+# agents:
+#   - name: scalper
+#     description: High-frequency scalping agent
+#     type: manager
+#     soul: agents/scalper/SOUL.md    # own personality/instructions
+#     profiles:
+#       - base
+#       - memory
+#       - trading
+#       - risk
+#   - name: researcher
+#     description: Deep market research agent
+#     type: manager
+#     soul: agents/researcher/SOUL.md
+#     profiles:
+#       - base
+#       - memory
+#       - browser
+#       - multi_agent

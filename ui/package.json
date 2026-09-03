@@ -1,0 +1,124 @@
+{
+  "name": "@dynatrader/ui",
+  "version": "1.0.0",
+  "description": "Terminal UI for DynaTrader",
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "dynamind": "./dist/cli.js"
+  },
+  "files": [
+    "dist/**/*",
+    "src/**/*.yaml",
+    "LICENSE",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tools": {
+      "import": "./dist/tools/index.js",
+      "types": "./dist/tools/index.d.ts"
+    },
+    "./agents": {
+      "import": "./dist/agents/index.js",
+      "types": "./dist/agents/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "dev:build": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "tsc && tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
+    "@inquirer/prompts": "^8.3.2",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@types/ink-text-input": "^2.0.5",
+    "@types/log-update": "^3.1.0",
+    "asciichart": "^1.5.25",
+    "better-sqlite3": "^11.0.0",
+    "brace-expansion": "^5.0.5",
+    "chalk": "^5.4.0",
+    "cli-table3": "^0.6.5",
+    "conf": "^15.1.0",
+    "dotenv": "^16.3.1",
+    "dynatrader": "file:..",
+    "ethers": "^6.9.0",
+    "express": "^4.22.0",
+    "fdir": "^6.4.0",
+    "glob": "^13.0.6",
+    "gray-matter": "^4.0.3",
+    "ink": "^5.2.0",
+    "ink-password-input": "^2.0.0",
+    "ink-text-input": "^6.0.0",
+    "inquirer": "^12.0.0",
+    "log-update": "^7.2.0",
+    "ora": "^8.1.0",
+    "picomatch": "^4.0.4",
+    "react": "^18.3.0",
+    "simple-git": "^3.32.3",
+    "strip-ansi": "6",
+    "undici": "^7.24.0",
+    "uuid": "^11.0.0",
+    "ws": "^8.18.0",
+    "yaml": "^2.9.0",
+    "yargs": "^17.7.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/conf": "^3.0.3",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/picomatch": "^3.0.0",
+    "@types/react": "^18.3.0",
+    "@types/strip-ansi": "^5.2.1",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.0",
+    "esbuild": "^0.27.4",
+    "react-test-renderer": "18.3.1",
+    "vitest": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "dynamind",
+    "core",
+    "agents",
+    "mcp",
+    "terminal"
+  ],
+  "author": {
+    "name": "DynaMind",
+    "url": "https://dynamind.ai"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dynamind-network/dynatrader.git",
+    "directory": "ui"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "overrides": {
+    "brace-expansion": "^5.0.5"
+  },
+  "funding": {
+    "type": "github"
+  }
+}

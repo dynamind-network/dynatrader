@@ -1,0 +1,24 @@
+# DynaTrader Profiles
+# Configure your main agent and optional persistent subagents.
+
+main:
+  name: ""
+  description: ""
+  type: manager
+  team: ""
+  reportsTo: ""
+  roles: []
+  heartbeat:
+    every: 4h
+  # max_subagents: <set explicitly>
+  # max_spawn_depth: <set explicitly>
+
+# Optional persistent subagents
+# Define these only if you want operator-managed agents in agents/<name>/.
+# subagents:
+#   - name: <your-agent-name>
+#     description: Describe the role this subagent should play
+#     subagents:
+#       - name: <child-agent-name>
+#         description: Nested child agents are supported too
+    

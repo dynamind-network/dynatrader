@@ -1,0 +1,32 @@
+{
+  "name": "@dyna/plugin-dynamind-api",
+  "version": "1.0.0",
+  "description": "DynaMind Data API plugin — default provider for market data, signals, risk, and analytics",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dynatrader": "file:../.."
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "tsup": "catalog:"
+  },
+  "license": "MIT",
+  "dsh": {
+    "bundle": true,
+    "capabilities": [
+      "market_data",
+      "signal",
+      "risk",
+      "news",
+      "backtest",
+      "defi",
+      "macro"
+    ]
+  }
+}

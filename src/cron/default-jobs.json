@@ -1,0 +1,46 @@
+[
+  {
+    "id": "heartbeat",
+    "name": "Heartbeat",
+    "prompt": "Read HEARTBEAT.md from workspace. If any tasks need attention, report them. Otherwise reply with HEARTBEAT_OK.",
+    "schedule": {
+      "kind": "interval",
+      "display": "every 30m",
+      "intervalMs": 1800000
+    },
+    "enabled": false,
+    "state": "paused",
+    "lastStatus": null,
+    "repeatCount": null,
+    "completedRuns": 0,
+    "deliver": {
+      "target": "none"
+    },
+    "tags": ["system", "health"],
+    "runCount": 0,
+    "createdAt": 0,
+    "updatedAt": 0
+  },
+  {
+    "id": "memory-consolidation",
+    "name": "Memory Consolidation",
+    "prompt": "Consolidate today's trading notes. Merge duplicates, update MEMORY.md with key learnings.",
+    "schedule": {
+      "kind": "interval",
+      "display": "every 4h",
+      "intervalMs": 14400000
+    },
+    "enabled": false,
+    "state": "paused",
+    "lastStatus": null,
+    "repeatCount": null,
+    "completedRuns": 0,
+    "deliver": {
+      "target": "none"
+    },
+    "tags": ["system", "memory"],
+    "runCount": 0,
+    "createdAt": 0,
+    "updatedAt": 0
+  }
+]

@@ -1,0 +1,91 @@
+{
+  "name": "dynatrader",
+  "version": "2.3.0",
+  "description": "Open-source trading and DeFi AI agent runtime with integrated terminal UI",
+  "type": "module",
+  "workspaces": ["ui", "packages/*"],
+  "bin": {
+    "dynatrader": "./dist/entry/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./kernel": {
+      "types": "./dist/kernel.d.ts",
+      "default": "./dist/kernel.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "build:ui": "cd ui && bun run build",
+    "build:all": "bun run build && bun run build:ui",
+    "dev": "bun run build && node dist/entry/cli.js",
+    "start": "node dist/entry/cli.js",
+    "gateway": "node dist/entry/cli.js --stdio",
+    "release:check": "bun run typecheck && bun run build && bun run test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "typecheck:ui": "cd ui && bun run typecheck",
+    "clean": "rm -rf dist .tsbuildinfo"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "keywords": ["trading", "algorithmic", "typescript", "agent", "llm", "terminal", "tui"],
+  "author": "DynaTrader Contributors",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "catalog": {
+    "typescript": "^5.4.0",
+    "tsup": "8.5.1"
+  },
+  "packageManager": "bun@1.0.0",
+  "devDependencies": {
+    "@types/bcryptjs": "3.0.0",
+    "@types/bun": "latest",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/crypto-js": "4.2.2",
+    "@types/express": "5.0.6",
+    "@types/js-yaml": "4.0.9",
+    "@types/jsonwebtoken": "9.0.10",
+    "@types/ms": "2.1.0",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "9.0.8",
+    "tsup": "8.5.1",
+    "typescript": "^5.4.0",
+    "vitest": "^3.1.0"
+  },
+  "dependencies": {
+    "@trpc/server": "11.18.0",
+    "@uniswap/sdk-core": "7.18.0",
+    "@uniswap/smart-order-router": "4.31.10",
+    "@uniswap/v2-sdk": "4.21.0",
+    "@uniswap/v3-sdk": "3.31.0",
+    "bcryptjs": "3.0.3",
+    "better-sqlite3": "12.11.1",
+    "ccxt": "^4.3.48",
+    "cheerio": "^1.2.0",
+    "crypto-js": "^4.1.1",
+    "discord.js": "14.26.4",
+    "emittery": "^1.0.1",
+    "express": "^4.22.0",
+    "js-yaml": "^4.1.0",
+    "jsonwebtoken": "9.0.3",
+    "marked": "^18.0.9",
+    "openai": "^7.4.0",
+    "pako": "^2.1.0",
+    "pdf-parse": "^2.4.5",
+    "playwright": "1.61.1",
+    "technicalindicators": "3.1.0",
+    "tiktoken": "^1.0.0",
+    "uuid": "^11.0.0",
+    "viem": "2.55.0",
+    "winston": "^3.10.0",
+    "yaml": "^2.9.0",
+    "zod": "^3.24.0"
+  }
+}

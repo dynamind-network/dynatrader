@@ -1,0 +1,18 @@
+{
+  "name": "runtime.status",
+  "description": "Get current runtime status including mode, uptime, and health",
+  "aliases": ["/status", "status", "/s"],
+  "permissions": ["read_status"],
+  "sideEffects": {
+    "readsMarketData": false,
+    "writesMemory": false,
+    "runsBacktest": false,
+    "runsPaperTrade": false,
+    "runsShadowTrade": false,
+    "runsLiveTrade": false,
+    "modifiesPolicy": false,
+    "modifiesRiskProfile": false
+  },
+  "riskLevel": "low",
+  "requiresApproval": false
+}

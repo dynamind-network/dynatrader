@@ -1,0 +1,23 @@
+{
+  "name": "dynamind-api",
+  "version": "1.0.0",
+  "description": "DynaMind Data API — premium market data, AI signals, and analytics",
+  "entry": "dist/index.js",
+  "capabilities": [
+    "market_data",
+    "signal",
+    "risk",
+    "news",
+    "backtest",
+    "defi",
+    "macro"
+  ],
+  "permissions": {
+    "network": true,
+    "filesystem": false,
+    "credentials": true,
+    "orderExecution": false
+  },
+  "author": "DynaMind",
+  "dependencies": []
+}

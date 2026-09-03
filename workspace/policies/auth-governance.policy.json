@@ -1,0 +1,68 @@
+{
+  "name": "Auth Governance Policy",
+  "version": "1.0.0",
+  "description": "Authentication and authorization governance for trading systems",
+  "rules": [
+    {
+      "name": "Owner Approval Required",
+      "condition": "action_type == 'execute_trade' && mode == 'live'",
+      "action": "require_approval",
+      "requiredApprovals": ["owner"],
+      "auditLevel": "critical"
+    },
+    {
+      "name": "Multi-factor Authentication",
+      "condition": "user_role == 'trader' && action_type == 'execute_trade'",
+      "action": "require_approval",
+      "auditLevel": "high"
+    },
+    {
+      "name": "Session Timeout",
+      "condition": "session_duration > max_session_time",
+      "action": "deny",
+      "auditLevel": "medium"
+    },
+    {
+      "name": "IP Address Restriction",
+      "condition": "client_ip not in trusted_ips",
+      "action": "deny",
+      "auditLevel": "high"
+    },
+    {
+      "name": "Permission Scope Check",
+      "condition": "user_permissions not include required_permission",
+      "action": "deny",
+      "auditLevel": "medium"
+    },
+    {
+      "name": "Rate Limiting",
+      "condition": "request_count > rate_limit_per_minute",
+      "action": "deny",
+      "auditLevel": "low"
+    },
+    {
+      "name": "Sensitive Action Logging",
+      "condition": "action_category == 'financial' || action_category == 'configuration'",
+      "action": "allow",
+      "auditLevel": "high"
+    },
+    {
+      "name": "Password Complexity",
+      "condition": "password_strength < minimum_strength",
+      "action": "deny",
+      "auditLevel": "medium"
+    },
+    {
+      "name": "Account Lockout",
+      "condition": "failed_attempts > max_failed_attempts",
+      "action": "deny",
+      "auditLevel": "high"
+    },
+    {
+      "name": "Data Access Control",
+      "condition": "data_classification == 'confidential' && user_clearance < required_clearance",
+      "action": "deny",
+      "auditLevel": "critical"
+    }
+  ]
+}

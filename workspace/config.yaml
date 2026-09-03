@@ -1,0 +1,63 @@
+version: "1.0"
+workspace:
+  name: dyna-trader
+  description: Workspace-native agent runtime
+  mode: paper
+runtime:
+  strictMode: false
+  requireRiskProfile: false
+  requireTradingPolicy: false
+  requireAuthConfig: false
+  liveTradingEnabled: false
+  enableShadowMode: false
+  enableMicroLiveMode: false
+exchange:
+  id: hyperliquid
+  sandbox: false
+  apiKey: ""
+  secret: ""
+# Wallet & DEX configuration
+wallet:
+  chains: [1, 137, 42161, 8453, 10]
+  privateKeyEnvVar: DYNATRADER_PRIVATE_KEY
+  encryptionKey: ""
+dex:
+  defaultAdapter: "0x"
+  slippageDefault: 0.5
+  maxPriceImpact: 5.0
+  adapters: ["0x", "uniswap"]
+  tradeSurplusRecipient: ""
+  affiliateAddress: ""
+# Gas estimation
+gas:
+  maxGasPriceGwei: 150
+  maxGasRatioPercent: 5
+  gasOracleEnabled: true
+  eip1559Enabled: true
+  quoteTimeoutMs: 10000
+# Risk configuration
+risk:
+  dexPolicyEnabled: true
+  maxDailyGasSpendEth: 0.5
+  maxSlippagePercent: 2.0
+  tokenBlacklist: []
+  allowedChains: [1, 137, 42161, 8453, 10]
+  policyTiers:
+    instantThreshold: 100
+    notifyThreshold: 1000
+    delayThreshold: 10000
+    delaySeconds: 300
+logging:
+  level: info
+  audit: true
+storage:
+  memoryPath: workspace/memory
+  runsPath: workspace/runs
+models:
+  provider: lmstudio
+  model: google/gemma-4-e2b
+gateway:
+  telegram:
+    enabled: true
+  discord:
+    enabled: false

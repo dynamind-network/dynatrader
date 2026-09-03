@@ -1,0 +1,45 @@
+# Source files (onlydist is published)
+src/
+tests/
+*.ts
+*.tsx
+!*.d.ts
+
+# Build outputs (only publish dist)
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Test and dev tools
+*.test.ts
+*.test.tsx
+vitest.config.ts
+jest.config.*
+coverage/
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# AI development
+CLAUDE-IMPROVEMENTS.md
+
+# Package-specific ignores
+.releaserc.json
+turbo.json
+.eslintrc.js
+.eslintrc.cjs
+.prettierrc
+.prettierrc.cjs

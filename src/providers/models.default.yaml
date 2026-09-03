@@ -1,0 +1,227 @@
+# DynaTrader - Default Model Configuration
+# This file ships with the package and defines all supported providers/models.
+# To override, create ~/.dynatrader/models.yaml or <workspace>/.dynatrader/models.yaml
+#
+# To update models: edit the YAML and run /reload in the terminal, or restart.
+
+providers:
+  anthropic:
+    displayName: "Anthropic (Claude)"
+    env:
+      - ANTHROPIC_API_KEY
+    baseUrl: "https://api.anthropic.com"
+    defaultModel: "claude-sonnet-4-6"
+    models:
+      - id: "claude-sonnet-4-6"
+        name: "Claude Sonnet 4.6"
+        contextWindow: 1000000
+        maxOutput: 128000
+      - id: "claude-opus-4-6"
+        name: "Claude Opus 4.6"
+        contextWindow: 200000
+        maxOutput: 128000
+      - id: "claude-haiku-4-5-20251001"
+        name: "Claude Haiku 4.5"
+        contextWindow: 200000
+        maxOutput: 8192
+      - id: "claude-sonnet-4-20250514"
+        name: "Claude Sonnet 4"
+        contextWindow: 200000
+        maxOutput: 8192
+      - id: "claude-opus-4-20250514"
+        name: "Claude Opus 4"
+        contextWindow: 200000
+        maxOutput: 4096
+
+  openai:
+    displayName: "OpenAI"
+    env:
+      - OPENAI_API_KEY
+    baseUrl: "https://api.openai.com/v1"
+    defaultModel: "gpt-5.4"
+    models:
+      - id: "gpt-5.4"
+        name: "GPT-5.4"
+        contextWindow: 1000000
+        maxOutput: 128000
+      - id: "gpt-5.4-pro"
+        name: "GPT-5.4 Pro"
+        contextWindow: 1000000
+        maxOutput: 128000
+      - id: "gpt-5.4-mini"
+        name: "GPT-5.4 Mini"
+        contextWindow: 1000000
+        maxOutput: 32768
+      - id: "gpt-5.4-nano"
+        name: "GPT-5.4 Nano"
+        contextWindow: 1000000
+        maxOutput: 16384
+      - id: "gpt-5.1"
+        name: "GPT-5.1"
+        contextWindow: 200000
+        maxOutput: 128000
+      - id: "gpt-5"
+        name: "GPT-5"
+        contextWindow: 200000
+        maxOutput: 128000
+      - id: "gpt-5-mini"
+        name: "GPT-5 Mini"
+        contextWindow: 200000
+        maxOutput: 32768
+      - id: "gpt-5-nano"
+        name: "GPT-5 Nano"
+        contextWindow: 200000
+        maxOutput: 16384
+      - id: "gpt-4.1"
+        name: "GPT-4.1"
+        contextWindow: 1000000
+        maxOutput: 32768
+      - id: "gpt-4.1-mini"
+        name: "GPT-4.1 Mini"
+        contextWindow: 1000000
+        maxOutput: 32768
+      - id: "gpt-4.1-nano"
+        name: "GPT-4.1 Nano"
+        contextWindow: 1000000
+        maxOutput: 32768
+      - id: "o3"
+        name: "o3"
+        contextWindow: 200000
+        maxOutput: 128000
+      - id: "o4-mini"
+        name: "o4-mini"
+        contextWindow: 200000
+        maxOutput: 32768
+      - id: "gpt-4o"
+        name: "GPT-4o"
+        contextWindow: 128000
+        maxOutput: 4096
+      - id: "gpt-4o-mini"
+        name: "GPT-4o Mini"
+        contextWindow: 128000
+        maxOutput: 4096
+
+  deepseek:
+    displayName: "DeepSeek"
+    env:
+      - DEEPSEEK_API_KEY
+    baseUrl: "https://api.deepseek.com"
+    defaultModel: "deepseek-chat"
+    models:
+      - id: "deepseek-chat"
+        name: "DeepSeek Chat (V3.2)"
+        contextWindow: 128000
+        maxOutput: 8192
+      - id: "deepseek-reasoner"
+        name: "DeepSeek Reasoner (V3.2)"
+        contextWindow: 128000
+        maxOutput: 65536
+
+  google:
+    displayName: "Google (Gemini)"
+    env:
+      - GOOGLE_API_KEY
+      - GEMINI_API_KEY
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta"
+    defaultModel: "gemini-2.5-flash"
+    models:
+      - id: "gemini-2.5-flash"
+        name: "Gemini 2.5 Flash"
+        contextWindow: 1000000
+        maxOutput: 65536
+      - id: "gemini-2.5-pro"
+        name: "Gemini 2.5 Pro"
+        contextWindow: 1000000
+        maxOutput: 65536
+      - id: "gemini-2.0-flash"
+        name: "Gemini 2.0 Flash"
+        contextWindow: 1000000
+        maxOutput: 8192
+
+  openrouter:
+    displayName: "OpenRouter"
+    env:
+      - OPENROUTER_API_KEY
+    baseUrl: "https://openrouter.ai/api/v1"
+    defaultModel: "anthropic/claude-3.5-sonnet"
+    models:
+      - id: "anthropic/claude-3.5-sonnet"
+        name: "Claude 3.5 Sonnet (via OpenRouter)"
+        contextWindow: 200000
+        maxOutput: 8192
+      - id: "openai/gpt-4o"
+        name: "GPT-4o (via OpenRouter)"
+        contextWindow: 128000
+        maxOutput: 4096
+      - id: "google/gemini-2.5-flash"
+        name: "Gemini 2.5 Flash (via OpenRouter)"
+        contextWindow: 1000000
+        maxOutput: 65536
+
+  nvidia:
+    displayName: "NVIDIA NIM"
+    env:
+      - NVIDIA_API_KEY
+    baseUrl: "https://integrate.api.nvidia.com/v1"
+    defaultModel: "meta/llama-3.1-70b-instruct"
+    models:
+      - id: "meta/llama-3.1-70b-instruct"
+        name: "Llama 3.1 70B Instruct"
+        contextWindow: 128000
+        maxOutput: 4096
+      - id: "meta/llama-3.1-405b-instruct"
+        name: "Llama 3.1 405B Instruct"
+        contextWindow: 128000
+        maxOutput: 4096
+
+  ollama:
+    displayName: "Ollama (Local)"
+    env: []
+    baseUrl: "http://localhost:11434/v1"
+    defaultModel: "llama3.1"
+    models:
+      - id: "llama3.1"
+        name: "Llama 3.1 (Local)"
+        contextWindow: 8192
+        maxOutput: 4096
+      - id: "codellama"
+        name: "CodeLlama (Local)"
+        contextWindow: 8192
+        maxOutput: 4096
+
+  lmstudio:
+    displayName: "LM Studio (Local)"
+    env:
+      - LM_STUDIO_API_KEY
+    baseUrl: "http://localhost:1234/v1"
+    defaultModel: "local"
+    models:
+      - id: "local"
+        name: "Local Model (LM Studio)"
+        contextWindow: 128000
+        maxOutput: 4096
+
+  glm:
+    displayName: "GLM (Zhipu AI)"
+    env:
+      - GLM_API_KEY
+      - ZHIPU_API_KEY
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4"
+    defaultModel: "glm-4-plus"
+    models:
+      - id: "glm-4-plus"
+        name: "GLM-4 Plus"
+        contextWindow: 128000
+        maxOutput: 4096
+      - id: "glm-4"
+        name: "GLM-4"
+        contextWindow: 128000
+        maxOutput: 4096
+      - id: "glm-4-flash"
+        name: "GLM-4 Flash"
+        contextWindow: 128000
+        maxOutput: 4096
+      - id: "glm-4-long"
+        name: "GLM-4 Long"
+        contextWindow: 1000000
+        maxOutput: 4096

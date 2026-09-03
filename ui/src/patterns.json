@@ -1,0 +1,393 @@
+[
+  {
+    "intent": "file_creation",
+    "keywords": [
+      { "keyword": "create", "weight": 8 },
+      { "keyword": "new file", "weight": 10 },
+      { "keyword": "generate", "weight": 7 },
+      { "keyword": "add file", "weight": 8 },
+      { "keyword": "setup", "weight": 6 },
+      { "keyword": "initialize", "weight": 7 },
+      { "keyword": "scaffold", "weight": 8 },
+      { "keyword": "make", "weight": 6 }
+    ],
+    "searchHint": "create generate output save new file content",
+    "suggestedTools": ["write", "shell", "glob"],
+    "context": "User wants to create new files or content",
+    "fileTypes": [
+      ".ts",
+      ".tsx",
+      ".js",
+      ".jsx",
+      ".py",
+      ".json",
+      ".md",
+      ".css",
+      ".html"
+    ]
+  },
+  {
+    "intent": "code_modification",
+    "keywords": [
+      { "keyword": "edit", "weight": 8 },
+      { "keyword": "change", "weight": 7 },
+      { "keyword": "modify", "weight": 7 },
+      { "keyword": "update", "weight": 6 },
+      { "keyword": "fix", "weight": 8 },
+      { "keyword": "refactor", "weight": 9 },
+      { "keyword": "replace", "weight": 7 },
+      { "keyword": "remove", "weight": 6 },
+      { "keyword": "delete", "weight": 7 },
+      { "keyword": "rewrite", "weight": 8 },
+      { "keyword": "improve", "weight": 6 },
+      { "keyword": "optimize", "weight": 7 }
+    ],
+    "searchHint": "modify update change replace fix refactor",
+    "suggestedTools": ["edit", "read", "write"],
+    "context": "User wants to modify existing code"
+  },
+  {
+    "intent": "code_exploration",
+    "keywords": [
+      { "keyword": "find", "weight": 8 },
+      { "keyword": "search", "weight": 8 },
+      { "keyword": "where is", "weight": 9 },
+      { "keyword": "locate", "weight": 7 },
+      { "keyword": "show me", "weight": 6 },
+      { "keyword": "look for", "weight": 7 },
+      { "keyword": "list", "weight": 5 },
+      { "keyword": "discover", "weight": 6 },
+      { "keyword": "which file", "weight": 8 },
+      { "keyword": "path to", "weight": 7 }
+    ],
+    "searchHint": "find locate discover search file pattern",
+    "suggestedTools": ["glob", "grep", "read"],
+    "context": "User is looking for specific files or code"
+  },
+  {
+    "intent": "debugging",
+    "keywords": [
+      { "keyword": "error", "weight": 9 },
+      { "keyword": "bug", "weight": 8 },
+      { "keyword": "not working", "weight": 9 },
+      { "keyword": "broken", "weight": 8 },
+      { "keyword": "fix", "weight": 7 },
+      { "keyword": "stack trace", "weight": 10 },
+      { "keyword": "exception", "weight": 8 },
+      { "keyword": "crash", "weight": 9 },
+      { "keyword": "fails", "weight": 8 },
+      { "keyword": "failed", "weight": 8 },
+      { "keyword": "issue", "weight": 6 },
+      { "keyword": "problem", "weight": 6 },
+      { "keyword": "why is", "weight": 7 },
+      { "keyword": "troubleshoot", "weight": 8 }
+    ],
+    "searchHint": "debug fix error troubleshoot issue",
+    "suggestedTools": ["grep", "read", "shell"],
+    "context": "User is debugging an issue"
+  },
+  {
+    "intent": "testing",
+    "keywords": [
+      { "keyword": "test", "weight": 8 },
+      { "keyword": "unit test", "weight": 9 },
+      { "keyword": "integration test", "weight": 8 },
+      { "keyword": "e2e", "weight": 7 },
+      { "keyword": "spec", "weight": 6 },
+      { "keyword": "coverage", "weight": 7 },
+      { "keyword": "assertion", "weight": 6 },
+      { "keyword": "mock", "weight": 6 },
+      { "keyword": "jest", "weight": 7 },
+      { "keyword": "vitest", "weight": 7 },
+      { "keyword": "playwright", "weight": 7 }
+    ],
+    "searchHint": "test verify validate spec coverage",
+    "suggestedTools": ["shell", "glob", "read", "write"],
+    "context": "User wants to run or create tests"
+  },
+  {
+    "intent": "project_setup",
+    "keywords": [
+      { "keyword": "install", "weight": 8 },
+      { "keyword": "setup", "weight": 7 },
+      { "keyword": "configure", "weight": 7 },
+      { "keyword": "init", "weight": 8 },
+      { "keyword": "dependencies", "weight": 6 },
+      { "keyword": "package.json", "weight": 8 },
+      { "keyword": "npm", "weight": 7 },
+      { "keyword": "bun", "weight": 7 },
+      { "keyword": "yarn", "weight": 7 },
+      { "keyword": "environment", "weight": 6 },
+      { "keyword": ".env", "weight": 7 }
+    ],
+    "searchHint": "setup configure install initialize dependencies",
+    "suggestedTools": ["shell", "write", "read"],
+    "context": "User is setting up or configuring a project"
+  },
+  {
+    "intent": "code_analysis",
+    "keywords": [
+      { "keyword": "analyze", "weight": 8 },
+      { "keyword": "understand", "weight": 7 },
+      { "keyword": "explain", "weight": 7 },
+      { "keyword": "how does", "weight": 9 },
+      { "keyword": "review", "weight": 6 },
+      { "keyword": "structure", "weight": 6 },
+      { "keyword": "architecture", "weight": 7 },
+      { "keyword": "overview", "weight": 5 },
+      { "keyword": "summary", "weight": 5 },
+      { "keyword": "what does", "weight": 8 },
+      { "keyword": "walk through", "weight": 7 }
+    ],
+    "searchHint": "analyze understand review explain structure",
+    "suggestedTools": ["read", "grep"],
+    "context": "User wants to understand code structure"
+  },
+  {
+    "intent": "git_workflow",
+    "keywords": [
+      { "keyword": "git", "weight": 8 },
+      { "keyword": "commit", "weight": 7 },
+      { "keyword": "push", "weight": 6 },
+      { "keyword": "pull", "weight": 6 },
+      { "keyword": "branch", "weight": 6 },
+      { "keyword": "merge", "weight": 7 },
+      { "keyword": "status", "weight": 5 },
+      { "keyword": "diff", "weight": 6 },
+      { "keyword": "log", "weight": 5 },
+      { "keyword": "rebase", "weight": 7 },
+      { "keyword": "stash", "weight": 6 },
+      { "keyword": "checkout", "weight": 6 },
+      { "keyword": "clone", "weight": 7 }
+    ],
+    "searchHint": "git version control commit branch merge",
+    "suggestedTools": ["shell", "read"],
+    "context": "User is performing git operations"
+  },
+  {
+    "intent": "api_development",
+    "keywords": [
+      { "keyword": "api", "weight": 8 },
+      { "keyword": "endpoint", "weight": 7 },
+      { "keyword": "route", "weight": 7 },
+      { "keyword": "server", "weight": 6 },
+      { "keyword": "backend", "weight": 7 },
+      { "keyword": "rest", "weight": 6 },
+      { "keyword": "graphql", "weight": 7 },
+      { "keyword": "request", "weight": 6 },
+      { "keyword": "response", "weight": 6 },
+      { "keyword": "fetch", "weight": 6 },
+      { "keyword": "http", "weight": 6 }
+    ],
+    "searchHint": "api endpoint route server request response",
+    "suggestedTools": ["read", "write", "edit", "web_fetch", "shell"],
+    "context": "User is working with APIs or backend services"
+  },
+  {
+    "intent": "ui_component",
+    "keywords": [
+      { "keyword": "component", "weight": 8 },
+      { "keyword": "ui", "weight": 7 },
+      { "keyword": "react", "weight": 8 },
+      { "keyword": "vue", "weight": 8 },
+      { "keyword": "svelte", "weight": 8 },
+      { "keyword": "angular", "weight": 8 },
+      { "keyword": "jsx", "weight": 7 },
+      { "keyword": "tsx", "weight": 7 },
+      { "keyword": "template", "weight": 6 },
+      { "keyword": "render", "weight": 6 },
+      { "keyword": "props", "weight": 7 },
+      { "keyword": "state", "weight": 7 },
+      { "keyword": "hook", "weight": 7 },
+      { "keyword": "button", "weight": 6 },
+      { "keyword": "form", "weight": 6 },
+      { "keyword": "modal", "weight": 6 },
+      { "keyword": "layout", "weight": 6 }
+    ],
+    "searchHint": "component ui react vue render props state",
+    "suggestedTools": ["read", "write", "edit", "glob", "grep"],
+    "context": "User is building or modifying UI components"
+  },
+  {
+    "intent": "styling_css",
+    "keywords": [
+      { "keyword": "css", "weight": 8 },
+      { "keyword": "style", "weight": 7 },
+      { "keyword": "tailwind", "weight": 8 },
+      { "keyword": "sass", "weight": 7 },
+      { "keyword": "scss", "weight": 7 },
+      { "keyword": "theme", "weight": 6 },
+      { "keyword": "color", "weight": 6 },
+      { "keyword": "responsive", "weight": 7 },
+      { "keyword": "animation", "weight": 7 },
+      { "keyword": "layout", "weight": 6 },
+      { "keyword": "flexbox", "weight": 7 },
+      { "keyword": "grid", "weight": 7 }
+    ],
+    "searchHint": "css style tailwind theme responsive animation",
+    "suggestedTools": ["read", "edit", "write", "glob"],
+    "context": "User is working on styling or CSS"
+  },
+  {
+    "intent": "database",
+    "keywords": [
+      { "keyword": "database", "weight": 8 },
+      { "keyword": "sql", "weight": 8 },
+      { "keyword": "query", "weight": 7 },
+      { "keyword": "schema", "weight": 8 },
+      { "keyword": "migration", "weight": 7 },
+      { "keyword": "prisma", "weight": 8 },
+      { "keyword": "mongodb", "weight": 8 },
+      { "keyword": "postgres", "weight": 8 },
+      { "keyword": "mysql", "weight": 8 },
+      { "keyword": "table", "weight": 6 },
+      { "keyword": "model", "weight": 6 },
+      { "keyword": "orm", "weight": 7 }
+    ],
+    "searchHint": "database sql schema query migration prisma",
+    "suggestedTools": ["read", "write", "edit", "shell", "grep"],
+    "context": "User is working with databases or data models"
+  },
+  {
+    "intent": "deployment",
+    "keywords": [
+      { "keyword": "deploy", "weight": 9 },
+      { "keyword": "build", "weight": 7 },
+      { "keyword": "production", "weight": 7 },
+      { "keyword": "docker", "weight": 8 },
+      { "keyword": "container", "weight": 7 },
+      { "keyword": "ci", "weight": 7 },
+      { "keyword": "cd", "weight": 7 },
+      { "keyword": "pipeline", "weight": 7 },
+      { "keyword": "vercel", "weight": 8 },
+      { "keyword": "netlify", "weight": 8 },
+      { "keyword": "aws", "weight": 8 },
+      { "keyword": "hosting", "weight": 6 }
+    ],
+    "searchHint": "deploy build production docker ci cd",
+    "suggestedTools": ["shell", "read", "write"],
+    "context": "User is deploying or building for production"
+  },
+  {
+    "intent": "documentation",
+    "keywords": [
+      { "keyword": "document", "weight": 7 },
+      { "keyword": "readme", "weight": 8 },
+      { "keyword": "docs", "weight": 7 },
+      { "keyword": "comment", "weight": 6 },
+      { "keyword": "explain", "weight": 6 },
+      { "keyword": "describe", "weight": 6 },
+      { "keyword": "write up", "weight": 7 },
+      { "keyword": "guide", "weight": 6 },
+      { "keyword": "tutorial", "weight": 6 }
+    ],
+    "searchHint": "document readme docs comment explain guide",
+    "suggestedTools": ["read", "write", "edit"],
+    "context": "User is writing or improving documentation"
+  },
+  {
+    "intent": "performance",
+    "keywords": [
+      { "keyword": "slow", "weight": 8 },
+      { "keyword": "performance", "weight": 8 },
+      { "keyword": "optimize", "weight": 8 },
+      { "keyword": "fast", "weight": 6 },
+      { "keyword": "bundle", "weight": 7 },
+      { "keyword": "lazy load", "weight": 8 },
+      { "keyword": "memo", "weight": 7 },
+      { "keyword": "cache", "weight": 7 },
+      { "keyword": "profiler", "weight": 7 },
+      { "keyword": "benchmark", "weight": 7 }
+    ],
+    "searchHint": "performance optimize slow bundle cache",
+    "suggestedTools": ["read", "grep", "shell"],
+    "context": "User is optimizing performance"
+  },
+  {
+    "intent": "security",
+    "keywords": [
+      { "keyword": "security", "weight": 8 },
+      { "keyword": "auth", "weight": 7 },
+      { "keyword": "authentication", "weight": 8 },
+      { "keyword": "authorization", "weight": 8 },
+      { "keyword": "token", "weight": 6 },
+      { "keyword": "password", "weight": 7 },
+      { "keyword": "encrypt", "weight": 7 },
+      { "keyword": "vulnerability", "weight": 8 },
+      { "keyword": "sanitize", "weight": 7 },
+      { "keyword": "cors", "weight": 7 },
+      { "keyword": "csrf", "weight": 7 }
+    ],
+    "searchHint": "security auth authentication token encrypt",
+    "suggestedTools": ["read", "grep", "edit", "write"],
+    "context": "User is working on security or authentication"
+  },
+  {
+    "intent": "web_research",
+    "keywords": [
+      { "keyword": "search the web", "weight": 9 },
+      { "keyword": "look up", "weight": 7 },
+      { "keyword": "find online", "weight": 8 },
+      { "keyword": "latest", "weight": 6 },
+      { "keyword": "current", "weight": 6 },
+      { "keyword": "documentation for", "weight": 7 },
+      { "keyword": "how to", "weight": 6 },
+      { "keyword": "tutorial for", "weight": 7 },
+      { "keyword": "fetch url", "weight": 8 },
+      { "keyword": "scrape", "weight": 7 }
+    ],
+    "searchHint": "search web lookup find online fetch",
+    "suggestedTools": ["web_search", "web_fetch"],
+    "context": "User wants to search the web or fetch a URL"
+  },
+  {
+    "intent": "refactoring",
+    "keywords": [
+      { "keyword": "refactor", "weight": 9 },
+      { "keyword": "restructure", "weight": 8 },
+      { "keyword": "reorganize", "weight": 7 },
+      { "keyword": "clean up", "weight": 7 },
+      { "keyword": "simplify", "weight": 7 },
+      { "keyword": "extract", "weight": 6 },
+      { "keyword": "split", "weight": 6 },
+      { "keyword": "move", "weight": 5 },
+      { "keyword": "rename", "weight": 7 }
+    ],
+    "searchHint": "refactor restructure reorganize clean simplify",
+    "suggestedTools": ["read", "edit", "write", "glob", "grep"],
+    "context": "User is refactoring or restructuring code"
+  },
+  {
+    "intent": "type_checking",
+    "keywords": [
+      { "keyword": "type", "weight": 7 },
+      { "keyword": "typescript", "weight": 8 },
+      { "keyword": "interface", "weight": 7 },
+      { "keyword": "type error", "weight": 9 },
+      { "keyword": "generic", "weight": 6 },
+      { "keyword": "type check", "weight": 8 },
+      { "keyword": "tsc", "weight": 8 },
+      { "keyword": "any", "weight": 6 },
+      { "keyword": "strict", "weight": 6 }
+    ],
+    "searchHint": "typescript type interface generic check",
+    "suggestedTools": ["read", "edit", "shell", "grep"],
+    "context": "User is working with TypeScript or type issues"
+  },
+  {
+    "intent": "file_management",
+    "keywords": [
+      { "keyword": "list files", "weight": 8 },
+      { "keyword": "directory", "weight": 6 },
+      { "keyword": "folder", "weight": 6 },
+      { "keyword": "tree", "weight": 7 },
+      { "keyword": "structure", "weight": 6 },
+      { "keyword": "what files", "weight": 8 },
+      { "keyword": "show files", "weight": 7 },
+      { "keyword": "file count", "weight": 7 }
+    ],
+    "searchHint": "list directory folder tree structure files",
+    "suggestedTools": ["glob", "read"],
+    "context": "User wants to explore file structure"
+  }
+]

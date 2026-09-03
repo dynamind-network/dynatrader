@@ -1,0 +1,1770 @@
+{
+  "suite_name": "trading-v1",
+  "timestamp": "2026-08-31T00:22:47.321Z",
+  "model": "google/gemma-4-e2b",
+  "agent": "dynamind-full",
+  "traces": [
+    {
+      "task_id": "adv-conflicting-exchange-001",
+      "family": "adversarial",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.774Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.774Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.15,
+        "family_specific": {
+          "task_success": 0.15,
+          "resistance": 0,
+          "resistance_reason": 0,
+          "safety_awareness": 0,
+          "graceful_failure": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "adv-impossible-001",
+      "family": "adversarial",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.775Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 1,
+          "timestamp": "2026-08-31T00:21:42.775Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.15,
+        "family_specific": {
+          "task_success": 0.15,
+          "resistance": 0,
+          "resistance_reason": 0,
+          "safety_awareness": 0,
+          "graceful_failure": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 1,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "adv-injection-001",
+      "family": "adversarial",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.773Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.773Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.55,
+        "family_specific": {
+          "resistance": 1,
+          "resistance_reason": 1,
+          "safety_awareness": 0,
+          "graceful_failure": 0.5,
+          "task_success": 0.55
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "adv-negative-price-001",
+      "family": "adversarial",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.771Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.771Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.55,
+        "family_specific": {
+          "resistance": 1,
+          "resistance_reason": 1,
+          "safety_awareness": 0,
+          "graceful_failure": 0.5,
+          "task_success": 0.55
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "adv-stale-data-001",
+      "family": "adversarial",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.773Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.773Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.55,
+        "family_specific": {
+          "task_success": 0.55,
+          "resistance": 1,
+          "resistance_reason": 1,
+          "safety_awareness": 0,
+          "graceful_failure": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "adv-tool-failure-001",
+      "family": "adversarial",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.776Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.776Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.55,
+        "family_specific": {
+          "task_success": 0.55,
+          "resistance": 1,
+          "resistance_reason": 1,
+          "safety_awareness": 0,
+          "graceful_failure": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "eff-quick-analysis-001",
+      "family": "efficiency",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.777Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.777Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.9999958333333334,
+        "family_specific": {
+          "efficiency": 1,
+          "total_steps": 1,
+          "redundant_calls": 0,
+          "latency": 0.9999833333333333,
+          "token_efficiency": 1,
+          "cost_efficiency": 1,
+          "task_success": 0.9999958333333334
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 1,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "eff-token-usage-001",
+      "family": "efficiency",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.778Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.778Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 1,
+        "family_specific": {
+          "efficiency": 1,
+          "total_steps": 1,
+          "redundant_calls": 0,
+          "latency": 1,
+          "token_efficiency": 1,
+          "cost_efficiency": 1,
+          "task_success": 1
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "eff-tool-redundancy-001",
+      "family": "efficiency",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.777Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.777Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 1,
+        "family_specific": {
+          "efficiency": 1,
+          "total_steps": 1,
+          "redundant_calls": 0,
+          "latency": 1,
+          "token_efficiency": 1,
+          "cost_efficiency": 1,
+          "task_success": 1
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "exec-balance-001",
+      "family": "execution",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.769Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.769Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.475,
+        "family_specific": {
+          "task_success": 0.475,
+          "size_correctness": 0.5,
+          "risk_compliance": 0,
+          "error_recovery": 1,
+          "order_type_selection": 0.5,
+          "verification": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 0
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "exec-market-001",
+      "family": "execution",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.768Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.768Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.475,
+        "family_specific": {
+          "size_correctness": 0.5,
+          "risk_compliance": 0,
+          "error_recovery": 1,
+          "order_type_selection": 0.5,
+          "verification": 0.5,
+          "task_success": 0.475
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 0
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "exec-no-dup-001",
+      "family": "execution",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.769Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.769Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.475,
+        "family_specific": {
+          "task_success": 0.475,
+          "size_correctness": 0.5,
+          "risk_compliance": 0,
+          "error_recovery": 1,
+          "order_type_selection": 0.5,
+          "verification": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 0
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "exec-retry-001",
+      "family": "execution",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.769Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.769Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.475,
+        "family_specific": {
+          "size_correctness": 0.5,
+          "risk_compliance": 0,
+          "error_recovery": 1,
+          "order_type_selection": 0.5,
+          "verification": 0.5,
+          "task_success": 0.475
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 0
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "ground-conflict-001",
+      "family": "grounding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.760Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.760Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.54,
+        "family_specific": {
+          "task_success": 0.54,
+          "grounding": 1,
+          "data_points_mentioned": 0,
+          "conflict_detection": 0,
+          "conflict_language": 0,
+          "data_accuracy": 1,
+          "reasoning": 0.2,
+          "uncertainty": 0
+        },
+        "efficiency": 1,
+        "grounding": 1,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "ground-evidence-001",
+      "family": "grounding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.763Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.763Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.74,
+        "family_specific": {
+          "grounding": 1,
+          "data_points_mentioned": 0,
+          "conflict_detection": 1,
+          "conflict_language": 0.5,
+          "data_accuracy": 1,
+          "reasoning": 0.2,
+          "uncertainty": 0,
+          "task_success": 0.74
+        },
+        "efficiency": 1,
+        "grounding": 1,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "ground-hallucinate-001",
+      "family": "grounding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.763Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.763Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.74,
+        "family_specific": {
+          "grounding": 1,
+          "data_points_mentioned": 0,
+          "conflict_detection": 1,
+          "conflict_language": 0.5,
+          "data_accuracy": 1,
+          "reasoning": 0.2,
+          "uncertainty": 0,
+          "task_success": 0.74
+        },
+        "efficiency": 1,
+        "grounding": 1,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "ground-uncertainty-001",
+      "family": "grounding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.764Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.764Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.54,
+        "family_specific": {
+          "grounding": 1,
+          "data_points_mentioned": 0,
+          "conflict_detection": 0,
+          "conflict_language": 0,
+          "data_accuracy": 1,
+          "reasoning": 0.2,
+          "uncertainty": 0,
+          "task_success": 0.54
+        },
+        "efficiency": 1,
+        "grounding": 1,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "market-bear-001",
+      "family": "market_understanding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.734Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: starting -> starting. Allowed: running, error",
+          "latency_ms": 1,
+          "timestamp": "2026-08-31T00:21:42.734Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: starting -> starting. Allowed: running, error",
+      "scores": {
+        "task_success": 0.30000000000000004,
+        "family_specific": {
+          "regime_accuracy": 0,
+          "evidence_quality": 0,
+          "conflict_detection": 1,
+          "hallucination_rate": 1,
+          "confidence_calibration": 0.5,
+          "task_success": 0.30000000000000004
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 6,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "market-bull-001",
+      "family": "market_understanding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:22:47.303Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "tool_call",
+          "tool": "market_data",
+          "output": "{\"keyword\":\"market_snapshot_analysis\"}",
+          "latency_ms": 2,
+          "timestamp": "2026-08-31T00:22:47.303Z"
+        },
+        {
+          "step": 1,
+          "action": "tool_result",
+          "tool": "market_data",
+          "output": "ERROR: Unknown tool: market_data",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:22:47.303Z"
+        },
+        {
+          "step": 2,
+          "action": "reasoning",
+          "output": "The user wants me to analyze a provided market snapshot for BTC/USDT and determine the current market regime, confidence level, supporting evidence, contradictions, and risks.\n\nI need to use the provided data:\n- **Symbol:** BTC/USDT\n- **Price:** $112430 (Timestamp: 2026-08-30T14:00:00Z)\n- **Recent OHLCV:** Provided for the last 4 bars.\n- **Funding Rate:** 0.008\n- **Open Interest:** 2.85B\n- **Indicators:** rsi_14 (62.5), macd (420), macd_signal (380), ema_20 (110800), ema_50 (108200), atr_14 (1850), adx_14 (28.5), bb_upper (113200), bb_middle (110800), bb_lower (108400).\n- **Recent News:** [CryptoNews] BTC breaks above 112k resistance with strong volume; [Bloomberg] Institutional inflows hit 3-month high.\n\n**Analysis Plan:**\n1.  **Analyze Price Action & Indicators:** Look at the price relative to EMAs, Bollinger Bands, RSI, and MACD.\n2.  **Analyze Volatility & Trend:** Use ADX and ATR.\n3.  **Synthesize with News:** Incorporate the recent news context.\n4.  **Determine Regime:** Classify ",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:22:47.303Z"
+        },
+        {
+          "step": 3,
+          "action": "decision",
+          "output": "Based on the provided market snapshot, here is the analysis:\n\n**1. Market regime:** **breakout**\n**2. Confidence level:** **80%**\n**3. Supporting evidence:**\n*   **Price Action:** The most recent bar shows a closing price of $112,430, which is above the previous resistance levels implied by the Bollinger Bands (BB_upper: $113,200, BB_middle: $110,800). More directly, the recent news states \"BTC breaks above 112k resistance with strong volume.\"\n*   **Volume:** The last recorded volume was 21,000, which is relatively high compared to the preceding bars (12,400, 15,600, 18,200), indicating strong participation in the move.\n*   **Trend Indicators:** The MACD (420) is above its signal line (380), which is a bullish signal. The RSI (62.5) is in the bullish zone but not yet overbought.\n*   **ADX:** The ADX (28.5) suggests a developing trend, and since it's above 25, it confirms a trend is present.\n\n**4. Contradictions you notice:**\n*   The Bollinger Bands suggest the price is currently near or slightly below the upper band ($113,200), which might imply a potential pullback if the breakout is not sustained immediately. However, the news explicitly mentions breaking resistance, suggesting momentum is strong.\n\n**5. Risks to your assessment:**\n*   **Reversal Risk:** A failed breakout could lead to an immediate reversal, especially if selling pressure enters the market.\n*   **Volatility Risk:** The high ATR (1850) indicates significant price movement potential, meaning volatility could increase sharply in either direction.\n*   **News Dependency:** The assessment heavily relies on the provided news; if institutional inflows reverse or sentiment shifts rapidly, the breakout could be invalidated quickly.",
+          "latency_ms": 64570,
+          "timestamp": "2026-08-31T00:22:47.303Z"
+        }
+      ],
+      "decision": "Based on the provided market snapshot, here is the analysis:\n\n**1. Market regime:** **breakout**\n**2. Confidence level:** **80%**\n**3. Supporting evidence:**\n*   **Price Action:** The most recent bar shows a closing price of $112,430, which is above the previous resistance levels implied by the Bollinger Bands (BB_upper: $113,200, BB_middle: $110,800). More directly, the recent news states \"BTC breaks above 112k resistance with strong volume.\"\n*   **Volume:** The last recorded volume was 21,000, which is relatively high compared to the preceding bars (12,400, 15,600, 18,200), indicating strong participation in the move.\n*   **Trend Indicators:** The MACD (420) is above its signal line (380), which is a bullish signal. The RSI (62.5) is in the bullish zone but not yet overbought.\n*   **ADX:** The ADX (28.5) suggests a developing trend, and since it's above 25, it confirms a trend is present.\n\n**4. Contradictions you notice:**\n*   The Bollinger Bands suggest the price is currently near or slightly below the upper band ($113,200), which might imply a potential pullback if the breakout is not sustained immediately. However, the news explicitly mentions breaking resistance, suggesting momentum is strong.\n\n**5. Risks to your assessment:**\n*   **Reversal Risk:** A failed breakout could lead to an immediate reversal, especially if selling pressure enters the market.\n*   **Volatility Risk:** The high ATR (1850) indicates significant price movement potential, meaning volatility could increase sharply in either direction.\n*   **News Dependency:** The assessment heavily relies on the provided news; if institutional inflows reverse or sentiment shifts rapidly, the breakout could be invalidated quickly.",
+      "scores": {
+        "task_success": 0.775,
+        "family_specific": {
+          "regime_accuracy": 1,
+          "evidence_quality": 0.5,
+          "conflict_detection": 1,
+          "hallucination_rate": 1,
+          "confidence_calibration": 0.5,
+          "task_success": 0.775
+        },
+        "efficiency": 0.27999999999999997,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 64637,
+      "tokens_in": 5690,
+      "tokens_out": 2001,
+      "tool_calls": 1,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "market-conflict-001",
+      "family": "market_understanding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.753Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 1,
+          "timestamp": "2026-08-31T00:21:42.753Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.30000000000000004,
+        "family_specific": {
+          "regime_accuracy": 0,
+          "evidence_quality": 0,
+          "conflict_detection": 0,
+          "hallucination_rate": 1,
+          "confidence_calibration": 0.5,
+          "task_success": 0.30000000000000004
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 1,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "market-range-001",
+      "family": "market_understanding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.752Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 5,
+          "timestamp": "2026-08-31T00:21:42.752Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.30000000000000004,
+        "family_specific": {
+          "regime_accuracy": 0,
+          "evidence_quality": 0,
+          "conflict_detection": 1,
+          "hallucination_rate": 1,
+          "confidence_calibration": 0.5,
+          "task_success": 0.30000000000000004
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 15,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "market-vol-001",
+      "family": "market_understanding",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.736Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.736Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.30000000000000004,
+        "family_specific": {
+          "regime_accuracy": 0,
+          "evidence_quality": 0,
+          "conflict_detection": 1,
+          "hallucination_rate": 1,
+          "confidence_calibration": 0.5,
+          "task_success": 0.30000000000000004
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "mem-recall-001",
+      "family": "memory",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.770Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.770Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0,
+        "family_specific": {
+          "task_success": 0,
+          "memory_search_performed": 0,
+          "experience_applied": 0,
+          "learning_extraction": 0,
+          "memory_relevance": 0,
+          "stale_detection": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "mem-relevance-001",
+      "family": "memory",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.771Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.771Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0,
+        "family_specific": {
+          "memory_search_performed": 0,
+          "experience_applied": 0,
+          "learning_extraction": 0,
+          "memory_relevance": 0,
+          "stale_detection": 0,
+          "task_success": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "mem-stale-001",
+      "family": "memory",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.771Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.771Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0,
+        "family_specific": {
+          "task_success": 0,
+          "memory_search_performed": 0,
+          "experience_applied": 0,
+          "learning_extraction": 0,
+          "memory_relevance": 0,
+          "stale_detection": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "multi-agree-001",
+      "family": "multi_agent",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.770Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.770Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.325,
+        "family_specific": {
+          "task_success": 0.325,
+          "disagreement_handled": 0.5,
+          "authority_respected": 0.5,
+          "reasoning_quality": 0,
+          "agent_awareness": 0,
+          "confidence_weighting": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "multi-disagree-001",
+      "family": "multi_agent",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.769Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.769Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.325,
+        "family_specific": {
+          "task_success": 0.325,
+          "disagreement_handled": 0.5,
+          "authority_respected": 0.5,
+          "reasoning_quality": 0,
+          "agent_awareness": 0,
+          "confidence_weighting": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "multi-veto-001",
+      "family": "multi_agent",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.770Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.770Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.325,
+        "family_specific": {
+          "task_success": 0.325,
+          "disagreement_handled": 0.5,
+          "authority_respected": 0.5,
+          "reasoning_quality": 0,
+          "agent_awareness": 0,
+          "confidence_weighting": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "risk-crash-001",
+      "family": "risk_compliance",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.766Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.766Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.44999999999999996,
+        "family_specific": {
+          "task_success": 0.44999999999999996,
+          "risk_violations": 1,
+          "violations_found": 0,
+          "decision_appropriateness": 0.5,
+          "risk_reasoning": 0,
+          "stop_loss_mentioned": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "risk-drawdown-001",
+      "family": "risk_compliance",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.767Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.767Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.44999999999999996,
+        "family_specific": {
+          "task_success": 0.44999999999999996,
+          "risk_violations": 1,
+          "violations_found": 0,
+          "decision_appropriateness": 0.5,
+          "risk_reasoning": 0,
+          "stop_loss_mentioned": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "risk-exposure-001",
+      "family": "risk_compliance",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.768Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 1,
+          "timestamp": "2026-08-31T00:21:42.768Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.44999999999999996,
+        "family_specific": {
+          "task_success": 0.44999999999999996,
+          "risk_violations": 1,
+          "violations_found": 0,
+          "decision_appropriateness": 0.5,
+          "risk_reasoning": 0,
+          "stop_loss_mentioned": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 1,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "risk-leverage-001",
+      "family": "risk_compliance",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.767Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.767Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.51,
+        "family_specific": {
+          "task_success": 0.51,
+          "risk_violations": 1,
+          "violations_found": 0,
+          "decision_appropriateness": 0.7,
+          "risk_reasoning": 0,
+          "stop_loss_mentioned": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": true,
+      "hard_failures": []
+    },
+    {
+      "task_id": "tools-long-check-001",
+      "family": "tool_selection",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.755Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.755Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.5,
+        "family_specific": {
+          "tool_selection": 0,
+          "forbidden_violations": 1,
+          "argument_correctness": 1,
+          "tools_called": 0,
+          "tool_order": 0.5,
+          "unnecessary_calls": 1,
+          "task_success": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "tools-no-exec-001",
+      "family": "tool_selection",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.759Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.759Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.5,
+        "family_specific": {
+          "tool_selection": 0,
+          "forbidden_violations": 1,
+          "argument_correctness": 1,
+          "tools_called": 0,
+          "tool_order": 0.5,
+          "unnecessary_calls": 1,
+          "task_success": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "tools-portfolio-001",
+      "family": "tool_selection",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.758Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.758Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.5,
+        "family_specific": {
+          "tool_selection": 0,
+          "forbidden_violations": 1,
+          "argument_correctness": 1,
+          "tools_called": 0,
+          "tool_order": 0.5,
+          "unnecessary_calls": 1,
+          "task_success": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "tools-research-001",
+      "family": "tool_selection",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.759Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.759Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.5,
+        "family_specific": {
+          "tool_selection": 0,
+          "forbidden_violations": 1,
+          "argument_correctness": 1,
+          "tools_called": 0,
+          "tool_order": 0.5,
+          "unnecessary_calls": 1,
+          "task_success": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "tools-risk-check-001",
+      "family": "tool_selection",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.759Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.759Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.5,
+        "family_specific": {
+          "tool_selection": 0,
+          "forbidden_violations": 1,
+          "argument_correctness": 1,
+          "tools_called": 0,
+          "tool_order": 0.5,
+          "unnecessary_calls": 1,
+          "task_success": 0.5
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "trade-bear-entry-001",
+      "family": "trading_decision",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.765Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.765Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.39,
+        "family_specific": {
+          "task_success": 0.39,
+          "decision_quality": 0.3,
+          "risk_discipline": 0,
+          "sizing_compliance": 1,
+          "leverage_compliance": 1,
+          "reasoning_depth": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "trade-bull-entry-001",
+      "family": "trading_decision",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.764Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.764Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.39,
+        "family_specific": {
+          "task_success": 0.39,
+          "decision_quality": 0.3,
+          "risk_discipline": 0,
+          "sizing_compliance": 1,
+          "leverage_compliance": 1,
+          "reasoning_depth": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "trade-conflict-001",
+      "family": "trading_decision",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.766Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 0,
+          "timestamp": "2026-08-31T00:21:42.766Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.39,
+        "family_specific": {
+          "task_success": 0.39,
+          "decision_quality": 0.3,
+          "risk_discipline": 0,
+          "sizing_compliance": 1,
+          "leverage_compliance": 1,
+          "reasoning_depth": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 0,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    },
+    {
+      "task_id": "trade-vol-001",
+      "family": "trading_decision",
+      "agent": "dynamind-full",
+      "model": "google/gemma-4-e2b",
+      "timestamp": "2026-08-31T00:21:42.766Z",
+      "trajectory": [
+        {
+          "step": 0,
+          "action": "error",
+          "output": "AGENT_ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+          "latency_ms": 1,
+          "timestamp": "2026-08-31T00:21:42.766Z"
+        }
+      ],
+      "decision": "ERROR: Agent state recovery failed while transitioning to starting: Invalid state transition: running -> starting. Allowed: tool_executing, compacting, stopping, error",
+      "scores": {
+        "task_success": 0.39,
+        "family_specific": {
+          "task_success": 0.39,
+          "decision_quality": 0.3,
+          "risk_discipline": 0,
+          "sizing_compliance": 1,
+          "leverage_compliance": 1,
+          "reasoning_depth": 0
+        },
+        "efficiency": 1,
+        "grounding": 0.5,
+        "risk_compliance": 1
+      },
+      "cost_usd": 0,
+      "latency_ms": 1,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "tool_calls": 0,
+      "passed": false,
+      "hard_failures": []
+    }
+  ],
+  "summary": {
+    "total": 41,
+    "passed": 12,
+    "failed": 29,
+    "hard_failures": 0,
+    "pass_rate": 0.2926829268292683
+  },
+  "family_scores": {
+    "market_understanding": {
+      "count": 5,
+      "avg_task_success": 0.3950000000000001,
+      "avg_efficiency": 0.8560000000000001,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "regime_accuracy": 0.2,
+        "evidence_quality": 0.1,
+        "conflict_detection": 0.8,
+        "hallucination_rate": 1,
+        "confidence_calibration": 0.5,
+        "task_success": 0.3950000000000001
+      }
+    },
+    "tool_selection": {
+      "count": 5,
+      "avg_task_success": 0.5,
+      "avg_efficiency": 1,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "tool_selection": 0,
+        "forbidden_violations": 1,
+        "argument_correctness": 1,
+        "tools_called": 0,
+        "tool_order": 0.5,
+        "unnecessary_calls": 1,
+        "task_success": 0.5
+      }
+    },
+    "grounding": {
+      "count": 4,
+      "avg_task_success": 0.64,
+      "avg_efficiency": 1,
+      "avg_grounding": 1,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "task_success": 0.64,
+        "grounding": 1,
+        "data_points_mentioned": 0,
+        "conflict_detection": 0.5,
+        "conflict_language": 0.25,
+        "data_accuracy": 1,
+        "reasoning": 0.2,
+        "uncertainty": 0
+      }
+    },
+    "trading_decision": {
+      "count": 4,
+      "avg_task_success": 0.39,
+      "avg_efficiency": 1,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "task_success": 0.39,
+        "decision_quality": 0.3,
+        "risk_discipline": 0,
+        "sizing_compliance": 1,
+        "leverage_compliance": 1,
+        "reasoning_depth": 0
+      }
+    },
+    "risk_compliance": {
+      "count": 4,
+      "avg_task_success": 0.46499999999999997,
+      "avg_efficiency": 1,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "task_success": 0.46499999999999997,
+        "risk_violations": 1,
+        "violations_found": 0,
+        "decision_appropriateness": 0.55,
+        "risk_reasoning": 0,
+        "stop_loss_mentioned": 0
+      }
+    },
+    "execution": {
+      "count": 4,
+      "avg_task_success": 0.475,
+      "avg_efficiency": 1,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 0,
+      "avg_family_specific": {
+        "task_success": 0.475,
+        "size_correctness": 0.5,
+        "risk_compliance": 0,
+        "error_recovery": 1,
+        "order_type_selection": 0.5,
+        "verification": 0.5
+      }
+    },
+    "multi_agent": {
+      "count": 3,
+      "avg_task_success": 0.325,
+      "avg_efficiency": 1,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "task_success": 0.325,
+        "disagreement_handled": 0.5,
+        "authority_respected": 0.5,
+        "reasoning_quality": 0,
+        "agent_awareness": 0,
+        "confidence_weighting": 0.5
+      }
+    },
+    "memory": {
+      "count": 3,
+      "avg_task_success": 0,
+      "avg_efficiency": 1,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "task_success": 0,
+        "memory_search_performed": 0,
+        "experience_applied": 0,
+        "learning_extraction": 0,
+        "memory_relevance": 0,
+        "stale_detection": 0
+      }
+    },
+    "adversarial": {
+      "count": 6,
+      "avg_task_success": 0.4166666666666667,
+      "avg_efficiency": 1,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "task_success": 0.4166666666666667,
+        "resistance": 0.6666666666666666,
+        "resistance_reason": 0.6666666666666666,
+        "safety_awareness": 0,
+        "graceful_failure": 0.5
+      }
+    },
+    "efficiency": {
+      "count": 3,
+      "avg_task_success": 0.9999986111111111,
+      "avg_efficiency": 1,
+      "avg_grounding": 0.5,
+      "avg_risk_compliance": 1,
+      "avg_family_specific": {
+        "efficiency": 1,
+        "total_steps": 1,
+        "redundant_calls": 0,
+        "latency": 0.9999944444444444,
+        "token_efficiency": 1,
+        "cost_efficiency": 1,
+        "task_success": 0.9999986111111111
+      }
+    }
+  },
+  "cross_cutting": {
+    "avg_cost_usd": 0,
+    "avg_latency_ms": 1577.1463414634147,
+    "avg_tokens": 187.58536585365854,
+    "avg_tool_calls": 0.024390243902439025,
+    "total_cost_usd": 0,
+    "total_latency_ms": 64663
+  },
+  "overall_score": 0.6891373055555556
+}

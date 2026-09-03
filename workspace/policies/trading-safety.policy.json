@@ -1,0 +1,51 @@
+{
+  "name": "trading-safety",
+  "version": "1.0.0",
+  "description": "Core safety policies for trading operations",
+  "rules": [
+    {
+      "name": "deny-live-by-default",
+      "condition": "mode === 'live'",
+      "action": "deny",
+      "auditLevel": "critical"
+    },
+    {
+      "name": "require-risk-profile",
+      "condition": "mode === 'paper' || mode === 'shadow' || mode === 'micro_live' || mode === 'live'",
+      "action": "require_approval",
+      "requiredApprovals": ["operator"],
+      "auditLevel": "high"
+    },
+    {
+      "name": "require-trading-policy",
+      "condition": "mode === 'shadow' || mode === 'micro_live' || mode === 'live'",
+      "action": "require_approval",
+      "requiredApprovals": ["operator"],
+      "auditLevel": "high"
+    },
+    {
+      "name": "allow-research-without-constraints",
+      "condition": "mode === 'research'",
+      "action": "allow",
+      "auditLevel": "low"
+    },
+    {
+      "name": "allow-backtest-for-strategies",
+      "condition": "mode === 'backtest'",
+      "action": "allow",
+      "auditLevel": "medium"
+    },
+    {
+      "name": "deny-raw-model-execution",
+      "condition": "requestedAction === 'raw_order_from_model'",
+      "action": "deny",
+      "auditLevel": "critical"
+    },
+    {
+      "name": "deny-risk-engine-bypass",
+      "condition": "requestedAction === 'bypass_risk_engine'",
+      "action": "deny",
+      "auditLevel": "critical"
+    }
+  ]
+}
