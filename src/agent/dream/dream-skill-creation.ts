@@ -5,7 +5,7 @@
  * patterns, then persists them to memory.
  */
 
-import type { Learning, MarketConditions, MarketRegime } from '@dyna/agent-core';
+import type { MarketConditions, MarketRegime } from '@dyna/agent-core';
 
 import type { DreamAction, DreamPattern } from './dream-types';
 import type { DreamContext } from './dream-context';
@@ -22,19 +22,12 @@ import { AGENT_MEMORY_SCOPE } from './dream-context';
 export async function createSkillsFromPatterns(
   ctx: DreamContext,
   patterns: DreamPattern[],
-  learnings: Learning[],
 ): Promise<{ actions: DreamAction[] }> {
   const actions: DreamAction[] = [];
 
   for (const pattern of patterns) {
     // Only create skills from high-confidence patterns
     if (pattern.confidence < 0.65) continue;
-    // Gather supporting learnings
-    const supportingLearnings = learnings.filter(
-      (l) => pattern.evidence.includes(l.id),
-    );
-
-    if (supportingLearnings.length < 2) continue;
 
     if (pattern.type === 'general_pattern') {
       const domainLabel = pattern.domain?.trim() || 'uncategorized';
@@ -48,8 +41,8 @@ export async function createSkillsFromPatterns(
       const skill = await factory.createSkillFromTask({
         title: `${domainLabel} reusable task pattern`,
         description: pattern.description,
-        outcome: supportingLearnings.map((learning) => learning.content).join('\n'),
-        steps: supportingLearnings.map((learning) => learning.content),
+        outcome: pattern.description,
+        steps: [pattern.description],
         evidence: pattern.evidence,
         tags: [domainLabel, 'dream-generated'],
         successful: true,
@@ -77,7 +70,6 @@ export async function createSkillsFromPatterns(
 
     // Use SkillFactory to create a new strategy proposal.
     const newStrategy = ctx.skillFactory.createStrategy(
-      supportingLearnings,
       conditions,
       pattern.symbol,
     );
@@ -91,7 +83,6 @@ export async function createSkillsFromPatterns(
 
     const proposal = await ctx.skillFactory.proposeStrategy(
       newStrategy,
-      supportingLearnings,
       conditions,
     );
 

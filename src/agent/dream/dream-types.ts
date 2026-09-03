@@ -6,7 +6,6 @@
  * weak skills, and generate new insights.
  */
 
-import type { Learning } from '@dyna/agent-core';
 import type { SkillEntry } from './dream-data-loader';
 
 // ---------------------------------------------------------------------------
@@ -18,7 +17,6 @@ export type DreamPhaseName = 'light' | 'rem' | 'deep';
 export * from './dream-enhanced-types.js';
 
 export interface DreamCycleState {
-  learnings: Learning[];
   skills: SkillEntry[];
   patterns: DreamPattern[];
   actions: DreamAction[];
@@ -46,8 +44,6 @@ export interface DreamPhaseConfig {
 export interface DreamConfig {
   /** Interval between dreaming cycles in ms (default: 24h = 86400000) */
   intervalMs: number;
-  /** Minimum learnings required to run a full dreaming cycle */
-  minLearningsForDream: number;
   /** Skills with confidence below this threshold get archived */
   skillConfidenceThreshold: number;
   /** Maximum number of skills to keep per type */
@@ -60,7 +56,6 @@ export interface DreamConfig {
 
 export const DEFAULT_DREAM_CONFIG: DreamConfig = {
   intervalMs: 86_400_000, // 24 hours
-  minLearningsForDream: 5,
   skillConfidenceThreshold: 0.3,
   maxSkillsPerType: 10,
   enabled: true,
@@ -113,8 +108,6 @@ export interface DreamAction {
 // ---------------------------------------------------------------------------
 
 export interface DreamMetrics {
-  /** Total number of learnings reviewed */
-  totalLearnings: number;
   /** Number of skills reviewed */
   skillsReviewed: number;
   /** Number of skills archived */

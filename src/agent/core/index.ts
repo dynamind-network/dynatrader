@@ -55,14 +55,10 @@ export type { PromptTemplate } from "./prompt-builder";
 export type {
   TradeOutcome,
   MarketConditions,
-  Learning,
   StrategyAdjustment,
-  LearningStats,
   MarketRegime,
   MarketTrend,
   VolumeLevel,
-  LearningType,
-  LearningCategory,
 } from "./types";
 export type {
   MemoryEntry,

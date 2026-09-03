@@ -27,7 +27,7 @@ import { DynaTraderRuntime } from '@dyna/orchestration/workspace';
 import type { TradeMode } from '@dyna/types';
 
 // Shared CLI utilities
-import { parseArgs, getFlagString, getFlagNumber, bold, cyan, green, red, dim, printSeparator } from './cli/utils';
+import { parseArgs, getFlagString, getFlagNumber, bold, cyan, green, red, yellow, dim, printSeparator } from './cli/utils';
 import { join } from 'path';
 import { initRuntime } from './cli/runtime-init';
 import { getWorkspacePath } from './workspace-init';
@@ -500,13 +500,8 @@ async function main(): Promise<void> {
       }
 
       case 'learning': {
-        const sub = parsed.positional[0];
-        if (!sub) {
-          console.log(red('Error: learning subcommand is required.'));
-          console.log(dim('Usage: dynatrader learning <skills|recall|review> [args...]'));
-          process.exit(1);
-        }
-        await cmdLearning(runtime, sub, parsed.positional.slice(1));
+        console.log(yellow('The learning command has been removed.'));
+        console.log(dim('Skills and memory are now managed through the skill_manage tool.'));
         break;
       }
 

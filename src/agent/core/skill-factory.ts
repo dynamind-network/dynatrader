@@ -7,7 +7,7 @@
  */
 
 import type { SkillManifest } from "@dyna/contracts";
-import type { Learning, MarketConditions } from "./types";
+import type { MarketConditions } from "./types";
 import * as fs from "node:fs/promises";
 import { mkdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
@@ -122,10 +122,9 @@ export class SkillFactory {
    */
   async proposeStrategy(
     strategy: SkillManifest,
-    learnings: Learning[],
     conditions: MarketConditions,
   ): Promise<StrategySkillArtifact | null> {
-    const artifact = this.buildStrategySkillArtifact(strategy, learnings, conditions);
+    const artifact = this.buildStrategySkillArtifact(strategy, conditions);
     if (!artifact) {
       return null;
     }
@@ -141,7 +140,7 @@ export class SkillFactory {
       reviewHumanRequired: false,
       allowOrderExecution: false,
       tags: artifact.skill.triggers,
-      confidence: this.estimateProposalConfidence(learnings),
+      confidence: 0.5,
       strategy,
       conditions,
     });
@@ -210,49 +209,19 @@ export class SkillFactory {
   }
 
   /**
-   * Create a new SkillManifest from a set of learnings.
+   * Create a new SkillManifest from market conditions.
    *
    * Returns null when:
-   * - Fewer than MIN_EVIDENCE_FOR_CREATION relevant learnings are provided
-   * - The average confidence of relevant learnings is below MIN_CONFIDENCE_FOR_CREATION
-   * - No learnings match the given symbol and market regime
+   * - No venue is configured
+   * - Risk parameters are missing
    */
   createStrategy(
-    learnings: Learning[],
     conditions: MarketConditions,
     symbol: string,
   ): SkillManifest | null {
-    const relevant = learnings.filter((l) => {
-      const symbolMatch =
-        l.applicableSymbols.length === 0 ||
-        l.applicableSymbols.includes(symbol) ||
-        l.applicableSymbols.includes("*");
-
-      const regimeMatch =
-        l.applicableRegimes.length === 0 ||
-        l.applicableRegimes.includes(conditions.regime);
-
-      return symbolMatch && regimeMatch;
-    });
-
-    if (relevant.length < MIN_EVIDENCE_FOR_CREATION) {
-      return null;
-    }
-
-    const totalConfidence = relevant.reduce((sum, l) => sum + l.confidence, 0);
-    const avgConfidence = totalConfidence / relevant.length;
-
-    if (avgConfidence < MIN_CONFIDENCE_FOR_CREATION) {
-      return null;
-    }
-
-    const entryLearnings = relevant.filter((l) => l.category === "entry");
-    const exitLearnings = relevant.filter((l) => l.category === "exit");
-    const riskLearnings = relevant.filter((l) => l.category === "risk");
-
-    const entryConfig = this.buildEntryConfig(entryLearnings, conditions);
-    const exitConfig = this.buildExitConfig(exitLearnings);
-    const riskConfig = this.buildRiskConfig(riskLearnings);
+    const entryConfig = this.buildEntryConfig(conditions);
+    const exitConfig = this.buildExitConfig();
+    const riskConfig = this.buildRiskConfig();
     const venue = this.defaultVenue.trim();
 
     if (!venue) {
@@ -298,201 +267,50 @@ export class SkillFactory {
   }
 
   /**
-   * Build entry configuration from entry-category learnings.
-   * Extracts RSI thresholds, trend preferences, and other entry signals
-   * mentioned in the learning content.
+   * Build entry configuration with default values.
    */
   private buildEntryConfig(
-    learnings: Learning[],
     conditions: MarketConditions,
   ): Record<string, unknown> {
     const config: Record<string, unknown> = {
       type: "momentum",
       enabled: true,
+      rsiThreshold: 30,
+      regime: conditions.regime,
+      volatility: conditions.volatility,
     };
 
-    const rsiLearnings = learnings.filter((l) =>
-      l.content.toLowerCase().includes("rsi"),
-    );
-    if (rsiLearnings.length > 0) {
-      const rsiValues = rsiLearnings.map((l) => {
-        const match = l.content.match(/rsi\s*(?:below|above|under|over)?\s*(\d+)/i);
-        return match ? { value: parseInt(match[1]!, 10), weight: l.confidence } : null;
-      }).filter((v): v is { value: number; weight: number } => v !== null);
+    return config;
+  }
 
-      if (rsiValues.length > 0) {
-        const totalWeight = rsiValues.reduce((s, v) => s + v.weight, 0);
-        const weightedRsi =
-          rsiValues.reduce((s, v) => s + v.value * v.weight, 0) / totalWeight;
-        config.rsiThreshold = Math.round(weightedRsi);
-      } else {
-        config.rsiThreshold = 30;
-      }
-    }
-
-    const trendLearnings = learnings.filter((l) =>
-      l.content.toLowerCase().includes("trend"),
-    );
-    if (trendLearnings.length > 0) {
-      const bullishCount = trendLearnings.filter(
-        (l) =>
-          l.content.toLowerCase().includes("bullish") ||
-          l.content.toLowerCase().includes("uptrend"),
-      ).length;
-      const bearishCount = trendLearnings.filter(
-        (l) =>
-          l.content.toLowerCase().includes("bearish") ||
-          l.content.toLowerCase().includes("downtrend"),
-      ).length;
-
-      if (bullishCount > bearishCount) {
-        config.preferTrend = "bullish";
-      } else if (bearishCount > bullishCount) {
-        config.preferTrend = "bearish";
-      }
-    }
-
-    config.regime = conditions.regime;
-    config.volatility = conditions.volatility;
+  /**
+   * Build exit configuration with default values.
+   */
+  private buildExitConfig(): Record<string, unknown> {
+    const config: Record<string, unknown> = {
+      riskReward: 2.0,
+      stopLoss: 0.02,
+      takeProfit: 0.04,
+    };
 
     return config;
   }
 
   /**
-   * Build exit configuration from exit-category learnings.
-   * Extracts stop-loss, take-profit, and risk-reward ratios.
+   * Build risk configuration with default values.
    */
-  private buildExitConfig(learnings: Learning[]): Record<string, unknown> {
-    const config: Record<string, unknown> = {};
-
-    const rrLearnings = learnings.filter((l) =>
-      l.content.toLowerCase().includes("risk") ||
-      l.content.toLowerCase().includes("reward") ||
-      l.content.toLowerCase().includes("ratio"),
-    );
-
-    if (rrLearnings.length > 0) {
-      const rrValues = rrLearnings.map((l) => {
-        const match = l.content.match(/(\d+)\s*:\s*(\d+)/);
-        if (match) {
-          const ratio = parseInt(match[1]!, 10) / parseInt(match[2]!, 10);
-          return { value: ratio, weight: l.confidence };
-        }
-        const simpleMatch = l.content.match(/(\d+(?:\.\d+)?)\s*:\s*1\b/);
-        if (simpleMatch) {
-          return { value: parseFloat(simpleMatch[1]!), weight: l.confidence };
-        }
-        return null;
-      }).filter((v): v is { value: number; weight: number } => v !== null);
-
-      if (rrValues.length > 0) {
-        const totalWeight = rrValues.reduce((s, v) => s + v.weight, 0);
-        const avgRR =
-          rrValues.reduce((s, v) => s + v.value * v.weight, 0) / totalWeight;
-        config.riskReward = Math.round(avgRR * 10) / 10;
-
-        const stopLoss = config.stopLoss as number | undefined;
-        if (typeof stopLoss === "number") {
-          config.takeProfit = Math.round(stopLoss * (config.riskReward as number) * 100) / 100;
-        }
-      }
-    }
-
-    const slLearnings = learnings.filter((l) =>
-      l.content.toLowerCase().includes("stop") ||
-      l.content.toLowerCase().includes("loss"),
-    );
-    if (slLearnings.length > 0) {
-      const slValues = slLearnings.map((l) => {
-        const match = l.content.match(/(\d+(?:\.\d+)?)\s*%/);
-        return match ? { value: parseFloat(match[1]!) / 100, weight: l.confidence } : null;
-      }).filter((v): v is { value: number; weight: number } => v !== null);
-
-      if (slValues.length > 0) {
-        const totalWeight = slValues.reduce((s, v) => s + v.weight, 0);
-        const weightedSl =
-          slValues.reduce((s, v) => s + v.value * v.weight, 0) / totalWeight;
-        config.stopLoss = Math.round(weightedSl * 100) / 100;
-        if (typeof config.riskReward === "number") {
-          config.takeProfit = Math.round(
-            (config.stopLoss as number) * (config.riskReward as number) * 100,
-          ) / 100;
-        }
-      }
-    }
-
-    return config;
-  }
-
-  /**
-   * Build risk configuration from risk-category learnings.
-   * Extracts position sizing limits and risk thresholds.
-   */
-  private buildRiskConfig(learnings: Learning[]): Record<string, unknown> {
+  private buildRiskConfig(): Record<string, unknown> {
     const config: Record<string, unknown> = {
       maxPositionNotional: 5000,
       maxDailyLoss: 500,
       maxOpenOrders: 3,
     };
 
-    const sizeLearnings = learnings.filter((l) =>
-      l.content.toLowerCase().includes("position") ||
-      l.content.toLowerCase().includes("size") ||
-      l.content.toLowerCase().includes("capital"),
-    );
-
-    if (sizeLearnings.length > 0) {
-      const pctValues = sizeLearnings.map((l) => {
-        const match = l.content.match(/(\d+(?:\.\d+)?)\s*%/i);
-        return match ? { value: parseFloat(match[1]!) / 100, weight: l.confidence } : null;
-      }).filter((v): v is { value: number; weight: number } => v !== null);
-
-      if (pctValues.length > 0) {
-        const totalWeight = pctValues.reduce((s, v) => s + v.weight, 0);
-        const avgPct =
-          pctValues.reduce((s, v) => s + v.value * v.weight, 0) / totalWeight;
-        config.maxPositionNotional = Math.round(100000 * avgPct);
-      }
-
-      const notionalValues = sizeLearnings.map((l) => {
-        const match = l.content.match(/\$(\d+(?:,\d{3})*(?:\.\d+)?)/);
-        return match
-          ? { value: parseFloat(match[1]!.replace(/,/g, "")), weight: l.confidence }
-          : null;
-      }).filter((v): v is { value: number; weight: number } => v !== null);
-
-      if (notionalValues.length > 0) {
-        const totalWeight = notionalValues.reduce((s, v) => s + v.weight, 0);
-        config.maxPositionNotional = Math.round(
-          notionalValues.reduce((s, v) => s + v.value * v.weight, 0) / totalWeight,
-        );
-      }
-    }
-
-    const lossLearnings = learnings.filter((l) =>
-      l.content.toLowerCase().includes("loss") ||
-      l.content.toLowerCase().includes("drawdown"),
-    );
-    if (lossLearnings.length > 0) {
-      const lossValues = lossLearnings.map((l) => {
-        const match = l.content.match(/(\d+(?:\.\d+)?)\s*%/i);
-        return match ? { value: parseFloat(match[1]!) / 100, weight: l.confidence } : null;
-      }).filter((v): v is { value: number; weight: number } => v !== null);
-
-      if (lossValues.length > 0) {
-        const totalWeight = lossValues.reduce((s, v) => s + v.weight, 0);
-        const avgLossPct =
-          lossValues.reduce((s, v) => s + v.value * v.weight, 0) / totalWeight;
-        config.maxDailyLoss = Math.round(100000 * avgLossPct);
-      }
-    }
-
     return config;
   }
 
   private buildStrategySkillArtifact(
     strategy: SkillManifest,
-    learnings: Learning[],
     conditions: MarketConditions,
   ): StrategySkillArtifact | null {
     const name = this.buildStrategySkillName(strategy.symbol, strategy.venue, conditions.regime);
@@ -512,9 +330,8 @@ export class SkillFactory {
         conditions.regime,
         conditions.trend,
         conditions.volume,
-        ...learnings.flatMap((learning) => keywords(learning.content)),
       ]),
-      evidence: learnings.flatMap((learning) => learning.evidence),
+      evidence: [],
       sourceTask: `Learned strategy from ${strategy.symbol} on ${strategy.venue}`,
       createdAt: now,
       updatedAt: now,
@@ -663,12 +480,6 @@ export class SkillFactory {
     mkdirSync(directory, { recursive: true });
     writeFileSync(path.join(directory, "SKILL.md"), renderSkill(skill), "utf8");
     writeFileSync(path.join(directory, "skill.json"), JSON.stringify(skillJson, null, 2) + "\n", "utf8");
-  }
-
-  private estimateProposalConfidence(learnings: Learning[]): number {
-    if (learnings.length === 0) return 0.5;
-    const confidence = learnings.reduce((sum, learning) => sum + learning.confidence, 0) / learnings.length;
-    return Math.max(0.1, Math.min(0.99, Math.round(confidence * 100) / 100));
   }
 
   private estimateProposalConfidenceFromSkill(skill: ReusableSkill): number {

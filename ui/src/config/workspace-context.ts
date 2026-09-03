@@ -78,7 +78,6 @@ export function buildWorkspaceContextPrompt(cwd: string): string {
     ['SOUL.md', 'soul.md'],
     ['IDENTITY.md', 'identity.md'],
     ['AGENTS.md', 'agents.md'],
-    ['LEARNINGS.md', 'learnings.md'],
   ];
   for (const filenames of coreFiles) {
     const content = readFirstExistingFileSync(cwd, filenames);
@@ -90,7 +89,6 @@ export function buildWorkspaceContextPrompt(cwd: string): string {
     ['USER.md', 'user preferences'],
     ['RISK_PROFILE.md', 'risk policy'],
     ['TRADING_POLICY.md', 'trading policy'],
-    ['HEARTBEAT.md', 'heartbeat checks'],
   ];
 
   const availableOnDemand: string[] = [];

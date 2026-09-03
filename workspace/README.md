@@ -44,8 +44,6 @@ workspace/
 ├── IDENTITY.md                # System manifest
 ├── USER.md                    # User profile and preferences
 ├── MEMORY.md                  # Active memory state
-├── LEARNINGS.md               # Accumulated knowledge
-├── HEARTBEAT.md               # Health check state
 └── audit.jsonl                # Append-only audit log
 ```
 
@@ -182,7 +180,6 @@ Policies live in `policies/<name>.policy.json` and define rules that the runtime
 
 6. Runtime logs the run to runs/run-001.md
    - All steps audited in audit.jsonl
-   - Learnings extracted to LEARNINGS.md
 ```
 
 ## Operational Modes

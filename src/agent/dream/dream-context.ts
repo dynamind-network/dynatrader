@@ -22,7 +22,6 @@ import type { MemoryConsolidation } from '../core/memory-consolidation';
 // ---------------------------------------------------------------------------
 
 export const DREAM_SCOPE = 'dream';
-export const LEARNING_SCOPE = 'learning_engine';
 export const AGENT_MEMORY_SCOPE = 'agent_memory';
 export const SEARCH_TOP_K = 500;
 export const MIN_PATTERN_EVIDENCE = 3;

@@ -30,7 +30,7 @@ import { DEFAULT_DREAM_CONFIG } from './dream-types';
 
 // Import from extracted modules
 import type { DreamContext } from './dream-context';
-import { loadLearnings, loadSkills } from './dream-data-loader';
+import { loadSkills } from './dream-data-loader';
 import { reviewAndArchiveSkills } from './dream-skill-review';
 import { discoverPatterns } from './dream-pattern-discovery';
 import { generateInsights } from './dream-insights';
@@ -105,12 +105,10 @@ export class DreamEngine {
     const startTime = performance.now();
     const ctx = this.createContext();
     const state: DreamCycleState = {
-      learnings: [],
       skills: [],
       patterns: [],
       actions: [],
       metrics: {
-        totalLearnings: 0,
         skillsReviewed: 0,
         skillsArchived: 0,
         skillsCreated: 0,
@@ -173,15 +171,6 @@ export class DreamEngine {
       return null;
     }
 
-    const ctx = this.createContext();
-    const learnings = await loadLearnings(ctx);
-    if (learnings.length < this.config.minLearningsForDream) {
-      this.logger.debug(
-        `Only ${learnings.length} learnings, need ${this.config.minLearningsForDream}. Skipping.`,
-      );
-      return null;
-    }
-
     // Check if enough time has passed since last report
     if (this.lastReport) {
       const elapsed = Date.now() - this.lastReport.timestamp.getTime();
@@ -225,33 +214,15 @@ export class DreamEngine {
 
   private async runLightPhase(context: DreamPhaseContext): Promise<void | { stop?: boolean }> {
     this.logger.debug('Running light dreaming phase');
-    if (context.state.learnings.length === 0) {
-      context.state.learnings = await loadLearnings(this.createContext());
+    if (context.state.skills.length === 0) {
+      context.state.skills = await loadSkills(this.createContext());
     }
-    context.state.metrics.totalLearnings = context.state.learnings.length;
-    this.logger.info(`Loaded ${context.state.learnings.length} learnings`);
-
-    if (context.state.learnings.length < this.config.minLearningsForDream) {
-      this.logger.info(
-        `Not enough learnings (${context.state.learnings.length} < ${this.config.minLearningsForDream}), skipping remaining phases`,
-      );
-      return { stop: true };
-    }
+    context.state.metrics.skillsReviewed = context.state.skills.length;
+    this.logger.info(`Loaded ${context.state.skills.length} skills`);
   }
 
   private async runRemPhase(context: DreamPhaseContext): Promise<void | { stop?: boolean }> {
     this.logger.debug('Running REM dreaming phase');
-    if (context.state.learnings.length === 0) {
-      context.state.learnings = await loadLearnings(this.createContext());
-      context.state.metrics.totalLearnings = context.state.learnings.length;
-    }
-
-    if (context.state.learnings.length < this.config.minLearningsForDream) {
-      this.logger.info(
-        `Not enough learnings (${context.state.learnings.length} < ${this.config.minLearningsForDream}), skipping REM phase`,
-      );
-      return { stop: true };
-    }
 
     if (context.state.skills.length === 0) {
       context.state.skills = await loadSkills(this.createContext());
@@ -261,13 +232,13 @@ export class DreamEngine {
 
     this.logger.debug('Reviewing skills');
     const { actions: reviewActions, archivedCount } =
-      await reviewAndArchiveSkills(this.createContext(), context.state.skills, context.state.learnings);
+      await reviewAndArchiveSkills(this.createContext(), context.state.skills);
     context.state.actions.push(...reviewActions);
     context.state.metrics.skillsArchived = archivedCount;
 
     this.logger.debug('Discovering patterns');
     const { patterns, actions: patternActions } =
-      await discoverPatterns(this.createContext(), context.state.learnings);
+      await discoverPatterns(this.createContext());
     context.state.actions.push(...patternActions);
     context.state.patterns = patterns;
     context.state.metrics.patternsFound = patterns.length;
@@ -275,7 +246,7 @@ export class DreamEngine {
 
     this.logger.debug('Generating insights');
     const { actions: insightActions } =
-      await generateInsights(this.createContext(), context.state.learnings, patterns);
+      await generateInsights(this.createContext(), patterns);
     context.state.actions.push(...insightActions);
     context.state.metrics.insightsGenerated = insightActions.length;
     this.logger.info(`Generated ${insightActions.length} insights`);
@@ -283,21 +254,15 @@ export class DreamEngine {
 
   private async runDeepPhase(context: DreamPhaseContext): Promise<void | { stop?: boolean }> {
     this.logger.debug('Running deep dreaming phase');
-    if (context.state.learnings.length === 0) {
-      context.state.learnings = await loadLearnings(this.createContext());
-      context.state.metrics.totalLearnings = context.state.learnings.length;
-    }
 
-    if (context.state.learnings.length < this.config.minLearningsForDream) {
-      this.logger.info(
-        `Not enough learnings (${context.state.learnings.length} < ${this.config.minLearningsForDream}), skipping deep phase`,
-      );
-      return { stop: true };
+    if (context.state.skills.length === 0) {
+      context.state.skills = await loadSkills(this.createContext());
+      context.state.metrics.skillsReviewed = context.state.skills.length;
     }
 
     if (context.state.patterns.length === 0) {
       this.logger.debug('No staged patterns available, deriving patterns in deep phase');
-      const { patterns, actions } = await discoverPatterns(this.createContext(), context.state.learnings);
+      const { patterns, actions } = await discoverPatterns(this.createContext());
       context.state.patterns = patterns;
       context.state.actions.push(...actions);
       context.state.metrics.patternsFound = patterns.length;
@@ -306,7 +271,7 @@ export class DreamEngine {
     if (context.state.patterns.length > 0) {
       this.logger.debug('Creating skills from patterns');
       const { actions: skillActions } =
-        await createSkillsFromPatterns(this.createContext(), context.state.patterns, context.state.learnings);
+        await createSkillsFromPatterns(this.createContext(), context.state.patterns);
       context.state.actions.push(...skillActions);
       context.state.metrics.skillsCreated = skillActions.length;
       this.logger.info(`Created ${skillActions.length} new skills`);

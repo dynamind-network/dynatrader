@@ -28,7 +28,7 @@ import { IterationBudget } from "./iteration-budget";
 import { PromptBuilder } from "./prompt-builder";
 import { MemoryStoreImpl } from "@dyna/memory-core";
 import type { TradeRecord } from "@dyna/backtest";
-import type { TradeOutcome, MarketConditions, Learning, StrategyAdjustment } from "./types";
+import type { TradeOutcome, MarketConditions, StrategyAdjustment } from "./types";
 import { MemoryWriter } from "./memory-writer";
 import type { PerformanceSummary } from "./memory-writer";
 import { CrossSessionRecall } from "./cross-session-recall";
@@ -49,7 +49,6 @@ import type { Session, SessionInfo } from "./session-manager";
 import { SlashCommandRegistry, registerDefaultCommands } from "./slash-commands";
 import type { CommandContext, CommandResult } from "./slash-commands";
 import { ContextCompactionEngine } from "../../context/context-compaction-engine";
-import { buildLearningsContext } from "./learnings-context";
 import { normalizeVisibleText } from "../../runtime/visible-response";
 import { errorMessage } from "../../utils/errors";
 import {
@@ -787,16 +786,10 @@ Explore the repository and design an implementation plan. You are strictly read-
 
   private async buildMemoryContext(message: string): Promise<string> {
     const memories = await this.contextEngine.getRelevantMemories(message, 10);
-    let memoryContext = memories
+    const memoryContext = memories
       .map((m) => `[${m.type}] ${JSON.stringify(m.content).substring(0, 200)}...`)
       .join("\n");
 
-    const learningsContext = await buildLearningsContext(
-      { memory: this.config.memory,
-        crossSessionRecall: this.crossSessionRecall, skillLoader: this.config.skillLoader },
-      { kind: "llm-plan", body: message },
-    );
-    if (learningsContext) memoryContext += "\n\n--- Prior Learnings ---\n" + learningsContext;
     return memoryContext;
   }
 

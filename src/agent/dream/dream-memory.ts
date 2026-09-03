@@ -8,7 +8,6 @@ import type { DreamAction, DreamMetrics, DreamReport } from './dream-types';
 import type { DreamContext } from './dream-context';
 import {
   DREAM_SCOPE,
-  LEARNING_SCOPE,
   AGENT_MEMORY_SCOPE,
 } from './dream-context';
 
@@ -21,7 +20,6 @@ import {
  */
 export async function compactMemory(ctx: DreamContext): Promise<void> {
   try {
-    await ctx.memoryStore.compact({ scope: LEARNING_SCOPE });
     await ctx.memoryStore.compact({ scope: AGENT_MEMORY_SCOPE });
     await ctx.memoryStore.compact({ scope: DREAM_SCOPE });
     ctx.logger.debug('Memory compaction completed');
