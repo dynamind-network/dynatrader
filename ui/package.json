@@ -88,7 +88,7 @@
     "@types/strip-ansi": "^5.2.1",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.0",
-    "esbuild": "^0.27.4",
+    "esbuild": "^0.28.2",
     "react-test-renderer": "18.3.1",
     "vitest": "^3.1.0"
   },
