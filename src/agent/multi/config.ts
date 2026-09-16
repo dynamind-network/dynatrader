@@ -6,8 +6,6 @@
  */
 
 import type {
-  DebateConfig,
-  ConsensusConfig,
   PipelineDefinition,
   SurvivalPolicyConfig,
   ResolvedMultiAgentConfig,
@@ -24,21 +22,6 @@ export const DEFAULT_TRADING_PIPELINE: PipelineDefinition = {
   chain: [],
   timeout: 600000,
   failureMode: "graceful",
-};
-
-/** Default debate configuration */
-export const DEFAULT_DEBATE_CONFIG: DebateConfig = {
-  maxRounds: 5,
-  timeout: 600000,
-  consensusThreshold: 0.85,
-};
-
-/** Default consensus configuration */
-export const DEFAULT_CONSENSUS_CONFIG: ConsensusConfig = {
-  proposalTimeout: 120000,
-  votingTimeout: 60000,
-  minProposals: 2,
-  weightedVoting: false,
 };
 
 /** Default survival policy configuration */
@@ -66,8 +49,6 @@ export const DEFAULT_SURVIVAL_POLICY: SurvivalPolicyConfig = {
 /** Default resolved configuration */
 export const DEFAULT_MULTIAGENT_CONFIG: ResolvedMultiAgentConfig = {
   pipelines: {},
-  debate: DEFAULT_DEBATE_CONFIG,
-  consensus: DEFAULT_CONSENSUS_CONFIG,
   survivalPolicy: DEFAULT_SURVIVAL_POLICY,
   enableLogging: false,
 };
@@ -85,8 +66,6 @@ export function parseMultiAgentConfig(
   const cfg = pluginConfig as Record<string, unknown> | undefined;
 
   const pipelines = parsePipelines(cfg?.pipelines);
-  const debate = parseDebateConfig(cfg?.debate);
-  const consensus = parseConsensusConfig(cfg?.consensus);
   const survivalPolicy = parseSurvivalPolicyConfig(cfg?.survivalPolicy);
 
   const enableLogging =
@@ -96,8 +75,6 @@ export function parseMultiAgentConfig(
 
   return {
     pipelines,
-    debate,
-    consensus,
     survivalPolicy,
     enableLogging,
   };
