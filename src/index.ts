@@ -124,9 +124,12 @@ export type { MCPBridgeConfig, MCPToolMapping, MCPBridgeConnection } from './plu
 export type {
   PluginCapability,
   DynaPlugin,
+  PluginFactory,
   PluginContext,
   PluginLogger,
   PluginManifest,
+  PluginToolDeclaration,
+  PluginToolHandler,
   MarketDataProvider,
   SignalProvider,
   RiskProvider,

@@ -8,9 +8,12 @@
 export type {
   PluginCapability,
   DynaPlugin,
+  PluginFactory,
   PluginContext,
   PluginLogger,
   PluginManifest,
+  PluginToolDeclaration,
+  PluginToolHandler,
   MarketDataProvider,
   SignalProvider,
   RiskProvider,
