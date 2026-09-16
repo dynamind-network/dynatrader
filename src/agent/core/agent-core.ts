@@ -1065,14 +1065,14 @@ Explore the repository and design an implementation plan. You are strictly read-
           }
         } else {
           // Still no tools — require a real visible response
-          content = retryResponse.content?.trim() || retryResponse.reasoningContent?.trim() || response.content?.trim() || response.reasoningContent?.trim() || "";
+          content = retryResponse.content?.trim() || response.content?.trim() || "";
           if (!normalizeVisibleText(content)) {
             throw new Error("Model returned no visible output.");
           }
           break;
         }
       } else {
-        content = response.content?.trim() || response.reasoningContent?.trim() || "";
+        content = response.content?.trim() || "";
         if (!normalizeVisibleText(content)) {
           throw new Error("Model returned no visible output.");
         }
@@ -1112,7 +1112,7 @@ Explore the repository and design an implementation plan. You are strictly read-
       const batchInputs: BatchCallInput[] = authorization.approved.map((call, batchIndex) => ({
         batchIndex,
         call,
-        resourceClass: resourceClassFor(call.tool, this.config.toolRegistry!.get(call.tool)?.definition),
+            resourceClass: resourceClassFor(call.tool, this.config.toolRegistry!.get?.(call.tool)?.definition),
       }));
 
       // Execute with resource-class-aware parallelism + graduated loop detection
@@ -1889,7 +1889,7 @@ Explore the repository and design an implementation plan. You are strictly read-
           const batchInputs: BatchCallInput[] = authorization.approved.map((call, batchIndex) => ({
             batchIndex,
             call,
-            resourceClass: resourceClassFor(call.tool, self.config.toolRegistry!.get(call.tool)?.definition),
+            resourceClass: resourceClassFor(call.tool, self.config.toolRegistry!.get?.(call.tool)?.definition),
           }));
           const batchResult = await executeBatch(
             batchInputs,

@@ -40,6 +40,7 @@ import { PluginRegistry } from '../../plugins/registry';
 import { bootPluginTree } from '../../plugins/composition';
 import type { ToolProfile } from '../../runtime/tools/tool-profiles';
 import { requireVisibleResponse } from '../../runtime/visible-response';
+import type { WalletPluginContainer } from '../../plugins/builtin/wallet-plugin';
 
 // Cron tools for self-modifying scheduling
 import { CronTool } from '../../agent/tools/cron-tools';
@@ -55,18 +56,8 @@ import { SqliteQueryTool } from '../../agent/tools/sqlite-query-tool';
 
 // Wallet and DEX trading infrastructure
 import { WalletManager } from '../../wallet/wallet-manager';
-import { ApprovalManager } from '../../wallet/approval-manager';
-import { TxPipeline } from '../../wallet/tx-pipeline';
-import { UniswapAdapter } from '../../wallet/dex-adapters/uniswap-adapter';
-import { ZeroXAdapter } from '../../wallet/dex-adapters/zerox-adapter';
-import { SupportedChainId } from '../../wallet/types';
-import { WalletBalanceTool, WalletSwapTool, WalletApproveTool, WalletHistoryTool, WalletQuoteTool } from '../../agent/tools/wallet-tools';
-
-import { CCXTAdapter } from '@dyna/exchange-ccxt';
-import { AlpacaAdapter } from '../../market/exchange/alpaca-adapter';
-import { IBKRAdapter } from '../../market/exchange/ibkr-adapter';
-import { LongbridgeAdapter } from '../../market/exchange/longbridge-adapter';
-import { HyperliquidAdapter } from '../../market/exchange/hyperliquid-adapter';
+import type { ApprovalManager } from '../../wallet/approval-manager';
+import type { TxPipeline } from '../../wallet/tx-pipeline';
 import { EventBus } from '@dyna/event-bus';
 import type { TradeEvent, RiskEvent, ExchangeAdapter, ToolHandler, ToolCall, ToolResult, ToolDefinition } from '@dyna/contracts';
 import { AuditTrail } from '@dyna/audit';
@@ -325,11 +316,26 @@ export async function initializeComponents(
   const pluginTree = await bootPluginTree({
     registry: pluginRegistry,
     workspaceConfigRows: configuredPluginRows,
+    builtinConfig: {
+      mode: config.mode,
+      exchangeId: workspace.config?.exchange?.id,
+      adapterName: workspace.adapters.find((adapter) => ['broker', 'execution', 'market_data'].includes(adapter.type))?.name,
+      auth: workspace.auth as Record<string, unknown> | undefined,
+      privateKeyEnvVar: config.walletPrivateKeyEnvVar ?? 'WALLET_PRIVATE_KEY',
+      chains: config.walletChains,
+    },
     env: process.env,
     strict: config.strictMode ?? false,
   });
   components.pluginRegistry = pluginRegistry;
   logger.info(`Declarative plugin composition mounted ${pluginTree.reports.filter((report) => report.ok).length}/${pluginTree.rows.length} plugin(s)`);
+  const walletContainer = pluginRegistry.getProvider<WalletPluginContainer>('wallet');
+  if (walletContainer) {
+    components.walletManager = walletContainer.walletManager;
+    components.approvalManager = walletContainer.approvalManager;
+    components.txPipeline = walletContainer.txPipeline;
+    components.dexAdapters = walletContainer.dexAdapters;
+  }
 
   // Keep the manifest-based runtime for legacy workspace extensions until all
   // existing plugin.json entries migrate to the DynaPlugin contract.
@@ -350,7 +356,7 @@ export async function initializeComponents(
 
   // --- 7. Exchange Adapter (paper mode by default) ---
   logger.debug('Initializing CCXTAdapter (paper mode)');
-  components.exchange = createExchangeAdapter(config, workspace);
+  components.exchange = pluginRegistry.getProvider<ExchangeAdapter>('exchange') ?? null;
 
   // --- 8. Paper Engine ---
   logger.debug('Initializing PaperEngine');
@@ -539,7 +545,7 @@ export async function initializeComponents(
   registerCronRelatedTools(components, logger);
 
   // --- 15d. Wallet & DEX Trading Infrastructure ---
-  await initializeWalletInfrastructure(components, config, logger);
+  logger.debug('Wallet infrastructure resolved from declarative plugin registry');
 
   // --- 16. Dreaming Cycle (background reflection) ---
   await initializeDreamCycle(components, workspacePath, logger);
@@ -654,83 +660,6 @@ function registerBuiltInTools(
  */
 export function createHaltState(workspacePath: string): HaltState {
   return new HaltState(join(workspacePath, 'state'));
-}
-
-// ---------------------------------------------------------------------------
-// Exchange adapter factory
-// ---------------------------------------------------------------------------
-
-function createExchangeAdapter(
-  config: RuntimeConfig,
-  workspace: WorkspaceManifest,
-): ExchangeAdapter | null {
-  const adapterManifest = workspace.adapters.find(
-    (a) => a.type === 'broker' || a.type === 'execution' || a.type === 'market_data',
-  );
-
-  const configuredExchangeId = (
-    workspace.config?.exchange?.id ??
-    adapterManifest?.name ??
-    ''
-  ).toString().trim();
-
-  // Require an explicit configured venue. The runtime should not silently
-  // invent a default exchange when the workspace has not chosen one.
-  const exchangeId = configuredExchangeId;
-  if (!exchangeId) return null;
-
-  const authConfig = workspace.auth as Record<string, unknown> | undefined;
-  const apiKey =
-    (authConfig?.apiKey as string | undefined) ??
-    process.env[`${exchangeId.toUpperCase()}_API_KEY`] ??
-    undefined;
-  const secret =
-    (authConfig?.secret as string | undefined) ??
-    process.env[`${exchangeId.toUpperCase()}_SECRET`] ??
-    undefined;
-
-  const isPaper = config.mode === 'paper' || config.mode === 'backtest';
-
-  if (exchangeId.toLowerCase() === 'alpaca') {
-    return new AlpacaAdapter({
-      apiKey: process.env['ALPACA_API_KEY'] ?? (authConfig?.apiKey as string | undefined),
-      secretKey: process.env['ALPACA_SECRET_KEY'] ?? (authConfig?.secret as string | undefined),
-      paper: isPaper,
-    });
-  }
-
-  if (exchangeId.toLowerCase() === 'ibkr') {
-    return new IBKRAdapter({
-      accountId: process.env['IBKR_ACCOUNT_ID'] ?? (authConfig?.accountId as string | undefined),
-      baseUrl: process.env['IBKR_BASE_URL'],
-      sessionToken: process.env['IBKR_SESSION_TOKEN'],
-    });
-  }
-
-  if (exchangeId.toLowerCase() === 'longbridge') {
-    return new LongbridgeAdapter({
-      accessToken: process.env['LONGBRIDGE_ACCESS_TOKEN'] ?? process.env['LONGBRIDGE_TOKEN'],
-      baseUrl: process.env['LONGBRIDGE_HTTP_URL'],
-    });
-  }
-
-  // Hyperliquid: native adapter (launch venue). Read-only until a signing
-  // key is provided; testnet supported via HYPERLIQUID_REST_URL override.
-  if (exchangeId.toLowerCase() === 'hyperliquid') {
-    return new HyperliquidAdapter({
-      walletAddress:
-        (authConfig?.walletAddress as string | undefined) ??
-        process.env['HYPERLIQUID_WALLET_ADDRESS'] ??
-        process.env['HYPERLIQUID_PUBLIC_KEY'] ??
-        '',
-      privateKey:
-        (authConfig?.privateKey as string | undefined) ??
-        process.env['HYPERLIQUID_PRIVATE_KEY'],
-      restUrl: process.env['HYPERLIQUID_REST_URL'],
-    });
-  }
-
-  return new CCXTAdapter({ exchangeId, apiKey, secret, sandbox: isPaper });
 }
 
 async function seedPaperMarketFeed(
@@ -1975,69 +1904,6 @@ async function registerMcpTools(
 
   if (failures.length > 0) {
     logger.warn(`Some MCP servers were not usable: ${failures.join('; ')}`);
-  }
-}
-
-async function initializeWalletInfrastructure(
-  components: RuntimeComponents,
-  config: RuntimeConfig,
-  logger: Logger,
-): Promise<void> {
-  logger.debug('Initializing Wallet & DEX infrastructure');
-  try {
-    const walletEnvVar = config.walletPrivateKeyEnvVar ?? 'WALLET_PRIVATE_KEY';
-    const walletChains: SupportedChainId[] = config.walletChains ?? [
-      SupportedChainId.ETHEREUM,
-      SupportedChainId.POLYGON,
-      SupportedChainId.ARBITRUM,
-      SupportedChainId.BASE,
-    ];
-
-    components.walletManager = new WalletManager({
-      privateKeyEnvVar: walletEnvVar,
-      chains: walletChains,
-    });
-
-    if (process.env[walletEnvVar]) {
-      await components.walletManager.initialize();
-      logger.info(`Wallet initialized for address ${components.walletManager.getAddress()}`);
-    } else {
-      const missingWalletMessage = `Wallet private key not found in ${walletEnvVar} - wallet tools will be unavailable`;
-      if (config.mode === 'paper') {
-        logger.info(`${missingWalletMessage} (paper mode)`);
-      } else {
-        logger.warn(missingWalletMessage);
-      }
-    }
-
-    components.approvalManager = new ApprovalManager(components.walletManager);
-    components.txPipeline = new TxPipeline(
-      components.walletManager,
-      components.approvalManager,
-      {
-        logger: (stage, message) => logger.debug(`[tx-pipeline:${stage}] ${message}`),
-      },
-    );
-
-    components.dexAdapters = new Map();
-    components.dexAdapters.set('uniswap', new UniswapAdapter());
-    components.dexAdapters.set('0x', new ZeroXAdapter());
-
-    if (components.toolRegistry && components.walletManager) {
-      components.toolRegistry.register(new WalletBalanceTool(components.walletManager));
-      components.toolRegistry.register(new WalletSwapTool(
-        components.walletManager,
-        components.txPipeline,
-        components.dexAdapters,
-        components.stateDb ?? undefined,
-      ));
-      components.toolRegistry.register(new WalletApproveTool(components.approvalManager));
-      components.toolRegistry.register(new WalletHistoryTool(components.walletManager));
-      components.toolRegistry.register(new WalletQuoteTool(components.dexAdapters));
-      logger.info('Registered wallet tools (wallet_balance, wallet_swap, wallet_approve, wallet_history, wallet_quote)');
-    }
-  } catch (error) {
-    logger.warn('Wallet infrastructure initialization failed (non-fatal)', error);
   }
 }
 

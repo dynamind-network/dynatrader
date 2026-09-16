@@ -315,7 +315,9 @@ export class PluginRegistry {
       id,
       config,
       registerService: <T>(name: string, handle: T) => {
-        kernelCtx.registerService(`capability.${name}`, handle);
+        kernelCtx.registerService(`capability.${name}`, handle, {
+          allowOverride: true,
+        });
       },
       getService: <T>(name: string) => {
         const services = kernelCtx.services as Record<string, unknown>;

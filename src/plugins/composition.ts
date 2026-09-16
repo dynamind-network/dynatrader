@@ -92,10 +92,10 @@ export function composePluginRows(layers: PluginRowInput[][], meta: PluginLayer[
 }
 
 /** Layer-0 defaults: builtin capabilities that always mount. */
-export function builtinRows(): PluginRowInput[] {
+export function builtinRows(config: Record<string, unknown> = {}): PluginRowInput[] {
   return [
-    { id: "exchange", entry: "builtin:exchange" },
-    { id: "wallet", entry: "builtin:wallet" },
+    { id: "exchange", entry: "builtin:exchange", config },
+    { id: "wallet", entry: "builtin:wallet", config },
   ];
 }
 
@@ -287,13 +287,17 @@ export async function bootPluginTree(options: {
   pluginDirs?: string[];
   logger?: Logger;
   env?: NodeJS.ProcessEnv;
+  builtinConfig?: Record<string, unknown>;
   strict?: boolean;
 }): Promise<{ rows: PluginRow[]; reports: MountReport[] }> {
+  // Load registration side effects after this module has initialized its
+  // builtin factory map; a static import would create a circular TDZ.
+  await import("./builtin");
   const dirRows = await dirScanRows(options.pluginDirs ?? [], options.logger);
 
   const rows = composePluginRows(
     [
-      builtinRows(),
+      builtinRows(options.builtinConfig),
       bundledRows(options.env),
       dirRows,
       options.workspaceConfigRows ?? [],

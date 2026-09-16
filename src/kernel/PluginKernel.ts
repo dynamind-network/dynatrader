@@ -402,7 +402,8 @@ export class KernelPluginKernel {
     meta?: Record<string, unknown>,
   ): void {
     const existing = this.providers.get(name);
-    if (existing !== undefined && existing !== pluginId) {
+    const allowOverride = name.startsWith("capability.") && meta?.allowOverride === true;
+    if (existing !== undefined && existing !== pluginId && !allowOverride) {
       throw new Error(`Service "${name}" is already provided by plugin "${existing}"`);
     }
     this.services.set(name, { name, handle, pluginId, meta });

@@ -1079,8 +1079,6 @@ describe("Agent Core", () => {
           side: "buy" as const,
           type: "market" as const,
           quantity: 0.1,
-          strategyId: "test-strategy",
-          mode: "paper" as const,
           price: 50000,
           value: 5000,
           fees: 5,
@@ -1098,6 +1096,8 @@ describe("Agent Core", () => {
           side: "buy" as const,
           type: "market" as const,
           quantity: 0.1,
+          strategyId: "test-strategy",
+          mode: "paper" as const,
         };
         const trade = {
           id: "trade-pending-1",

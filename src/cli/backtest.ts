@@ -8,10 +8,7 @@ import { join } from "node:path";
 
 import type { DynaTraderRuntime } from "@dyna/orchestration/workspace";
 import type { ExchangeAdapter, OrderIntent } from "@dyna/contracts";
-import { CCXTAdapter } from "@dyna/exchange-ccxt";
-import { AlpacaAdapter } from "../market/exchange/alpaca-adapter";
-import { IBKRAdapter } from "../market/exchange/ibkr-adapter";
-import { LongbridgeAdapter } from "../market/exchange/longbridge-adapter";
+import { createExchangeAdapter } from "../market/exchange/exchange-factory";
 import { RunCardManager } from "../governance/run-cards";
 import {
   bold,
@@ -239,42 +236,10 @@ async function resolveVenueExchange(
     return runtimeExchange;
   }
 
-  const mode = "backtest";
   const authConfig = workspace.auth as Record<string, unknown> | undefined;
-  const exchangeId = venue.trim();
-  const apiKey =
-    (authConfig?.apiKey as string | undefined) ??
-    process.env[`${exchangeId.toUpperCase()}_API_KEY`] ??
-    undefined;
-  const secret =
-    (authConfig?.secret as string | undefined) ??
-    process.env[`${exchangeId.toUpperCase()}_SECRET`] ??
-    undefined;
-
-  if (exchangeId.toLowerCase() === "alpaca") {
-    return new AlpacaAdapter({
-      apiKey: process.env["ALPACA_API_KEY"] ?? (authConfig?.apiKey as string | undefined),
-      secretKey: process.env["ALPACA_SECRET_KEY"] ?? (authConfig?.secret as string | undefined),
-      paper: true,
-    });
-  }
-
-  if (exchangeId.toLowerCase() === "ibkr") {
-    return new IBKRAdapter({
-      accountId: process.env["IBKR_ACCOUNT_ID"] ?? (authConfig?.accountId as string | undefined),
-      baseUrl: process.env["IBKR_BASE_URL"],
-      sessionToken: process.env["IBKR_SESSION_TOKEN"],
-    });
-  }
-
-  if (exchangeId.toLowerCase() === "longbridge") {
-    return new LongbridgeAdapter({
-      accessToken: process.env["LONGBRIDGE_ACCESS_TOKEN"] ?? process.env["LONGBRIDGE_TOKEN"],
-      baseUrl: process.env["LONGBRIDGE_HTTP_URL"],
-    });
-  }
-
-  return new CCXTAdapter({ exchangeId, apiKey, secret, sandbox: mode === "backtest" });
+  const exchange = createExchangeAdapter({ mode: "backtest", exchangeId: venue, auth: authConfig });
+  if (!exchange) throw new Error(`Unable to create exchange adapter for ${venue}`);
+  return exchange;
 }
 
 async function fetchHistoricalCandles(
