@@ -1,6 +1,6 @@
 {
   "name": "dynatrader",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Open-source trading and DeFi AI agent runtime with integrated terminal UI",
   "type": "module",
   "workspaces": ["ui", "packages/*"],
@@ -33,6 +33,7 @@
     "release:check": "bun run typecheck && bun run build && bun run test",
     "test": "vitest run",
     "test:watch": "vitest",
+    "benchmark": "bun run evals/benchmark-matrix.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:ui": "cd ui && bun run typecheck",
     "clean": "rm -rf dist .tsbuildinfo"
