@@ -127,6 +127,7 @@ export class MCPBridge {
       await client.disconnect();
       this.clients.delete(name);
     }
+    await this.registry.unregister(`mcp-${name}`);
     this.connections.delete(name);
     this.logger.info(`MCP bridge disconnected: ${name}`);
   }

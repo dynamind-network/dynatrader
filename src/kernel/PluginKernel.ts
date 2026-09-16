@@ -113,6 +113,7 @@ export class KernelPluginKernel {
   private readonly records: Map<string, PluginRecord> = new Map();
   private readonly services: Map<string, KernelService> = new Map();
   private readonly providers: Map<string, string> = new Map();
+  private readonly overriddenServices: Map<string, KernelService[]> = new Map();
   private readonly declaredServices: Map<string, string[]> = new Map();
   private readonly listeners: Map<string, KernelListener[]> = new Map();
   private readonly logger: KernelLogger;
@@ -241,6 +242,15 @@ export class KernelPluginKernel {
     void this.emit("plugin.unmounted", { id });
   }
 
+  /** Remove a plugin definition and all of its mounted effects. */
+  async unregister(id: string): Promise<boolean> {
+    if (!this.records.has(id)) return false;
+    await this.unmount(id);
+    this.records.delete(id);
+    this.declaredServices.delete(id);
+    return true;
+  }
+
   /**
    * Hot-reload a plugin by unmounting and re-mounting it with a fresh context.
    *
@@ -276,6 +286,10 @@ export class KernelPluginKernel {
       throw new ServiceNotFoundError(name);
     }
     return service.handle as T;
+  }
+
+  getServiceOwner(name: string): string | undefined {
+    return this.services.get(name)?.pluginId;
   }
 
   /**
@@ -406,6 +420,14 @@ export class KernelPluginKernel {
     if (existing !== undefined && existing !== pluginId && !allowOverride) {
       throw new Error(`Service "${name}" is already provided by plugin "${existing}"`);
     }
+    if (existing !== undefined && existing !== pluginId && allowOverride) {
+      const previous = this.services.get(name);
+      if (previous) {
+        const history = this.overriddenServices.get(name) ?? [];
+        history.push(previous);
+        this.overriddenServices.set(name, history);
+      }
+    }
     this.services.set(name, { name, handle, pluginId, meta });
     this.providers.set(name, pluginId);
   }
@@ -496,6 +518,16 @@ export class KernelPluginKernel {
       if (service.pluginId === pluginId) {
         this.services.delete(name);
         this.providers.delete(name);
+        const history = this.overriddenServices.get(name) ?? [];
+        const remaining = history.filter(previous => previous.pluginId !== pluginId);
+        const previous = remaining.pop();
+        if (previous && previous.pluginId) {
+          this.services.set(name, previous);
+          this.providers.set(name, previous.pluginId);
+          this.overriddenServices.set(name, remaining);
+        } else {
+          this.overriddenServices.delete(name);
+        }
       }
     }
     for (const name of this.declaredServices.get(pluginId) ?? []) {

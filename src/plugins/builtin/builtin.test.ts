@@ -28,6 +28,8 @@ describe('builtin plugins', () => {
     expect(registry.getProvider('market_data')).toEqual({ source: 'premium' });
     await registry.reload('premium');
     expect(registry.getProvider('market_data')).toEqual({ source: 'premium' });
+    await registry.unregister('premium');
+    expect(registry.getProviderPlugin('market_data')?.id).toBe('exchange');
     await registry.deactivateAll();
   });
 

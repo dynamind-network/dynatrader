@@ -166,11 +166,6 @@ export class PluginRegistry {
           this.toolRegistry?.unregister(toolName);
         }
         this.pluginToolNames.delete(plugin.id);
-        for (const cap of plugin.capabilities) {
-          if (this.providers.get(cap)?.id === plugin.id) {
-            this.providers.delete(cap);
-          }
-        }
       },
     };
 
@@ -212,6 +207,18 @@ export class PluginRegistry {
     this.pluginToolNames.clear();
   }
 
+  async unregister(id: string): Promise<boolean> {
+    const removed = await this.kernel.unregister(id);
+    if (!removed) return false;
+    this.syncCapabilityProviders();
+    this.plugins.delete(id);
+    this.configs.delete(id);
+    this.providers.forEach((plugin, capability) => {
+      if (plugin.id === id) this.providers.delete(capability);
+    });
+    return true;
+  }
+
   /**
    * Hot-reload a mounted plugin (unmount + mount), unwinding and re-applying
    * all of its registrations.
@@ -228,10 +235,20 @@ export class PluginRegistry {
       }
     }
     await this.kernel.reload(id);
+    this.syncCapabilityProviders();
     if (record.status === "active") {
       for (const cap of record.plugin.capabilities) {
         this.providers.set(cap, record.plugin);
       }
+    }
+  }
+
+  private syncCapabilityProviders(): void {
+    for (const [capability, plugin] of this.providers) {
+      const owner = this.kernel.getServiceOwner(`capability.${capability}`);
+      const replacement = owner ? this.plugins.get(owner)?.plugin : undefined;
+      if (replacement) this.providers.set(capability, replacement);
+      else if (plugin.id !== owner) this.providers.delete(capability);
     }
   }
 
