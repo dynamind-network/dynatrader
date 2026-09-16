@@ -64,6 +64,14 @@ terminal:
 memory:
   backend: sqlite
 
+# plugins:
+#   - id: dynamind-api
+#     entry: bundled:dynamind-api
+#     enabled: true
+#     config:
+#       # API credentials stay in DYNAMIND_API_URL / DYNAMIND_API_KEY.
+#       capabilities: [market_data, signal, risk]
+
 # subagentDefaults:
 #   maxTurns: <SET_MAX_TURNS>
 

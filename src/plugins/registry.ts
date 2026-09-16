@@ -262,6 +262,11 @@ export class PluginRegistry {
     return this.providers.get(capability);
   }
 
+  /** Return the resolved composition config for an installed plugin. */
+  getPluginConfig(id: string): Readonly<Record<string, unknown>> {
+    return { ...(this.configs.get(id) ?? {}) };
+  }
+
   /**
    * List all registered plugins.
    */

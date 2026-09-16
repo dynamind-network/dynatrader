@@ -49,6 +49,7 @@ import { cmdSetup, cmdLogs, cmdConfig, cmdVersion, cmdCompact, cmdAgents } from 
 import { cmdInit } from './cli/commands/init';
 import { cmdDoctor } from './cli/commands/doctor';
 import { cmdIssues, cmdTrack, cmdInbox } from './cli/commands/artifacts';
+import { cmdPlugins } from './cli/commands/plugins';
 
 // =============================================================================
 // Command: help
@@ -84,6 +85,7 @@ function cmdHelp(): void {
   console.log(`  ${green('workspace')} <sub> [args]   Manage trading workspaces`);
   console.log(`  ${green('gateway')} <sub> [args]     Manage daemon lifecycle and gateway connections`);
   console.log(`  ${green('learning')} <sub> [args]    Manage learning loop and skill review`);
+  console.log(`  ${green('plugins')} <sub> [args]     Inspect and reload the composed plugin tree`);
   console.log(`  ${green('doctor')}                  Run system diagnostics (--fix for auto-repair)`);
   console.log(`  ${green('logs')} [options]           View daemon logs`);
   console.log(`  ${green('config')} <sub> [args]      Manage configuration`);
@@ -377,6 +379,12 @@ async function main(): Promise<void> {
 
     runtime = await initRuntime(globalWorkspace, globalMode);
     const workspace = await runtime.loadWorkspace();
+
+    if (command === 'plugins') {
+      const sub = parsed.positional[0] ?? 'list';
+      await cmdPlugins(runtime, sub, parsed.positional.slice(1));
+      return;
+    }
 
     switch (command) {
       case 'status': {
