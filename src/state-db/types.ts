@@ -56,12 +56,13 @@ export interface GoalRow {
   completion_policy: string; // JSON
   created_at: number;
   updated_at: number;
-  priority: string;
-  token_budget_remaining: number;
-  time_budget_remaining: number;
-  self_scheduled: number; // 0 or 1
-  continuation_policy: string; // JSON
-  metadata: string; // JSON
+  /** Optional for compatibility with pre-v3 goal callers. */
+  priority?: string;
+  token_budget_remaining?: number;
+  time_budget_remaining?: number;
+  self_scheduled?: number; // 0 or 1
+  continuation_policy?: string; // JSON
+  metadata?: string; // JSON
 }
 
 // ---------------------------------------------------------------------------
@@ -115,8 +116,8 @@ export interface CronJobRow {
   allowed_tools: string | null; // JSON array or null
   disallowed_tools: string | null; // JSON array or null
   model_config: string | null; // JSON or null
-  agent_id: string | null; // Agent to execute this job
-  subagent: string | null; // Subagent to spawn for this job
+  agent_id?: string | null; // Agent to execute this job
+  subagent?: string | null; // Subagent to spawn for this job
   created_at: number;
   updated_at: number;
 }

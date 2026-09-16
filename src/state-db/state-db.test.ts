@@ -250,7 +250,7 @@ describe('StateDb', () => {
       const version = db.query<{ value: string }>(
         "SELECT value FROM state_meta WHERE key = 'schema_version'",
       );
-      expect(version[0]?.value).toBe('2');
+      expect(version[0]?.value).toBe('3');
     });
 
     it('should expose the path getter', () => {

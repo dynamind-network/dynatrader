@@ -590,8 +590,13 @@ export class AgentCore {
   }
 
   private registerToolResultRetriever(): void {
-    if (!this.config.toolRegistry) return;
-    this.config.toolRegistry.register({
+    const registry = this.config.toolRegistry as (typeof this.config.toolRegistry & {
+      registerTool?: (handler: ToolHandler) => void;
+    }) | undefined;
+    if (!registry) return;
+    const register = registry.register ?? registry.registerTool;
+    if (typeof register !== "function") return;
+    register.call(registry, {
       definition: {
         name: "get_tool_result",
         description: "Retrieve the full result of a previous tool call by its ID. Tool results are compressed in context — use this to see full output when needed.",

@@ -1050,8 +1050,8 @@ describe("Agent Core", () => {
         const outcome = makeTradeOutcome();
         await agent.processTradeOutcome(outcome);
 
-        const journal = memory.getWriter().getDecisionHistory();
-        expect(journal.some(e => e.type === "outcome")).toBe(true);
+        const journal = await memory.search({ scope: "decision_journal", text: "", topK: 50 });
+        expect(journal.some((entry) => (entry.payload as { type?: string }).type === "outcome")).toBe(true);
       });
 
       it("should not crash when called without optional components", async () => {
@@ -1068,6 +1068,8 @@ describe("Agent Core", () => {
           side: "buy" as const,
           type: "market" as const,
           quantity: 0.1,
+          strategyId: "test-strategy",
+          mode: "paper" as const,
         };
         const trade = {
           id: "trade-exec-1",
@@ -1077,6 +1079,8 @@ describe("Agent Core", () => {
           side: "buy" as const,
           type: "market" as const,
           quantity: 0.1,
+          strategyId: "test-strategy",
+          mode: "paper" as const,
           price: 50000,
           value: 5000,
           fees: 5,
@@ -1107,7 +1111,7 @@ describe("Agent Core", () => {
           value: 5000,
           fees: 5,
           slippage: 0,
-          status: "pending" as const,
+          status: "cancelled" as const,
         };
 
         await agent.processExecution({ intent, trade, executionMode: "paper" });

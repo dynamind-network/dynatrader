@@ -19,7 +19,8 @@ export interface CircuitBreakerState {
   weeklyLoss: boolean;
   marketCircuit: boolean;
   llmFailure: boolean;
-  gasSpendDaily: boolean;
+  /** Optional for callers using pre-gas-limit breaker state snapshots. */
+  gasSpendDaily?: boolean;
   lastTriggered?: string;
   triggerReason?: string;
 }

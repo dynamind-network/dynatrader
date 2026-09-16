@@ -359,12 +359,12 @@ export class StateDb {
         row.completion_policy,
         row.created_at,
         row.updated_at,
-        row.priority,
-        row.token_budget_remaining,
-        row.time_budget_remaining,
-        row.self_scheduled,
-        row.continuation_policy,
-        row.metadata,
+        row.priority ?? 'normal',
+        row.token_budget_remaining ?? 0,
+        row.time_budget_remaining ?? 0,
+        row.self_scheduled ?? 0,
+        row.continuation_policy ?? '{}',
+        row.metadata ?? '{}',
       ],
     );
   }
