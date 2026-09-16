@@ -22,7 +22,7 @@ export interface McpResponse {
 
 export interface McpServerConfig {
   name: string;
-  transport: "stdio" | "sse";
+  transport: "stdio" | "sse" | "http";
   command?: string;    // For stdio transport
   args?: string[];     // For stdio transport
   url?: string;        // For SSE transport

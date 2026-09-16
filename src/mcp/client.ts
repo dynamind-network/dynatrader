@@ -2,8 +2,10 @@
  * MCP Client — Consume external MCP server tools
  */
 
-import type { ToolRegistry, ToolDefinition, ToolResult } from "@dyna/contracts";
+import type { ToolRegistry, ToolDefinition, ToolResult, ToolCall } from "@dyna/contracts";
 import type { McpServerConfig, McpTool } from "./types";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { createInterface, type Interface } from "node:readline";
 
 export interface McpServerConnection {
   config: McpServerConfig;
@@ -20,6 +22,7 @@ export class McpClient {
   private connections: Map<string, McpServerConnection> = new Map();
   private toolRegistry: ToolRegistry;
   private proxies: Map<string, McpToolProxy> = new Map();
+  private transports = new Map<string, { request: (method: string, params?: Record<string, unknown>) => Promise<unknown>; close: () => Promise<void> }>();
 
   constructor(toolRegistry: ToolRegistry) {
     this.toolRegistry = toolRegistry;
@@ -30,17 +33,22 @@ export class McpClient {
    * In a real implementation, this would spawn a stdio process or open an SSE connection.
    */
   async connect(config: McpServerConfig): Promise<McpTool[]> {
-    // Track the server connection locally so discovered tools can be proxied
-    // through the registry once they are registered.
+    const transport = config.transport === 'stdio'
+      ? await createStdioTransport(config)
+      : createHttpTransport(config);
+    await transport.request('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'dynatrader', version: '3.0.0' } });
+    await transport.request('notifications/initialized');
+    const listed = await transport.request('tools/list') as { tools?: McpTool[] };
     const connection: McpServerConnection = {
       config,
-      tools: [],
+      tools: listed.tools ?? [],
       connected: true,
     };
     this.connections.set(config.name, connection);
-    
+    this.transports.set(config.name, transport);
+    this.registerRemoteTools(config.name, connection.tools);
     console.info(`MCP client: connected to ${config.name} (${config.transport})`);
-    return [];
+    return connection.tools;
   }
 
   /**
@@ -53,9 +61,10 @@ export class McpClient {
     connection.tools = tools;
     
     for (const tool of tools) {
-      const proxy = new McpToolProxy(tool, serverName);
-      this.proxies.set(tool.name, proxy);
-      // Note: In real implementation, would register with toolRegistry
+      const proxy = new McpToolProxy(tool, serverName, this.transports.get(serverName)!.request);
+      const name = proxy.getDefinition().name;
+      this.proxies.set(name, proxy);
+      this.toolRegistry.register(proxy);
     }
   }
 
@@ -70,9 +79,12 @@ export class McpClient {
     
     // Remove proxied tools
     for (const tool of connection.tools) {
-      this.proxies.delete(tool.name);
+      const proxyName = `mcp.${name}.${tool.name}`;
+      this.proxies.delete(proxyName);
+      this.toolRegistry.unregister?.(proxyName);
     }
-    
+    await this.transports.get(name)?.close();
+    this.transports.delete(name);
     this.connections.delete(name);
     console.info(`MCP client: disconnected from ${name}`);
   }
@@ -104,9 +116,16 @@ export class McpToolProxy {
   readonly tool: McpTool;
   readonly serverName: string;
 
-  constructor(tool: McpTool, serverName: string) {
+  private request: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
+
+  constructor(tool: McpTool, serverName: string, request: (method: string, params?: Record<string, unknown>) => Promise<unknown>) {
     this.tool = tool;
     this.serverName = serverName;
+    this.request = request;
+  }
+
+  get definition(): ToolDefinition {
+    return this.getDefinition();
   }
 
   getDefinition(): ToolDefinition {
@@ -124,16 +143,47 @@ export class McpToolProxy {
    * Execute this tool on the remote MCP server.
    * In production, this would send a tools/call request via the transport.
    */
-  async execute(args: Record<string, unknown>): Promise<ToolResult> {
+  async execute(call: ToolCall): Promise<ToolResult> {
     const startTime = Date.now();
     
-    // Placeholder: in real implementation, would send MCP request
-    // via stdio (child_process) or SSE (HTTP)
+    const response = await this.request('tools/call', { name: this.tool.name, arguments: call.args }) as { content?: Array<{ type: string; text?: string }>; isError?: boolean };
     return {
-      success: false,
-      data: `MCP tool ${this.tool.name} on ${this.serverName} — transport not yet implemented`,
+      success: !response.isError,
+      data: response.content ?? response,
       durationMs: Date.now() - startTime,
       truncated: false,
     };
   }
+}
+
+type RequestTransport = { request: (method: string, params?: Record<string, unknown>) => Promise<unknown>; close: () => Promise<void> };
+
+function createHttpTransport(config: McpServerConfig): RequestTransport {
+  if (!config.url) throw new Error(`MCP HTTP server '${config.name}' requires url`);
+  let nextId = 1;
+  return {
+    async request(method, params) {
+      const response = await fetch(config.url!, { method: 'POST', headers: { 'content-type': 'application/json', ...(config.env as Record<string, string> ?? {}) }, body: JSON.stringify({ jsonrpc: '2.0', id: nextId++, method, params }) });
+      if (!response.ok) throw new Error(`MCP ${config.name} HTTP ${response.status}`);
+      const payload = await response.json() as { result?: unknown; error?: { message?: string } };
+      if (payload.error) throw new Error(payload.error.message ?? 'MCP request failed');
+      return payload.result;
+    },
+    async close() {},
+  };
+}
+
+async function createStdioTransport(config: McpServerConfig): Promise<RequestTransport> {
+  if (!config.command) throw new Error(`MCP stdio server '${config.name}' requires command`);
+  const child = spawn(config.command, config.args ?? [], { env: { ...process.env, ...config.env }, stdio: ['pipe', 'pipe', 'pipe'] }) as ChildProcessWithoutNullStreams;
+  const lines: Interface = createInterface({ input: child.stdout });
+  let nextId = 1;
+  const pending = new Map<number, (value: unknown) => void>();
+  const failures = new Map<number, (reason: Error) => void>();
+  lines.on('line', line => { try { const msg = JSON.parse(line) as { id?: number; result?: unknown; error?: { message?: string } }; if (msg.id == null) return; const reject = failures.get(msg.id); if (msg.error) { failures.delete(msg.id); pending.delete(msg.id); reject?.(new Error(msg.error.message ?? 'MCP request failed')); } else { pending.get(msg.id)?.(msg.result); pending.delete(msg.id); failures.delete(msg.id); } } catch { /* ignore server logs */ } });
+  child.on('error', error => { for (const reject of failures.values()) reject(error); });
+  return {
+    request(method, params) { const id = nextId++; return new Promise((resolve, reject) => { pending.set(id, resolve); failures.set(id, reject); child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'); }); },
+    async close() { lines.close(); child.kill(); },
+  };
 }
