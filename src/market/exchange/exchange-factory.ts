@@ -14,7 +14,8 @@ export interface ExchangeFactoryConfig {
 
 /** Build the configured exchange adapter without inventing a venue. */
 export function createExchangeAdapter(config: ExchangeFactoryConfig): ExchangeAdapter | null {
-  const exchangeId = (config.exchangeId ?? config.adapterName ?? (config.mode === 'paper' || config.mode === 'backtest' ? 'binance' : '')).trim();
+  const requestedId = config.exchangeId?.trim() || config.adapterName?.trim();
+  const exchangeId = requestedId || (config.mode === 'paper' || config.mode === 'backtest' ? 'binance' : '');
   if (!exchangeId) return null;
 
   const auth = config.auth ?? {};

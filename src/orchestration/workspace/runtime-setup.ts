@@ -319,6 +319,7 @@ export async function initializeComponents(
     builtinConfig: {
       mode: config.mode,
       exchangeId: workspace.config?.exchange?.id,
+      exchangeIds: workspace.config?.exchange?.ids,
       adapterName: workspace.adapters.find((adapter) => ['broker', 'execution', 'market_data'].includes(adapter.type))?.name,
       auth: workspace.auth as Record<string, unknown> | undefined,
       privateKeyEnvVar: config.walletPrivateKeyEnvVar ?? 'WALLET_PRIVATE_KEY',
@@ -357,6 +358,7 @@ export async function initializeComponents(
   // --- 7. Exchange Adapter (paper mode by default) ---
   logger.debug('Initializing CCXTAdapter (paper mode)');
   components.exchange = pluginRegistry.getProvider<ExchangeAdapter>('exchange') ?? null;
+  const exchangeRegistry = pluginRegistry.getProvider<ReadonlyMap<string, ExchangeAdapter>>('exchange_adapters');
 
   // --- 8. Paper Engine ---
   logger.debug('Initializing PaperEngine');
@@ -383,7 +385,7 @@ export async function initializeComponents(
     maxMicroLiveOrderValue: 1000,
     audit: components.auditTrail,
     paperEngine: components.paperEngine ?? undefined,
-    exchangeAdapters: new Map(components.exchange ? [[components.exchange.id, components.exchange]] : []),
+    exchangeAdapters: new Map(exchangeRegistry ?? (components.exchange ? [[components.exchange.id, components.exchange]] : [])),
     haltState: createHaltState(workspacePath),
   });
 

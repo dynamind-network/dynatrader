@@ -133,6 +133,7 @@ export type {
   PluginToolDeclaration,
   PluginToolHandler,
   MarketDataProvider,
+  ExchangeAdapterRegistry,
   SignalProvider,
   RiskProvider,
   NewsProvider,

@@ -13,6 +13,8 @@ describe('builtin plugins', () => {
     expect(registry.getProviderPlugin('exchange')?.id).toBe('exchange');
     expect(registry.getProviderPlugin('market_data')?.id).toBe('exchange');
     expect(registry.hasProvider('exchange')).toBe(true);
+    const adapters = registry.getProvider<ReadonlyMap<string, { id: string }>>('exchange_adapters');
+    expect(adapters?.get('binance')?.id).toBe('binance');
     await registry.deactivateAll();
     expect(registry.hasProvider('exchange')).toBe(false);
   });

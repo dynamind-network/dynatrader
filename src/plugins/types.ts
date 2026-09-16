@@ -17,6 +17,7 @@ export type PluginCapability =
   | "risk"
   | "news"
   | "exchange"
+  | "exchange_adapters"
   | "backtest"
   | "defi"
   | "macro"
@@ -110,6 +111,9 @@ export interface MarketDataProvider {
   getOrderBook(symbol: string): Promise<OrderBook>;
   get24hVolume(symbol: string): Promise<number>;
 }
+
+/** Venue adapters contributed by one or more exchange plugins. */
+export type ExchangeAdapterRegistry = ReadonlyMap<string, import('@dyna/contracts').ExchangeAdapter>;
 
 // ---------------------------------------------------------------------------
 // Signal Provider

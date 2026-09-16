@@ -301,6 +301,7 @@ export class PluginRegistry {
       risk: null,
       news: null,
       exchange: null,
+      exchange_adapters: null,
       backtest: null,
       defi: null,
       macro: null,

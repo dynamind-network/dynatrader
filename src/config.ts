@@ -29,6 +29,7 @@ export interface DynaConfig {
   };
   exchange: {
     id: string;
+    ids?: string[];
     sandbox: boolean;
   };
   models: {
@@ -150,6 +151,7 @@ const ZodConfigSchema = z.object({
   }).partial().optional(),
   exchange: z.object({
     id: z.string().optional(),
+    ids: z.array(z.string()).optional(),
     sandbox: z.boolean().optional(),
   }).partial().optional(),
   models: z.object({
@@ -266,6 +268,7 @@ export function defaultConfig(): DynaConfig {
     },
     exchange: {
       id: '',
+      ids: [],
       sandbox: true,
     },
     models: {
@@ -414,6 +417,7 @@ function mergeWithDefaults(raw: Record<string, unknown>): DynaConfig {
     },
     exchange: {
       id: (exchange['id'] as string) ?? defaults.exchange.id,
+      ids: Array.isArray(exchange['ids']) ? exchange['ids'] as string[] : defaults.exchange.ids,
       sandbox: (exchange['sandbox'] as boolean) ?? defaults.exchange.sandbox,
     },
     models: {

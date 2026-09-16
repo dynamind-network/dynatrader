@@ -10,6 +10,7 @@ import { normalizeMarketRecord } from '../market/utils';
 export async function cmdTrade(
   runtime: DynaTraderRuntime,
   mode: TradeMode,
+  options: { execute?: boolean } = {},
 ): Promise<void> {
   console.log();
   console.log(bold(cyan('Analyzing current market universe...')));
@@ -129,6 +130,25 @@ export async function cmdTrade(
       );
       orderNum++;
     }
+  }
+
+  // Execute only the final agent iteration's intents. Earlier iterations are
+  // proposals, not independent orders; submitting all of them would duplicate
+  // exposure and violate the agent's final decision.
+  const finalIntents = result.iterations.at(-1)?.output.orderIntents ?? [];
+  const shouldExecute = options.execute ?? (mode === 'paper' || mode === 'backtest');
+  if (shouldExecute && finalIntents.length > 0) {
+    console.log();
+    console.log(bold('Execution:'));
+    const executionResults = await runtime.executeOrderIntents(finalIntents, mode);
+    for (const [index, execution] of executionResults.entries()) {
+      const intent = finalIntents[index];
+      const statusColor = execution.status === 'filled' ? green : red;
+      console.log(`  ${statusColor(execution.status.toUpperCase())} ${intent.side.toUpperCase()} ${intent.quantity} ${intent.symbol} (${execution.orderId})`);
+      if (execution.rejectionReason) console.log(`    ${red(execution.rejectionReason)}`);
+    }
+  } else if (!shouldExecute && finalIntents.length > 0) {
+    console.log(dim('Execution skipped: pass --execute or use paper/backtest mode.'));
   }
 
   // Summary
