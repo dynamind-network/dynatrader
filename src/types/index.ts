@@ -325,7 +325,7 @@ export type ExecutionMode = "backtest" | "paper" | "shadow" | "micro_live" | "li
 
 export interface ExecutionResult {
   orderId: string;
-  status: "filled" | "rejected" | "pending_approval";
+  status: "filled" | "rejected" | "pending" | "pending_approval";
   trade?: {
     symbol: string;
     side: "buy" | "sell";

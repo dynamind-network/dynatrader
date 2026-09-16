@@ -372,6 +372,27 @@ describe("ExecutionRouterImpl", () => {
     expect(result.rejectionReason).toMatch(/venue|exchange|unsupported/i);
   });
 
+  it("reconciles a submitted venue order without submitting it again", async () => {
+    const fetchOrder = vi.fn().mockResolvedValue({ status: "closed", filled: 0.01, average: 50100, fee: 0.5 });
+    (ccxtAdapter as unknown as { fetchOrder: typeof fetchOrder }).fetchOrder = fetchOrder;
+    const router = new ExecutionRouterImpl({
+      liveTradingEnabled: true,
+      microLiveEnabled: true,
+      requireApprovalForLive: false,
+      maxMicroLiveOrderValue: 10000,
+      audit,
+      exchangeAdapters,
+    });
+
+    const intent = createOrderIntent({ mode: "live" as TradeMode });
+    const result = await router.execute(intent, "live");
+
+    expect(result.status).toBe("filled");
+    expect(result.trade?.price).toBe(50100);
+    expect(fetchOrder).toHaveBeenCalledWith(result.orderId, intent.symbol);
+    expect(ccxtAdapter.placeOrder).toHaveBeenCalledTimes(1);
+  });
+
   // -----------------------------------------------------------------------
   // 10. should audit all execution decisions
   // -----------------------------------------------------------------------

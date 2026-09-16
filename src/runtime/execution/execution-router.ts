@@ -153,6 +153,30 @@ export class ExecutionRouterImpl {
     return this.executions.get(orderId) ?? null;
   }
 
+  /** Refresh a live order from its venue without submitting a duplicate order. */
+  async reconcile(orderId: string, venue: string, symbol: string): Promise<ExecutionResult | null> {
+    const current = this.executions.get(orderId);
+    const adapter = this.config.exchangeAdapters?.get(venue);
+    if (!current || !adapter?.fetchOrder) return current ?? null;
+    const remote = await adapter.fetchOrder(orderId, symbol);
+    const status: ExecutionResult['status'] = remote.status === 'closed' || remote.status === 'filled'
+      ? 'filled'
+      : remote.status === 'canceled' || remote.status === 'rejected'
+        ? 'rejected'
+        : 'pending';
+    const trade = current.trade
+      ? {
+          ...current.trade,
+          ...(typeof remote.filled === 'number' ? { quantity: remote.filled } : {}),
+          ...(typeof remote.average === 'number' ? { price: remote.average, value: remote.average * (remote.filled ?? current.trade.quantity) } : {}),
+          ...(typeof remote.fee === 'number' ? { fees: remote.fee } : {}),
+        }
+      : current.trade;
+    const updated = { ...current, status, trade, timestamp: new Date() };
+    this.executions.set(orderId, updated);
+    return updated;
+  }
+
   /**
    * Cancel an open order by delegating to the appropriate engine/adapter.
    * Routes to the correct engine based on which engine handled the order.
@@ -226,7 +250,7 @@ export class ExecutionRouterImpl {
 
     try {
       const trade = await this.config.paperEngine.placeOrder(intent);
-      const executionResult = await this.recordExecution(intent, {
+      let executionResult = await this.recordExecution(intent, {
         orderId: trade.id,
         status: trade.status === "filled" ? "filled" : "rejected",
         trade: {
@@ -264,7 +288,7 @@ export class ExecutionRouterImpl {
 
     try {
       const trade = await this.config.paperEngine.placeOrder(intent);
-      const executionResult = await this.recordExecution(intent, {
+      let executionResult = await this.recordExecution(intent, {
         orderId: trade.id,
         status: trade.status === "filled" ? "filled" : "rejected",
         trade: {
@@ -412,7 +436,7 @@ export class ExecutionRouterImpl {
 
     try {
       const result = await adapter.placeOrder(intent);
-      const executionResult = await this.recordExecution(intent, {
+      let executionResult = await this.recordExecution(intent, {
         orderId: result.orderId,
         status: "filled",
         trade: {
@@ -425,6 +449,14 @@ export class ExecutionRouterImpl {
         },
         timestamp: new Date(),
       });
+      if (adapter.fetchOrder) {
+        try {
+          executionResult = await this.reconcile(result.orderId, intent.venue, intent.symbol) ?? executionResult;
+        } catch {
+          // Submission succeeded but the venue read is temporarily unavailable;
+          // retain the submitted result and let the caller reconcile later.
+        }
+      }
       this.orderEngines.set(result.orderId, "exchange");
       await this.notifyExecution({
         intent,
