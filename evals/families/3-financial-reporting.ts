@@ -1,0 +1,4 @@
+import type { EvalScenario } from '../harness/types';
+import { registerEvaluator } from '../harness/evaluators';
+export const financialReportingScenarios: EvalScenario[] = [{ id: 'financial-report-001', family: 'financial_reporting', name: 'Extract earnings facts', description: 'Extract deterministic facts from an earnings excerpt.', task: 'From this excerpt: Revenue $10.2M, up 12% year over year; gross margin 64%; cash $3.1M. Return JSON with revenue, growth_percent, gross_margin_percent, and cash.', expected: { pass_thresholds: { task_success: 0.5 } } }];
+registerEvaluator('financial_reporting', trajectory => { const text = trajectory.map(s => String(s.output ?? '')).join(' ').toLowerCase(); const hits = ['10.2', '12', '64', '3.1'].filter(v => text.includes(v)).length; return { task_success: hits / 4, values_extracted: hits / 4 }; });

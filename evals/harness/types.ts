@@ -19,7 +19,11 @@ export type EvalFamily =
   | 'tool_pipeline'
   | 'memory_recall'
   | 'multi_agent_coordination'
-  | 'profile_resolution';
+  | 'profile_resolution'
+  | 'financial_reporting'
+  | 'web_research'
+  | 'spreadsheet'
+  | 'secure_tool_use';
 
 // ---------------------------------------------------------------------------
 // Trajectory

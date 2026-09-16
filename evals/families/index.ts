@@ -7,12 +7,20 @@ export { toolSelectionScenarios } from './2-tool-selection';
 export { tradingDecisionScenarios } from './4-trading-decision';
 export { multiAgentScenarios } from './7-multi-agent';
 export { memoryScenarios } from './8-memory';
+export { financialReportingScenarios } from './3-financial-reporting';
+export { webResearchScenarios } from './5-web-research';
+export { spreadsheetScenarios } from './6-spreadsheet';
+export { secureToolUseScenarios } from './9-secure-tool-use';
 
 import { marketUnderstandingScenarios } from './1-market-understanding';
 import { toolSelectionScenarios } from './2-tool-selection';
 import { tradingDecisionScenarios } from './4-trading-decision';
 import { multiAgentScenarios } from './7-multi-agent';
 import { memoryScenarios } from './8-memory';
+import { financialReportingScenarios } from './3-financial-reporting';
+import { webResearchScenarios } from './5-web-research';
+import { spreadsheetScenarios } from './6-spreadsheet';
+import { secureToolUseScenarios } from './9-secure-tool-use';
 
 import type { EvalScenario } from '../harness/types';
 
@@ -25,6 +33,10 @@ export const ALL_SCENARIOS: Record<string, EvalScenario[]> = {
   trading_decision: tradingDecisionScenarios,
   multi_agent: multiAgentScenarios,
   memory: memoryScenarios,
+  financial_reporting: financialReportingScenarios,
+  web_research: webResearchScenarios,
+  spreadsheet: spreadsheetScenarios,
+  secure_tool_use: secureToolUseScenarios,
 };
 
 /**
@@ -36,6 +48,10 @@ export const ALL_SCENARIOS_FLAT: EvalScenario[] = [
   ...tradingDecisionScenarios,
   ...multiAgentScenarios,
   ...memoryScenarios,
+  ...financialReportingScenarios,
+  ...webResearchScenarios,
+  ...spreadsheetScenarios,
+  ...secureToolUseScenarios,
 ];
 
 /**

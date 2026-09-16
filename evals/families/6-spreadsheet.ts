@@ -1,0 +1,4 @@
+import type { EvalScenario } from '../harness/types';
+import { registerEvaluator } from '../harness/evaluators';
+export const spreadsheetScenarios: EvalScenario[] = [{ id: 'spreadsheet-001', family: 'spreadsheet', name: 'Compute CSV total', description: 'Compute and write a derived value from tabular data.', task: 'Given CSV rows amount: 12, 8, 5, calculate the total and write a CSV containing total,25.', expected: { tools_required: ['exec'], pass_thresholds: { task_success: 0.5 } } }];
+registerEvaluator('spreadsheet', (trajectory) => { const text = trajectory.map(s => String(s.output ?? '')).join(' ').toLowerCase(); const computed = text.includes('25'); const called = trajectory.some(s => s.action === 'tool_call' && s.tool === 'exec'); return { task_success: Number(computed && called), computed_value: Number(computed), wrote_output: Number(called) }; });
