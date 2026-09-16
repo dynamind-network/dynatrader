@@ -8,7 +8,7 @@
  * Integrates with TxPipeline for execution.
  */
 
-import { type Address } from 'viem';
+import { getAddress, type Address } from 'viem';
 import {
   SupportedChainId,
   type SwapParams,
@@ -17,7 +17,8 @@ import {
   type DEXAdapter,
   type DEXAdapterParams,
 } from './types';
-import type { TxPipeline, PipelineResult } from './tx-pipeline';
+import type { TxPipeline } from './tx-pipeline';
+import type { PipelineResult } from './types';
 
 // ---------------------------------------------------------------------------
 // Chain Network String Parsing
@@ -243,7 +244,7 @@ export class DEXRouter {
         tokenOut,
         amountIn,
         slippageTolerance: slippagePct,
-        recipient: walletAddress,
+        recipient: getAddress(walletAddress),
       },
       adapterName,
     );

@@ -155,6 +155,7 @@ export interface OrderPartialFillEvent extends OrderEventBase {
 
 export interface OrderFilledEvent extends OrderEventBase {
   type: OrderEventType.FILLED;
+  side: OrderSide;
   lastQty: string;
   lastPx: string;
   tradeId: TradeId;

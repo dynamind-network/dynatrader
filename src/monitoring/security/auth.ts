@@ -6,7 +6,7 @@
 
 import jwt from 'jsonwebtoken';
 import type { StringValue } from 'ms';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import Emittery from 'emittery';
 import { MemoryStoreImpl } from '@dyna/memory-core';

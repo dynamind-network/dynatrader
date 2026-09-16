@@ -11,7 +11,6 @@ import {
   type Hex,
   encodeFunctionData,
   decodeAbiParameters,
-  abiCoder,
 } from 'viem';
 import { SupportedChainId } from './types';
 import { getPublicClient, getChainConfig } from './chain-registry';

@@ -145,11 +145,17 @@ export const dynaTraderRouter = router({
       try {
         const strategy: SkillManifest = {
           id: `strategy-${Date.now()}`,
-          symbol: (input.source.params as Record<string, unknown>)?.symbol as string ?? "UNKNOWN",
-          name: input.source.body.slice(0, 80),
-          version: "1.0.0",
+          venue: String(input.source.params?.venue ?? "unknown"),
+          symbol: String(input.source.params?.symbol ?? "UNKNOWN"),
+          entry: input.source.body,
+          exits: input.source.params?.exits ?? {},
+          sizing: input.source.params?.sizing ?? {},
+          risk: {
+            maxPositionNotional: Number(input.source.params?.maxPositionNotional ?? 0),
+            maxDailyLoss: Number(input.source.params?.maxDailyLoss ?? 0),
+            maxOpenOrders: Number(input.source.params?.maxOpenOrders ?? 0),
+          },
           executionMode: "paper",
-          ...input.source.params as Partial<SkillManifest>,
         };
 
         await eventBus.emit("strategy_created", { strategy, source: input.source });

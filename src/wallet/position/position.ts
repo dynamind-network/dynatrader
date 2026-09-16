@@ -122,7 +122,7 @@ export class Position {
   // -- Internal position management --
 
   private _openPosition(fill: OrderFilledEvent, now: number): void {
-    const side = this._sideFromOrder(fill.orderSide);
+    const side = this._sideFromOrder(fill.side);
     const qty = parseFloat(fill.lastQty);
 
     this._core.side = side;
@@ -131,8 +131,8 @@ export class Position {
     this._core.signedQty = side === PositionSide.LONG ? qty : -qty;
     this._core.peakQty = fill.lastQty;
     this._core.avgPxOpen = fill.lastPx;
-    this._core.buyQty = fill.orderSide === 'BUY' ? fill.lastQty : '0';
-    this._core.sellQty = fill.orderSide === 'SELL' ? fill.lastQty : '0';
+    this._core.buyQty = fill.side === 'BUY' ? fill.lastQty : '0';
+    this._core.sellQty = fill.side === 'SELL' ? fill.lastQty : '0';
     this._core.openedAt = now;
     this._core.lastUpdatedAt = now;
 
@@ -157,7 +157,7 @@ export class Position {
     let newQty: number;
     let isClosing = false;
 
-    if (fill.orderSide === (isLong ? 'SELL' : 'BUY')) {
+    if (fill.side === (isLong ? 'SELL' : 'BUY')) {
       newQty = prevQty - fillQty;
       if (newQty <= 0) {
         isClosing = true;
@@ -192,7 +192,7 @@ export class Position {
       this._core.peakQty = newQty.toString();
     }
 
-    if (fill.orderSide === 'BUY') {
+    if (fill.side === 'BUY') {
       this._core.buyQty = (parseFloat(this._core.buyQty) + fillQty).toString();
     } else {
       this._core.sellQty = (parseFloat(this._core.sellQty) + fillQty).toString();
