@@ -314,6 +314,7 @@ export class DynaTraderRuntime {
         pipeline: this.comp.pipeline !== null,
         cronEngine: this.comp.cronEngine !== null,
         skillFactory: this.comp.skillFactory !== null,
+        skillReviewer: this.comp.skillLoader !== null,
         crossSessionRecall: this.comp.crossSessionRecall !== null,
         skillLoader: this.comp.skillLoader !== null,
         dreamEngine: this.comp.dreamEngine !== null,

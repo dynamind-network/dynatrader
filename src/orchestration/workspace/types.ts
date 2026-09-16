@@ -246,6 +246,8 @@ export interface RuntimeStatus {
     pipeline: boolean;
     cronEngine: boolean;
     skillFactory: boolean;
+    /** Compatibility alias for the historical skill review component. */
+    skillReviewer: boolean;
     crossSessionRecall: boolean;
     skillLoader: boolean;
     dreamEngine: boolean;
