@@ -149,7 +149,8 @@ export class ExecTool implements ToolHandler {
         const args = parts.slice(1);
         // On Windows, .cmd/.bat shims (npm, npx, etc.) need the shell; resolve
         // them explicitly via cmd.exe ONLY when the extension requires it.
-        const needsShell = /\.(cmd|bat|com)$/i.test(cmd);
+        const needsShell = /\.(cmd|bat|com)$/i.test(cmd) ||
+          new Set(['echo', 'dir', 'type', 'where']).has(cmd.toLowerCase());
         const result = needsShell
           ? await execFileAsync('cmd.exe', ['/d', '/s', '/c', cmd, ...args], {
               timeout,

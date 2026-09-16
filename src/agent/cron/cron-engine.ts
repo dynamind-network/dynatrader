@@ -15,6 +15,8 @@ import { join } from "node:path";
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import Emittery from "emittery";
+import type { StateDb } from "../../state-db/state-db";
+import type { CronJobRow, CronStateRow } from "../../state-db/types";
 
 const execFileAsync = promisify(execFileCb);
 
@@ -193,6 +195,7 @@ export class CronEngine extends Emittery<CronEngineEvents> {
   private jobs: CronJob[] = [];
   private jobStates: Map<string, CronJobState> = new Map();
   private jobsPath: string;
+  private stateDb?: StateDb;
 
   // Cross-process file locking
   private _lockFd: number | null = null;
@@ -204,12 +207,24 @@ export class CronEngine extends Emittery<CronEngineEvents> {
   constructor(
     workspacePath: string,
     executeCallback?: (prompt: string, job: CronJob) => Promise<string>,
+    stateDb?: StateDb,
   ) {
     super();
     this.workspacePath = workspacePath;
     this.executeCallback = executeCallback;
     this.jobsPath = join(workspacePath, "cron", "jobs.json");
     this._lockPath = join(workspacePath, "cron", ".tick.lock");
+    this.stateDb = stateDb;
+  }
+
+  static async fromDb(
+    stateDb: StateDb,
+    workspacePath: string,
+    executeCallback?: (prompt: string, job: CronJob) => Promise<string>,
+  ): Promise<CronEngine> {
+    const engine = new CronEngine(workspacePath, executeCallback, stateDb);
+    await engine.initialize();
+    return engine;
   }
 
   // -----------------------------------------------------------------------
@@ -311,11 +326,11 @@ export class CronEngine extends Emittery<CronEngineEvents> {
     };
 
     this.jobs.push(job);
+    this.saveJobsSync();
     this.ensureJobState(job.id, {
       sessionId: `cron:${job.id}`,
       updatedAt: now,
     });
-    this.saveJobsSync();
     return job;
   }
 
@@ -602,10 +617,14 @@ export class CronEngine extends Emittery<CronEngineEvents> {
             `CronJob '${job.name}' (${job.id}) command contains invalid or dangerous characters.`,
           );
         }
-        const { stdout: rawOutput } = await execFileAsync(job.command.split(/\s+/)[0], job.command.split(/\s+/).slice(1), {
-          timeout: 300_000,
-          cwd: this.workspacePath,
-        });
+        const commandParts = job.command.trim().split(/\s+/);
+        const commandName = commandParts[0] ?? '';
+        const commandArgs = commandParts.slice(1);
+        const windowsBuiltin = process.platform === 'win32' &&
+          new Set(['echo', 'dir', 'type', 'where']).has(commandName.toLowerCase());
+        const { stdout: rawOutput } = windowsBuiltin
+          ? await execFileAsync('cmd.exe', ['/d', '/s', '/c', job.command], { timeout: 300_000, cwd: this.workspacePath, windowsHide: true })
+          : await execFileAsync(commandName, commandArgs, { timeout: 300_000, cwd: this.workspacePath });
         output = rawOutput.trim();
 
         if (output !== "NO_REPLY" && output !== "[SILENT]" && output !== "HEARTBEAT_OK") {
@@ -742,6 +761,17 @@ export class CronEngine extends Emittery<CronEngineEvents> {
   }
 
   private loadJobsSync(): void {
+    if (this.stateDb) {
+      try {
+        const rows = this.stateDb.listCronJobs();
+        if (rows.length > 0) {
+          this.jobs = rows.map((row) => this.fromStateDbJob(row));
+          return;
+        }
+      } catch (err) {
+        console.warn('[CronEngine] Failed to load jobs from StateDb, using jobs.json:', err);
+      }
+    }
     try {
       if (existsSync(this.jobsPath)) {
         const data = readFileSync(this.jobsPath, "utf-8");
@@ -794,6 +824,13 @@ export class CronEngine extends Emittery<CronEngineEvents> {
   }
 
   private saveJobsSync(): void {
+    if (this.stateDb) {
+      try {
+        for (const job of this.jobs) this.stateDb.saveCronJob(this.toStateDbJob(job));
+      } catch (err) {
+        console.warn('[CronEngine] Failed to persist jobs to StateDb:', err);
+      }
+    }
     try {
       const tmpPath = `${this.jobsPath}.tmp.${process.pid}`;
       writeFileSync(tmpPath, JSON.stringify(this.jobs, null, 2), "utf-8");
@@ -814,6 +851,13 @@ export class CronEngine extends Emittery<CronEngineEvents> {
   }
 
   private saveJobStateSync(jobId: string, state: CronJobState): void {
+    if (this.stateDb) {
+      try {
+        this.stateDb.saveCronState(this.toStateDbState(state));
+      } catch (err) {
+        console.warn('[CronEngine] Failed to persist cron state to StateDb:', err);
+      }
+    }
     try {
       mkdirSync(this.stateDir(), { recursive: true });
       this.jobStates.set(jobId, state);
@@ -825,12 +869,62 @@ export class CronEngine extends Emittery<CronEngineEvents> {
 
   private deleteJobStateSync(jobId: string): void {
     this.jobStates.delete(jobId);
+    if (this.stateDb) {
+      try { this.stateDb.deleteCronJob(jobId); } catch { /* file state remains authoritative fallback */ }
+    }
     try {
       const filePath = this.jobStatePath(jobId);
       if (existsSync(filePath)) unlinkSync(filePath);
     } catch {
       // Silently fail
     }
+  }
+
+  private toStateDbJob(job: CronJob): CronJobRow {
+    return {
+      id: job.id, name: job.name, prompt: job.prompt ?? null, command: job.command ?? null,
+      schedule_kind: job.schedule.kind, schedule_display: job.schedule.display,
+      schedule_interval_ms: job.schedule.intervalMs ?? null, schedule_expression: job.schedule.expression ?? null,
+      schedule_run_at: job.schedule.runAt ?? null, skills: JSON.stringify(job.skills ?? []),
+      deliver: JSON.stringify(job.deliver ?? { target: 'none' }), enabled: job.enabled ? 1 : 0,
+      state: job.state, last_status: job.lastStatus, last_error: job.lastError ?? null,
+      repeat_count: job.repeatCount ?? null, completed_runs: job.completedRuns, tags: JSON.stringify(job.tags),
+      pipeline: job.pipeline ?? null, approval_status: job.approvalStatus ?? null,
+      execution_policy: job.executionPolicy ?? null, wake_agent: job.wakeAgent ? 1 : 0,
+      context_from: job.contextFrom ?? null, allowed_tools: job.allowedTools ? JSON.stringify(job.allowedTools) : null,
+      disallowed_tools: job.disallowedTools ? JSON.stringify(job.disallowedTools) : null,
+      model_config: job.model ? JSON.stringify(job.model) : null, agent_id: job.agentId ?? null,
+      subagent: job.subagent ?? null, created_at: job.createdAt, updated_at: job.updatedAt,
+    };
+  }
+
+  private fromStateDbJob(row: CronJobRow): CronJob {
+    const parse = <T>(value: string | null | undefined, fallback: T): T => {
+      if (!value) return fallback;
+      try { return JSON.parse(value) as T; } catch { return fallback; }
+    };
+    return {
+      id: row.id, name: row.name, prompt: row.prompt ?? undefined, command: row.command ?? undefined,
+      schedule: { kind: row.schedule_kind, display: row.schedule_display, intervalMs: row.schedule_interval_ms ?? undefined, expression: row.schedule_expression ?? undefined, runAt: row.schedule_run_at ?? undefined },
+      skills: parse(row.skills, []), tools: undefined, deliver: parse(row.deliver, undefined), enabled: row.enabled === 1,
+      state: row.state, lastStatus: row.last_status, lastError: row.last_error ?? undefined,
+      repeatCount: row.repeat_count, completedRuns: row.completed_runs, createdAt: row.created_at, updatedAt: row.updated_at,
+      runCount: row.completed_runs, tags: parse(row.tags, []), pipeline: (row.pipeline as CronPipeline | null) ?? undefined,
+      approvalStatus: (row.approval_status as CronJob['approvalStatus']) ?? undefined,
+      executionPolicy: (row.execution_policy as CronJob['executionPolicy']) ?? undefined, wakeAgent: row.wake_agent === 1,
+      contextFrom: row.context_from ?? undefined, allowedTools: parse(row.allowed_tools, undefined), disallowedTools: parse(row.disallowed_tools, undefined),
+      model: parse(row.model_config, undefined), agentId: row.agent_id ?? undefined, subagent: row.subagent ?? undefined,
+    };
+  }
+
+  private toStateDbState(state: CronJobState): CronStateRow {
+    return {
+      id: state.jobId, job_id: state.jobId, version: state.version, session_id: state.sessionId ?? null,
+      prompt_fingerprint: state.promptFingerprint ?? null, summary: state.summary ?? null, last_output: state.lastOutput ?? null,
+      last_trade: state.lastTrade ? JSON.stringify(state.lastTrade) : null, trade_history: state.tradeHistory ? JSON.stringify(state.tradeHistory) : null,
+      last_venue: state.lastVenue ?? null, last_symbol: state.lastSymbol ?? null, last_timeframe: state.lastTimeframe ?? null,
+      last_status: state.lastStatus ?? null, last_error: state.lastError ?? null, last_run_at: state.lastRunAt ?? null, updated_at: state.updatedAt,
+    };
   }
 
   ensureJobState(jobId: string, seed?: Partial<CronJobState>): CronJobState {
