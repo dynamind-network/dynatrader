@@ -34,13 +34,46 @@ export interface DynaPlugin {
   stop?(ctx: PluginContext): Promise<void> | void;
 }
 
+/**
+ * Plugin entry contract (dsh/Cordis style): a plugin module's default export
+ * is a factory that receives its resolved config row and returns a plugin.
+ * Registrations made during init are effects that unwind on unmount.
+ */
+export type PluginFactory = (
+  config: Record<string, unknown>,
+) => DynaPlugin | Promise<DynaPlugin>;
+
+/** Declaration of a model-facing tool contributed by a plugin. */
+export interface PluginToolDeclaration {
+  name: string;
+  description: string;
+  category: string;
+  inputSchema: Record<string, unknown>;
+  permissionsRequired?: string[];
+  sideEffects?: string[];
+  riskLevel?: "low" | "medium" | "high" | "critical";
+  timeoutMs?: number;
+  canRunInParallel?: boolean;
+  readOnly?: boolean;
+  profiles?: string[];
+}
+
+/** Execution handler for a plugin-contributed tool. */
+export type PluginToolHandler = (
+  call: { args: Record<string, unknown> },
+) => Promise<unknown>;
+
 /** Context handed to a plugin during init/stop */
 export interface PluginContext {
   readonly id: string;
+  /** Resolved config for this plugin (manifest defaults overlaid by the composition row). */
+  readonly config: Readonly<Record<string, unknown>>;
   registerService<T>(name: string, handle: T): void;
   getService<T>(name: string): T | undefined;
   emit(event: string, payload?: unknown): Promise<void>;
   on(event: string, handler: (payload: unknown) => void | Promise<void>): () => void;
+  /** Register a model-facing tool on the shared ToolRegistry (unwinds on unmount). */
+  registerTool(decl: PluginToolDeclaration, handler: PluginToolHandler): void;
   readonly logger: PluginLogger;
 }
 
