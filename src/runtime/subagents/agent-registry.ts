@@ -241,7 +241,10 @@ export class AgentRegistry {
     // 2. Load from agents/*.md files (built-in + user-defined subagents)
     await this.loadAgentMdFiles();
 
-    // 3. Resolve hierarchy and role-based subagent selectors now that all agents are loaded
+    // 3. Load legacy directory agents for compatibility with workspace packs.
+    await this.loadAgentDirectories();
+
+    // 4. Resolve hierarchy and role-based subagent selectors now that all agents are loaded
     this.resolveHierarchyRelationships();
     this.resolveRoleBasedSubagents();
 
@@ -585,6 +588,59 @@ main:
       const manifest = await this.loadAgentMdFile(entry, filePath);
       if (manifest) {
         this.agents.set(manifest.name, manifest);
+      }
+    }
+  }
+
+  /** Load the legacy agents/<name>/{profile.yaml,SOUL.md} format. */
+  private async loadAgentDirectories(): Promise<void> {
+    const agentsDir = path.join(this.workspacePath, 'agents');
+    const entries = await fs.readdir(agentsDir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const dir = path.join(agentsDir, entry.name);
+      const profilePath = path.join(dir, 'profile.yaml');
+      const soulPath = path.join(dir, 'SOUL.md');
+      try {
+        const profile = yaml.load(await fs.readFile(profilePath, 'utf8')) as Record<string, unknown>;
+        if (!profile || typeof profile !== 'object') continue;
+        const permissions = (profile.permissions as Record<string, unknown> | undefined) ?? {};
+        const subagentsConfig = profile.subagents as Record<string, unknown> | undefined;
+        const permissionModes = this.normalizeModes(permissions.allowedModes ?? profile.allowedModes);
+        const soul = await fs.readFile(soulPath, 'utf8');
+        const identity = await fs.readFile(path.join(dir, 'IDENTITY.md'), 'utf8').catch(() => '');
+        const identityFrontmatter = parseMarkdownFrontmatter(identity);
+        const name = this.stringify(profile.id) ?? this.stringify(profile.name) ?? entry.name;
+        this.agents.set(name, {
+          name,
+          version: this.stringify(profile.version) ?? '1.0.0',
+          description: this.stringify(profile.description) ?? `Agent: ${name}`,
+          allowedModes: permissionModes.length ? permissionModes : ['research', 'paper'],
+          riskLevel: this.normalizeRiskLevel(permissions.riskLevel ?? profile.riskLevel ?? 'low'),
+          permissions: {
+            allow: this.normalizeStringArray(permissions.allow ?? profile.permissions),
+            deny: this.normalizeStringArray(permissions.deny),
+          },
+          tools: {
+            allow: this.normalizeStringArray(profile.tools),
+            deny: this.normalizeStringArray(profile.disallowedTools),
+          },
+          skills: { allow: [], deny: [] },
+          memory: { read: [], write: [] },
+          outputs: this.normalizeArtifactTypes(profile.outputs ?? []),
+          approvalRequiredFor: this.normalizeStringArray(profile.approvalRequiredFor),
+          instructions: soul.trim(),
+          filename: `agents/${entry.name}`,
+          roles: this.normalizeStringArray(profile.roles),
+          subagentRoles: this.normalizeStringArray(subagentsConfig?.allowRoles),
+          type: (this.stringify(identityFrontmatter.type) as 'manager' | 'leaf' | undefined) ?? 'leaf',
+          team: this.stringify(identityFrontmatter.team) ?? this.stringify(profile.team) ?? '',
+          reportsTo: this.stringify(identityFrontmatter.reportsTo) ?? this.stringify(profile.reportsTo) ?? '',
+          subagents: this.normalizeStringArray(subagentsConfig?.allowAgents ?? (Array.isArray(profile.subagents) ? profile.subagents : [])),
+          heartbeat: 'on-demand',
+        });
+      } catch {
+        // Incomplete or invalid directories are intentionally ignored.
       }
     }
   }

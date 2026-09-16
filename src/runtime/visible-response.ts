@@ -9,12 +9,11 @@ export function requireVisibleResponse(
     return visibleContent;
   }
 
-  if (showThinking) {
-    const visibleReasoning = normalizeVisibleText(reasoningContent);
-    if (visibleReasoning) {
-      return visibleReasoning;
-    }
-  }
+  // Reasoning is diagnostic metadata, never user-facing output. Keep the
+  // parameter for callers that report whether thinking is enabled, but do not
+  // leak internal deliberation into a visible response.
+  void reasoningContent;
+  void showThinking;
 
   throw new Error(`${context} produced no visible output.`);
 }
