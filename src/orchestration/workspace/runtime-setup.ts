@@ -1271,19 +1271,14 @@ async function executeCronJob(
         }
 
         // Merge agent-level tools with job-level overrides
-        const agentTools = manifest.permissions?.tools?.allowed ?? [];
+        const agentTools = manifest.permissions?.allow ?? [];
         if (agentTools.length > 0 && !job.allowedTools) {
           job.allowedTools = agentTools;
         }
         if (job.disallowedTools) {
           // Agent disallowed tools are additive with job disallowed
-          const agentDisallowed = manifest.permissions?.tools?.disallowed ?? [];
+          const agentDisallowed = manifest.permissions?.deny ?? [];
           job.disallowedTools = [...new Set([...job.disallowedTools, ...agentDisallowed])];
-        }
-
-        // Merge agent-level memory with job-level memory
-        if (manifest.permissions?.memory && !job.memory) {
-          job.memory = manifest.permissions.memory;
         }
 
         // Merge agent-level MCPs with job-level MCPs
@@ -1292,13 +1287,7 @@ async function executeCronJob(
           job.mcps = agentMcps;
         }
 
-        // Merge agent-level skills with job-level skills
-        const agentSkills = manifest.permissions?.skills?.allowed ?? [];
-        if (agentSkills.length > 0 && !job.skills) {
-          job.skills = agentSkills;
-        }
-
-        logger.info(`Loaded agent context for ${manifest.name}: tools=${agentTools.length}, memory=${JSON.stringify(manifest.permissions?.memory)}, mcps=${agentMcps.length}`);
+        logger.info(`Loaded agent context for ${manifest.name}: tools=${agentTools.length}, mcps=${agentMcps.length}`);
       } else {
         logger.warn(`Agent not found in registry: ${agentName}, running with job-level config only`);
       }
