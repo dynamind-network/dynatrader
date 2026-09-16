@@ -7,6 +7,8 @@ memory.db
 audit.jsonl
 logs/
 memory/
+!src/memory/
+!src/memory/**
 runs/
 vector-memory/
 compressed-memory/

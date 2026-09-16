@@ -32,25 +32,35 @@ export async function loadSkills(ctx: DreamContext): Promise<SkillEntry[]> {
     const results = await ctx.memoryStore.search({
       scope: AGENT_MEMORY_SCOPE,
       text: '',
+      kind: 'skill_created',
       topK: SEARCH_TOP_K,
     });
 
-    const skills: SkillEntry[] = [];
+    const skillsByFingerprint = new Map<string, SkillEntry>();
     for (const result of results) {
       const payload = result.payload as Record<string, unknown>;
       if (!payload || typeof payload !== 'object') continue;
 
       // Match skill_created entries (have SkillManifest fields like id, venue, symbol)
       if ('venue' in payload && 'symbol' in payload && 'id' in payload) {
-        skills.push({
+        const skill: SkillEntry = {
           id: result.id,
           strategy: payload as unknown as SkillManifest,
           description: (payload.description as string) ?? '',
           timestamp: result.timestamp,
+        };
+        const fingerprint = JSON.stringify({
+          ...payload,
+          id: undefined,
+          timestamp: undefined,
+          createdAt: undefined,
+          updatedAt: undefined,
         });
+        const existing = skillsByFingerprint.get(fingerprint);
+        if (!existing || skill.timestamp > existing.timestamp) skillsByFingerprint.set(fingerprint, skill);
       }
     }
-    return skills;
+    return [...skillsByFingerprint.values()];
   } catch {
     ctx.logger.warn('Failed to load skills from memory');
     return [];

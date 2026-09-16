@@ -13,7 +13,7 @@ import type {
   RiskProvider,
   RiskGateRequest,
   RiskGateResult,
-  CircuitBreakerConfig,
+  PluginCircuitBreakerConfig as CircuitBreakerConfig,
 } from "dynatrader";
 
 export interface DynaMindRiskConfig {

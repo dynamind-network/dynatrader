@@ -79,7 +79,7 @@ export interface SkillManifest {
 // Memory store interface
 export interface MemoryStore {
   put(event: { scope: string; kind: string; payload: unknown; ts: Date }): Promise<void>;
-  search(query: { scope: string; text: string; topK?: number }): Promise<Array<{ id: string; score: number; payload: unknown; timestamp: Date }>>;
+  search(query: { scope: string; text: string; topK?: number; kind?: string; includeArchived?: boolean }): Promise<Array<{ id: string; score: number; payload: unknown; timestamp: Date }>>;
   summarize(scope: { scope: string; from?: Date; to?: Date }): Promise<string>;
   compact(scope: { scope: string }): Promise<void>;
 }

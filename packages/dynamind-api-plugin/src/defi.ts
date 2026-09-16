@@ -5,7 +5,12 @@
  * Provides: chain rankings, protocol data, DEX pools.
  */
 
-import type { DeFiProvider, Chain, Protocol, Pool } from "dynatrader";
+import type {
+  DeFiProvider,
+  DeFiChain as Chain,
+  DeFiProtocol as Protocol,
+  DeFiPool as Pool,
+} from "dynatrader";
 
 export interface DynaMindDeFiConfig {
   baseUrl: string;

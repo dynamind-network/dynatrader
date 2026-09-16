@@ -6,19 +6,17 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
+    "build": "tsup",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "dynatrader": "file:../.."
-  },
   "devDependencies": {
+    "dynatrader": "file:../..",
     "typescript": "catalog:",
     "tsup": "catalog:"
   },
   "license": "MIT",
-  "dsh": {
-    "bundle": true,
+  "dynatrader": {
+    "bundle": "plugin.json",
     "capabilities": [
       "market_data",
       "signal",

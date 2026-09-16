@@ -24,8 +24,9 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:plugins": "bun run --filter '@dyna/plugin-*' build",
     "build:ui": "cd ui && bun run build",
-    "build:all": "bun run build && bun run build:ui",
+    "build:all": "bun run build && bun run build:plugins && bun run build:ui",
     "dev": "bun run build && node dist/entry/cli.js",
     "start": "node dist/entry/cli.js",
     "gateway": "node dist/entry/cli.js --stdio",

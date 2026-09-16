@@ -378,12 +378,16 @@ export async function initializeComponents(
     logger.debug('Initializing SkillManager, SessionSearch, MemoryConsolidation');
     const { SkillManager } = await import('../../agent/core/skill-manager');
     const { SessionSearch } = await import('../../agent/core/session-search');
-    const { MemoryConsolidation } = await import('../../agent/core/memory-consolidation');
+    const { MemoryConsolidation } = await import('../../memory/consolidation/memory-consolidation');
 
     const skillsDir = join(workspacePath, 'skills');
     components.skillManager = new SkillManager(skillsDir);
     components.sessionSearch = new SessionSearch(components.memoryStore);
-    components.memoryConsolidation = new MemoryConsolidation(components.memoryStore);
+    components.memoryConsolidation = new MemoryConsolidation(
+      components.memoryStore,
+      {},
+      components.modelRouter ?? undefined,
+    );
     logger.info('SkillManager, SessionSearch, MemoryConsolidation initialized');
   }
 

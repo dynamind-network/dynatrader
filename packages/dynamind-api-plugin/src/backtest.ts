@@ -5,7 +5,12 @@
  * Provides: strategy backtesting, strategy listing.
  */
 
-import type { BacktestProvider, BacktestConfig, BacktestResult, StrategyInfo } from "dynatrader";
+import type {
+  BacktestProvider,
+  PluginBacktestConfig as BacktestConfig,
+  PluginBacktestResult as BacktestResult,
+  PluginStrategyInfo as StrategyInfo,
+} from "dynatrader";
 
 export interface DynaMindBacktestConfig {
   baseUrl: string;

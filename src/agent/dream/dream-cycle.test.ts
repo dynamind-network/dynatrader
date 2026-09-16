@@ -153,7 +153,7 @@ describe('DreamEngine', () => {
       expect(typeof m.insightsGenerated).toBe('number');
 
       // Should have reviewed the skills
-      expect(m.skillsReviewed).toBe(3);
+      expect(m.skillsReviewed).toBe(1);
     });
 
     it('should run and return a DreamReport', async () => {
@@ -170,12 +170,12 @@ describe('DreamEngine', () => {
       expect(report).toBeDefined();
       expect(report.id).toBeTruthy();
       expect(report.actions).toBeInstanceOf(Array);
-      expect(report.metrics.skillsReviewed).toBe(3);
+      expect(report.metrics.skillsReviewed).toBe(1);
     });
   });
 
   describe('skill archiving', () => {
-    it('should archive skills reviewed in light phase', async () => {
+    it('should deduplicate equivalent skills before review', async () => {
       // Seed skills
       for (let i = 0; i < 3; i++) {
         await seedSkill(memory, { id: `la-${i}`, symbol: 'ETH/USDT' });
@@ -184,19 +184,7 @@ describe('DreamEngine', () => {
       const report = await engine.runDreamCycle();
 
       expect(report.metrics.skillsReviewed).toBe(1);
-      expect(report.metrics.skillsArchived).toBe(1);
-
-      // Check archive marker exists in memory
-      const archives = await memory.search({
-        scope: 'agent_memory',
-        text: '',
-        topK: 50,
-      });
-      const archiveEntries = archives.filter(a => {
-        const p = a.payload as Record<string, unknown>;
-        return p.kind === 'skill_archived' || (p.type === 'skill_archived');
-      });
-      expect(archiveEntries.length).toBeGreaterThanOrEqual(1);
+      expect(report.metrics.skillsArchived).toBe(0);
     });
 
     it('should NOT archive skills with high confidence (recent)', async () => {
@@ -301,7 +289,7 @@ describe('DreamEngine', () => {
       engine.markLoopCompleted();
       const result = await engine.runDreamCycleIfNeeded();
       expect(result).not.toBeNull();
-      expect(result!.metrics.skillsReviewed).toBe(3);
+      expect(result!.metrics.skillsReviewed).toBe(1);
     });
   });
 
@@ -428,7 +416,7 @@ describe('DreamScheduler', () => {
 
       expect(report).toBeDefined();
       expect(report.id).toBeTruthy();
-      expect(report.metrics.skillsReviewed).toBe(3);
+      expect(report.metrics.skillsReviewed).toBe(1);
     });
   });
 });

@@ -118,9 +118,11 @@ export class DreamEngine {
     try {
       const phaseOrder = this.config.phases?.order ?? DEFAULT_DREAM_PHASE_ORDER;
       for (const phase of phaseOrder) {
-        const handler = this.config.phases?.hooks?.[phase] ?? this.getDefaultPhaseHandler(phase);
-        const result = await handler({ phase, state, config: this.config });
-        if (result?.stop) {
+        const context = { phase, state, config: this.config };
+        const result = await this.getDefaultPhaseHandler(phase)(context);
+        const hook = this.config.phases?.hooks?.[phase];
+        const hookResult = hook ? await hook(context) : undefined;
+        if (result?.stop || hookResult?.stop) {
           this.logger.debug(`Dream phase ${phase} requested stop`);
           break;
         }
