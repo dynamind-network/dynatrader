@@ -259,6 +259,30 @@ export class CCXTAdapter implements ExchangeAdapter {
     }
   }
 
+  async fetchOrder(orderId: string, symbol: string) {
+    try {
+      const order = await this.exchange.fetchOrder(orderId, symbol);
+      return {
+        status: order.status ?? undefined,
+        filled: order.filled ?? undefined,
+        average: order.average ?? undefined,
+        fee: order.fee?.cost ?? undefined,
+        raw: order,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch order ${orderId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async fetchOpenOrders(symbol?: string): Promise<unknown[]> {
+    return this.exchange.fetchOpenOrders(symbol);
+  }
+
+  async fetchPositions(): Promise<unknown[]> {
+    if (!this.exchange.fetchPositions) return [];
+    return this.exchange.fetchPositions();
+  }
+
   /**
    * Get normalized market info
    */

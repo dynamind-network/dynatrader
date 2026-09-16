@@ -50,6 +50,7 @@ import { cmdInit } from './cli/commands/init';
 import { cmdDoctor } from './cli/commands/doctor';
 import { cmdIssues, cmdTrack, cmdInbox } from './cli/commands/artifacts';
 import { cmdPlugins } from './cli/commands/plugins';
+import { cmdPortfolio } from './cli/commands/portfolio';
 
 // =============================================================================
 // Command: help
@@ -70,6 +71,7 @@ function cmdHelp(): void {
   console.log(`  ${green('setup')}                   Validate workspace config and launch scope`);
   console.log(`  ${green('status')}                  Show runtime status and component health`);
   console.log(`  ${green('trade')}                   Run a single agent turn for the current market universe`);
+  console.log(`  ${green('portfolio')}               Show account balance and recent persisted trades`);
   console.log(`  ${green('backtest')} <symbol>       Run backtest over historical data`);
   console.log(`  ${green('pipeline')}                Run multi-agent trading pipeline`);
   console.log(`  ${green('agents')}                  List loaded agent profiles`);
@@ -180,6 +182,7 @@ function cmdHelp(): void {
 
   console.log(bold('TRADE OPTIONS:'));
   console.log(`  --mode <paper|research>             Execution mode (default: research)`);
+  console.log(`  --execute                            Submit final intents (paper/backtest execute by default)`);
   console.log();
 
   console.log(bold('BACKTEST OPTIONS:'));
@@ -395,6 +398,11 @@ async function main(): Promise<void> {
       case 'trade': {
         const tradeMode = getFlagString(parsed.flags, 'mode', globalMode) as TradeMode;
         await cmdTrade(runtime, tradeMode, { execute: parsed.flags.execute === true ? true : undefined });
+        break;
+      }
+
+      case 'portfolio': {
+        await cmdPortfolio(runtime);
         break;
       }
 

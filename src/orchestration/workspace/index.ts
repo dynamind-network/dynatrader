@@ -186,8 +186,38 @@ export class DynaTraderRuntime {
       this.logger.info(
         `Order ${result.orderId}: ${intent.side} ${intent.quantity} ${intent.symbol} -> ${result.status}`,
       );
+      if (this.comp.stateDb && result.trade) {
+        try {
+          const now = result.timestamp.getTime();
+          this.comp.stateDb.saveTrade({
+            id: `order-${result.orderId}`,
+            session_id: 'runtime',
+            symbol: result.trade.symbol,
+            side: result.trade.side === 'buy' ? 'long' : 'short',
+            entry_price: result.trade.price,
+            exit_price: null,
+            quantity: result.trade.quantity,
+            pnl: null,
+            pnl_percent: null,
+            status: result.status === 'filled' ? 'open' : 'cancelled',
+            chain_id: null,
+            tx_hash: result.orderId,
+            dex: intent.venue,
+            metadata: JSON.stringify({ strategyId: intent.strategyId, mode, fees: result.trade.fees }),
+            opened_at: now,
+            closed_at: result.status === 'filled' ? null : now,
+          });
+        } catch (error) {
+          this.logger.warn(`Could not persist order ${result.orderId}`, error);
+        }
+      }
     }
     return results;
+  }
+
+  getTradeHistory(filters?: { symbol?: string; status?: string; limit?: number }) {
+    this.ensureRunning();
+    return this.comp.stateDb?.listTrades(filters) ?? [];
   }
 
   getMemory(): MemoryStoreImpl {

@@ -122,6 +122,9 @@ export interface ExchangeAdapter {
   fetchOHLCV(req: { symbol: string; timeframe: string; since?: number; limit?: number }): Promise<Array<[number, number, number, number, number, number]>>;
   balances(): Promise<Record<string, unknown>>;
   placeOrder(intent: OrderIntent): Promise<{ orderId: string; raw?: unknown }>;
+  fetchOrder?(orderId: string, symbol: string): Promise<{ status?: string; filled?: number; average?: number; fee?: number; raw?: unknown }>;
+  fetchOpenOrders?(symbol?: string): Promise<unknown[]>;
+  fetchPositions?(): Promise<unknown[]>;
   cancelOrder(req: { orderId: string; symbol: string }): Promise<void>;
 }
 
