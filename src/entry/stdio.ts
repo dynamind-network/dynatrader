@@ -22,7 +22,7 @@
 import { MemoryStoreImpl } from '@dyna/memory-core';
 import { SqliteMemoryStore } from '@dyna/memory-sqlite';
 import { ModelRouterImpl, OpenAIProvider, AnthropicProvider, OllamaProvider, LMStudioProvider, OpenRouterProvider, DeepSeekProvider, GoogleProvider } from '@dyna/model-router';
-import { ToolRegistryImpl, ReadTool, GlobTool, GrepTool, WriteTool, EditTool, ExecTool, WebFetchTool } from '@dyna/tools-runtime';
+import { ToolRegistryImpl, ReadTool, GlobTool, GrepTool, WriteTool, EditTool, ExecTool, WebFetchTool, WebSearchTool } from '@dyna/tools-runtime';
 import { AgentCore } from '../agent/core/agent-core';
 import { JsonRpcServer } from '../gateway/json-rpc/server';
 import { loadWorkspaceAgentPrompt } from '../runtime/workspace-agent-prompt';
@@ -124,6 +124,7 @@ async function main(): Promise<void> {
   toolRegistry.register(new EditTool({ allowedDirectories: [workspacePath], workspaceRoot: workspacePath }));
   toolRegistry.register(new ExecTool({ defaultCwd: workspacePath }));
   toolRegistry.register(new WebFetchTool());
+  toolRegistry.register(new WebSearchTool({ braveApiKey: process.env.BRAVE_API_KEY, tavilyApiKey: process.env.TAVILY_API_KEY, searxngBaseUrl: process.env.SEARXNG_BASE_URL }));
 
   // 5. Create AgentCore
   const agent = new AgentCore({

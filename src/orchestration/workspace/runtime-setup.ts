@@ -21,7 +21,7 @@ import { errorMessage } from '../../utils/errors';
 import { MemoryStoreImpl } from '@dyna/memory-core';
 import { ModelRouterImpl, OpenAIProvider, AnthropicProvider, OllamaProvider, LMStudioProvider, OpenRouterProvider, DeepSeekProvider, GoogleProvider } from '@dyna/model-router';
 import type { ModelProvider } from '@dyna/contracts';
-import { ToolRegistryImpl, ReadTool, GlobTool, GrepTool, WriteTool, EditTool, ExecTool, WebFetchTool, BrowserTool, VisionTool, InboxDeliverTool, TelegramSendTool, VoiceTranscriptionTool, TtsTool, MemorySearchTool, MemoryWriteTool, MarketDataTool, SpawnSubagentTool, SessionsListTool, SessionsHistoryTool, SessionsSendTool, SessionSearchTool, SessionStatusTool, AgentBusTool, FleetTool } from '@dyna/tools-runtime';
+import { ToolRegistryImpl, ReadTool, GlobTool, GrepTool, WriteTool, EditTool, ExecTool, WebFetchTool, WebSearchTool, BrowserTool, VisionTool, InboxDeliverTool, TelegramSendTool, VoiceTranscriptionTool, TtsTool, MemorySearchTool, MemoryWriteTool, MarketDataTool, SpawnSubagentTool, SessionsListTool, SessionsHistoryTool, SessionsSendTool, SessionSearchTool, SessionStatusTool, AgentBusTool, FleetTool } from '@dyna/tools-runtime';
 import { AgentCore, GoalManager, SkillFactory, CrossSessionRecall, runPostTurnHooks } from '@dyna/agent-core';
 import { TurnController } from '@dyna/agent-core';
 import { SteeringInbox } from '@dyna/agent-core';
@@ -615,6 +615,7 @@ function registerBuiltInTools(
   if (generalToolsEnabled) {
     registry.register(new ExecTool({ defaultCwd: workspacePath }));
     registry.register(new WebFetchTool());
+    registry.register(new WebSearchTool({ braveApiKey: process.env.BRAVE_API_KEY, tavilyApiKey: process.env.TAVILY_API_KEY, searxngBaseUrl: process.env.SEARXNG_BASE_URL }));
     registry.register(new BrowserTool({ userDataDir: join(workspacePath, 'browser-sessions') }));
     if (process.env['OPENAI_API_KEY']) registry.register(new VisionTool());
     registry.register(new VoiceTranscriptionTool());

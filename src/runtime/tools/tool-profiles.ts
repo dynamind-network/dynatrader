@@ -65,7 +65,7 @@ export type ToolProfile = CoreProfile | PluginProfile | 'full';
 // ---------------------------------------------------------------------------
 
 const CORE_TOOLS: Record<CoreProfile, string[]> = {
-  base: ['read', 'write', 'edit', 'glob', 'grep', 'web_fetch'],
+  base: ['read', 'write', 'edit', 'glob', 'grep', 'web_fetch', 'web_search'],
   memory: ['memory_search', 'memory_write'],
   multi_agent: ['spawn_subagent', 'sessions_list', 'sessions_history', 'session_search', 'session_status'],
   messaging: ['telegram_send', 'inbox_deliver'],

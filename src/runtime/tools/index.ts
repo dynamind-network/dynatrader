@@ -27,6 +27,8 @@ export { EditTool } from './tools/edit-tool';
 export type { EditToolConfig } from './tools/edit-tool';
 export { WebFetchTool } from './tools/web-fetch-tool';
 export type { WebFetchToolConfig } from './tools/web-fetch-tool';
+export { WebSearchTool } from './tools/web-search-tool';
+export type { WebSearchConfig } from './tools/web-search-tool';
 export { BrowserTool } from './tools/browser-tool';
 export type { BrowserToolConfig } from './tools/browser-tool';
 export { BrowserSessionStore } from './tools/browser-session';
