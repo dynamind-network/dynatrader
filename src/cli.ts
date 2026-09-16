@@ -181,7 +181,7 @@ function cmdHelp(): void {
   console.log();
 
   console.log(bold('TRADE OPTIONS:'));
-  console.log(`  --mode <paper|research>             Execution mode (default: research)`);
+  console.log(`  --mode <paper|backtest|live>         Execution mode (default: paper)`);
   console.log(`  --execute                            Submit final intents (paper/backtest execute by default)`);
   console.log();
 
@@ -396,7 +396,7 @@ async function main(): Promise<void> {
       }
 
       case 'trade': {
-        const tradeMode = getFlagString(parsed.flags, 'mode', globalMode) as TradeMode;
+        const tradeMode = getFlagString(parsed.flags, 'mode', 'paper') as TradeMode;
         await cmdTrade(runtime, tradeMode, { execute: parsed.flags.execute === true ? true : undefined });
         break;
       }

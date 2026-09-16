@@ -218,6 +218,10 @@ bun run release:check  # Full release gate (typecheck + build + test)
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
 
+Third-party providers can extend the runtime without changing core code. See
+[PLUGINS.md](docs/PLUGINS.md) for the capability seams, configuration rows,
+tool registration contract, and exchange adapter registry.
+
 - Setting up the development environment
 - Coding standards and conventions
 - Pull request process
