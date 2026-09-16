@@ -840,11 +840,13 @@ Explore the repository and design an implementation plan. You are strictly read-
 
     // Resolve active profiles (core profiles always included)
     const profiles = resolveProfiles(this.config.activeProfiles);
-    const allowedToolNames = new Set(getToolsForProfiles(profiles));
+    const allowedToolNames = this.config.activeProfiles?.length
+      ? new Set(getToolsForProfiles(profiles))
+      : undefined;
 
     // Get all registered tools, then filter by profile + policy
     const definitions = this.config.toolRegistry.list()
-      .filter((h) => allowedToolNames.has(h.definition.name))
+      .filter((h) => !allowedToolNames || allowedToolNames.has(h.definition.name))
       .map((h) => h.definition);
 
     const id = sessionId ?? this.sessionManager.getActiveSession()?.id ?? "default";
@@ -1034,12 +1036,13 @@ Explore the repository and design an implementation plan. You are strictly read-
 
       // Check if we should force tool use
       const intentRoute = this.intentRouter.getLastRoute();
-      const shouldForceTools = intentRoute?.useTools === true && tools.length > 0 && !response.toolCalls?.length && turn === 0;
+      const shouldForceTools = tools.length > 0 && !response.toolCalls?.length && turn <= 0 &&
+        (intentRoute?.useTools === true || !normalizeVisibleText(response.content));
 
       if (response.toolCalls?.length) {
         // Normal tool call path — continue
-      } else if ((response.content?.trim() || response.reasoningContent?.trim()) && !shouldForceTools) {
-        content = response.content?.trim() || response.reasoningContent?.trim() || "";
+      } else if (response.content?.trim() && !shouldForceTools) {
+        content = response.content.trim();
         break;
       } else if (shouldForceTools) {
         // Retry with forced tool use
@@ -2066,7 +2069,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         executionMode: context.mode,
         entry: (source.params as Record<string, unknown>)?.entry ?? {},
         exits: (source.params as Record<string, unknown>)?.exits ?? {},
-        sizing: (source.params as Record<string, unknown>)?.sizing ?? {},
+        sizing: (source.params as Record<string, unknown>)?.sizing ?? { amount: 1 },
         risk: (source.params as Record<string, unknown>)?.risk as SkillManifest["risk"] ?? {
           maxPositionNotional: 5000,
           maxDailyLoss: 500,

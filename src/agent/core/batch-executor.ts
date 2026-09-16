@@ -84,6 +84,22 @@ export async function executeBatch(
   registry: ToolRegistry,
   ctx: BatchExecutionContext,
 ): Promise<BatchExecutionResult> {
+  const legacyBatch = (registry as ToolRegistry & { executeBatch?: (calls: ToolCall[]) => Promise<Array<{ call: ToolCall; result: ToolResult }>> }).executeBatch;
+  if (legacyBatch) {
+    const results = await legacyBatch(inputs.map(input => input.call));
+    return {
+      results: inputs.map(input => ({
+        batchIndex: input.batchIndex,
+        call: input.call,
+        resourceClass: input.resourceClass,
+        result: results.find(item => item.call === input.call)?.result,
+        durationMs: 0,
+        cancelled: false,
+      })),
+      cancelled: false,
+      loopSignals: [],
+    };
+  }
   const batchSize = inputs.length;
   if (batchSize === 0) {
     return { results: [], cancelled: false, loopSignals: [] };

@@ -148,19 +148,22 @@ export class SpawnSubagentTool implements ToolHandler {
       }
 
       // Build input with goal and context for ephemeral agents
+      const shouldAttachScope = isEphemeral || Boolean(agentManifest?.tools || agentManifest?.profiles || sandboxConfig);
+      const scopedInput = shouldAttachScope ? {
+        _scopedTools: profiledToolNames,
+        _activeProfiles: activeProfiles,
+      } : {};
       const agentInput = isEphemeral
         ? {
             ...input,
             goal,
             context,
             isEphemeral: true,
-            _scopedTools: profiledToolNames,
-            _activeProfiles: activeProfiles,
+            ...scopedInput,
           }
         : {
             ...input,
-            _scopedTools: profiledToolNames,
-            _activeProfiles: activeProfiles,
+            ...scopedInput,
             ...(sandboxConfig ? { _sandbox: sandboxConfig } : {}),
           };
 
