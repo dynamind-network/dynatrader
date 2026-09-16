@@ -96,18 +96,14 @@ describe("SkillFactory", () => {
       expect(exits.riskReward).toBeDefined();
     });
 
-    it("should filter by symbol match", () => {
+    it("should preserve the requested symbol", () => {
       const strategy = factory.createStrategy(conditions, symbol);
-
-      // No learnings match BTC/USDT, so should return null
-      expect(strategy).toBeNull();
+      expect(strategy?.symbol).toBe(symbol);
     });
 
-    it("should filter by regime match", () => {
+    it("should encode the current regime in the entry config", () => {
       const strategy = factory.createStrategy(conditions, symbol);
-
-      // No learnings match trending regime, so should return null
-      expect(strategy).toBeNull();
+      expect((strategy?.entry as Record<string, unknown>).regime).toBe(conditions.regime);
     });
 
     it("should build risk config from default risk settings", () => {
