@@ -76,6 +76,19 @@ export interface DynaConfig {
   market?: {
     symbols?: string[];
   };
+  /**
+   * Declarative plugin composition rows (dsh-style patch layer).
+   * Rows are applied after bundled defaults and workspace plugin discovery;
+   * a row with the same id as an earlier row replaces it, and
+   * `enabled: false` drops a row entirely.
+   */
+  plugins?: Array<{
+    id: string;
+    /** "bundled:<name>", a plugin directory containing plugin.json, or a JS/TS entry file. */
+    entry: string;
+    config?: Record<string, unknown>;
+    enabled?: boolean;
+  }>;
   strategyEngines?: Record<string, string>;
   lastModel?: string;
 }
@@ -187,6 +200,12 @@ const ZodConfigSchema = z.object({
   market: z.object({
     symbols: z.array(z.string()).optional(),
   }).partial().optional(),
+  plugins: z.array(z.object({
+    id: z.string().min(1),
+    entry: z.string().min(1),
+    config: z.record(z.unknown()).optional(),
+    enabled: z.boolean().optional(),
+  })).optional(),
   strategyEngines: z.record(z.string()).optional(),
   lastModel: z.string().optional(),
 }).passthrough();
@@ -450,9 +469,33 @@ function mergeWithDefaults(raw: Record<string, unknown>): DynaConfig {
         ? ((validated['market'] as Record<string, unknown>)['symbols'] as string[])
         : defaults.market?.symbols,
     },
+    plugins: normalizePluginRows(validated['plugins']),
     strategyEngines: (validated['strategyEngines'] as Record<string, string>) ?? defaults.strategyEngines,
     lastModel: (validated['lastModel'] as string) ?? defaults.lastModel,
   };
+}
+
+/**
+ * Sanitize plugin composition rows from validated config.
+ * Shared by the home config loader and workspace config.yaml parsing.
+ */
+export function normalizePluginRows(
+  value: unknown,
+): DynaConfig['plugins'] {
+  if (!Array.isArray(value)) return undefined;
+  const rows = (value as Array<Record<string, unknown>>)
+    .filter((row) =>
+      typeof row?.id === 'string' && row.id.length > 0 &&
+      typeof row?.entry === 'string' && row.entry.length > 0)
+    .map((row) => ({
+      id: String(row.id),
+      entry: String(row.entry),
+      config: row.config && typeof row.config === 'object'
+        ? (row.config as Record<string, unknown>)
+        : undefined,
+      enabled: typeof row.enabled === 'boolean' ? row.enabled : undefined,
+    }));
+  return rows.length > 0 ? rows : undefined;
 }
 
 function mergeProfilesWithDefaults(raw: Record<string, unknown>): DynaProfiles {

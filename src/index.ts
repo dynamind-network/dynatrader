@@ -119,6 +119,8 @@ export type { ToolDefinition, ToolHandler, ToolCall, ToolResult, ToolCategory } 
 // =============================================================================
 export { PluginRegistry } from './plugins/registry';
 export type { PluginRegistryOptions, RegisteredPlugin, PluginRegistryStats } from './plugins/registry';
+export { bootPluginTree, composePluginRows, registerBuiltinPlugin } from './plugins/composition';
+export type { PluginLayer, PluginRow, PluginRowInput, MountReport } from './plugins/composition';
 export { MCPBridge } from './plugins/mcp-bridge';
 export type { MCPBridgeConfig, MCPToolMapping, MCPBridgeConnection } from './plugins/mcp-bridge';
 export type {

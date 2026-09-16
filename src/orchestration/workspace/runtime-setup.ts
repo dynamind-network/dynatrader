@@ -36,6 +36,8 @@ import { HaltState } from '../../runtime/halt/halt-state';
 import { HaltTradingTool, ResumeTradingTool, TradingHaltStatusTool, CheckCircuitBreakersTool } from '../../agent/tools/risk-tools';
 import { CronEngine } from '@dyna/agent-cron';
 import { PluginRuntime } from '../../runtime/plugins/plugin-runtime';
+import { PluginRegistry } from '../../plugins/registry';
+import { bootPluginTree } from '../../plugins/composition';
 import type { ToolProfile } from '../../runtime/tools/tool-profiles';
 import { requireVisibleResponse } from '../../runtime/visible-response';
 
@@ -123,6 +125,7 @@ export interface RuntimeComponents {
   modelRouter: ModelRouterImpl | null;
   toolRegistry: ToolRegistryImpl | null;
   pluginRuntime: PluginRuntime | null;
+  pluginRegistry: PluginRegistry | null;
   agentCore: AgentCore | null;
   loopSync: boolean;
   exchange: ExchangeAdapter | null;
@@ -310,7 +313,26 @@ export async function initializeComponents(
     logger.info('No MCP servers configured');
   }
 
-  // --- 6b. Plugin Runtime (workspace extensions) ---
+  // --- 6b. Declarative plugin composition ---
+  logger.debug('Initializing declarative plugin composition');
+  const pluginRegistry = new PluginRegistry({
+    workspacePath,
+    toolRegistry: components.toolRegistry ?? undefined,
+  });
+  const configuredPluginRows = Array.isArray(workspace.config?.plugins)
+    ? workspace.config.plugins
+    : [];
+  const pluginTree = await bootPluginTree({
+    registry: pluginRegistry,
+    workspaceConfigRows: configuredPluginRows,
+    env: process.env,
+    strict: config.strictMode ?? false,
+  });
+  components.pluginRegistry = pluginRegistry;
+  logger.info(`Declarative plugin composition mounted ${pluginTree.reports.filter((report) => report.ok).length}/${pluginTree.rows.length} plugin(s)`);
+
+  // Keep the manifest-based runtime for legacy workspace extensions until all
+  // existing plugin.json entries migrate to the DynaPlugin contract.
   logger.debug('Initializing PluginRuntime');
   components.pluginRuntime = new PluginRuntime({
     workspacePath,

@@ -12,6 +12,7 @@ import type { AgentCore, SkillFactory, CrossSessionRecall } from '@dyna/agent-co
 import type { SkillLoader } from '../../agent/skills/skill-loader';
 import type { CronEngine } from '@dyna/agent-cron';
 import type { PluginRuntime } from '../../runtime/plugins/plugin-runtime';
+import type { PluginRegistry } from '../../plugins/registry';
 import type { EventBus } from '@dyna/event-bus';
 import type { OrderIntent, ExecutionResult, ExchangeAdapter } from '@dyna/contracts';
 import type { ExecutionMode } from '@dyna/contracts';
@@ -87,6 +88,7 @@ export class DynaTraderRuntime {
     modelRouter: null,
     toolRegistry: null,
     pluginRuntime: null,
+    pluginRegistry: null,
     agentCore: null,
     loopSync: false,
     exchange: null,
@@ -206,6 +208,11 @@ export class DynaTraderRuntime {
   getPluginRuntime(): PluginRuntime {
     this.ensureRunning();
     return this.comp.pluginRuntime!;
+  }
+
+  getPluginRegistry(): PluginRegistry {
+    this.ensureRunning();
+    return this.comp.pluginRegistry!;
   }
 
   getEventBus(): EventBus {

@@ -49,6 +49,8 @@ export type {
 
 export { PluginRegistry } from "./registry";
 export type { PluginRegistryOptions, RegisteredPlugin, PluginRegistryStats } from "./registry";
+export { bootPluginTree, composePluginRows, registerBuiltinPlugin } from "./composition";
+export type { PluginLayer, PluginRow, PluginRowInput, MountReport } from "./composition";
 
 export { MCPBridge } from "./mcp-bridge";
 export type { MCPBridgeConfig, MCPToolMapping, MCPBridgeConnection } from "./mcp-bridge";
