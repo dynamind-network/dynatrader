@@ -302,10 +302,10 @@ export class IterationBudget {
    */
   static createDefault(): IterationBudget {
     return new IterationBudget({
-      maxIterations: 50,
+      maxIterations: 10,
       maxTimeMs: 300_000, // 5 minutes (wall-clock safety net)
       maxMemoryUsage: 100 * 1024 * 1024, // 100MB
-      maxApiCalls: 200,
+      maxApiCalls: 50,
       warningThreshold: 0.8, // 80%
       inactivityTimeoutMs: 120_000, // 2 minutes inactivity = stalled
     });

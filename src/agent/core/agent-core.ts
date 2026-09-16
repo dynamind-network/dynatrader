@@ -855,7 +855,9 @@ Explore the repository and design an implementation plan. You are strictly read-
       ? definitions.filter((definition) =>
           (!policy.allowed || policy.allowed.has(definition.name)) && !policy.disallowed.has(definition.name))
       : definitions;
-    if (this.planningSessions.has(id)) filtered = filtered.filter((definition) => definition.readOnly === true);
+    if (this.planningSessions.has(id)) {
+      filtered = filtered.filter((definition) => definition.readOnly === true && definition.name !== 'get_tool_result');
+    }
     return filtered;
   }
 

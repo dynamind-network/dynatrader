@@ -14,9 +14,7 @@ export interface McpServerConnection {
 }
 
 /**
- * Simplified MCP client that manages connections to external MCP servers.
- * In production, this would use stdio/SSE transports. For now, it provides
- * the interface and connection management.
+ * MCP client that manages external server connections and registry proxies.
  */
 export class McpClient {
   private connections: Map<string, McpServerConnection> = new Map();
@@ -30,7 +28,6 @@ export class McpClient {
 
   /**
    * Connect to an external MCP server.
-   * In a real implementation, this would spawn a stdio process or open an SSE connection.
    */
   async connect(config: McpServerConfig): Promise<McpTool[]> {
     const transport = config.transport === 'stdio'
@@ -107,6 +104,14 @@ export class McpClient {
   getProxy(toolName: string): McpToolProxy | undefined {
     return this.proxies.get(toolName);
   }
+
+  async call(serverName: string, toolName: string, args: Record<string, unknown>): Promise<unknown> {
+    const proxy = this.proxies.get(`mcp.${serverName}.${toolName}`);
+    if (!proxy) throw new Error(`MCP tool not found: ${serverName}/${toolName}`);
+    const result = await proxy.execute({ tool: proxy.definition.name, args });
+    if (!result.success) throw new Error(result.error ?? `MCP tool failed: ${serverName}/${toolName}`);
+    return result.data;
+  }
 }
 
 /**
@@ -141,7 +146,6 @@ export class McpToolProxy {
 
   /**
    * Execute this tool on the remote MCP server.
-   * In production, this would send a tools/call request via the transport.
    */
   async execute(call: ToolCall): Promise<ToolResult> {
     const startTime = Date.now();

@@ -29,6 +29,8 @@ import type {
   NewsOptions,
 } from "./types";
 import type { PluginRegistry } from "./registry";
+import { McpClient } from "../mcp/client";
+import { ToolRegistryImpl } from "../runtime/tools/tool-registry";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -149,13 +151,12 @@ export class MCPBridge {
   // Private
   // ---------------------------------------------------------------------------
 
-  private async createClient(_config: MCPBridgeConfig): Promise<MCPClientHandle> {
-    // Placeholder — real implementation connects via stdio/HTTP transport
+  private async createClient(config: MCPBridgeConfig): Promise<MCPClientHandle> {
+    const client = new McpClient(new ToolRegistryImpl());
+    await client.connect({ name: config.name, transport: config.transport, command: config.command, args: config.args, url: config.url, env: config.env });
     return {
-      call: async (_method: string, _args: Record<string, unknown>) => {
-        throw new Error("MCP transport not yet connected");
-      },
-      disconnect: async () => {},
+      call: (method, args) => client.call(config.name, method, args),
+      disconnect: () => client.disconnect(config.name),
     };
   }
 
