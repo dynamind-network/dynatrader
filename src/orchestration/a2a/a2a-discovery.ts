@@ -26,6 +26,7 @@ import path from 'path';
 import yaml from 'js-yaml';
 import type { AgentCard } from './types';
 import { A2AClient, createA2AClient } from './a2a-client';
+import { AgentBus } from '../../agent/messaging/agent-bus';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,9 +91,11 @@ export class A2ADiscovery {
   private peers: Map<string, A2ADiscoveredPeer> = new Map();
   private workspacePath: string;
   private broadcastTimer?: ReturnType<typeof setInterval>;
+  private readonly bus: AgentBus;
 
-  constructor(workspacePath: string) {
+  constructor(workspacePath: string, bus?: AgentBus) {
     this.workspacePath = workspacePath;
+    this.bus = bus ?? new AgentBus({ maxHistorySize: 200 });
     this.config = {
       enabled: false,
       peers: [],
@@ -317,9 +320,13 @@ export class A2ADiscovery {
     if (this.broadcastTimer) return;
 
     this.broadcastTimer = setInterval(() => {
-      // Broadcast agent availability (placeholder for actual network broadcast)
-      console.log('[A2A Discovery] Broadcasting availability...');
+      this.bus.publish('a2a-discovery', 'a2a.agent.announce', {
+        workspacePath: this.workspacePath,
+        peers: this.config.peers.map(peer => ({ name: peer.name, url: peer.url, capabilities: peer.capabilities ?? [] })),
+        timestamp: new Date().toISOString(),
+      });
     }, this.config.discovery.broadcastIntervalMs ?? 60000);
+    this.bus.publish('a2a-discovery', 'a2a.agent.announce', { workspacePath: this.workspacePath, timestamp: new Date().toISOString() });
   }
 
   private stopBroadcast(): void {
