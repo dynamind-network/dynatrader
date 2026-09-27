@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { ConversationManager } from "./conversation-manager";
+import { StateDb } from "../../state-db";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 function message(role: "system" | "user" | "assistant" | "tool", content: string) {
   return { role, content, timestamp: new Date() };
@@ -133,6 +137,33 @@ describe("ConversationManager", () => {
     expect(messages.filter((entry) => entry.role === "system" && !entry.content?.startsWith("[Conversation Summary]"))
       .map((entry) => entry.content)).toEqual(["policy: preserve access controls"]);
     expect(messages.find((entry) => entry.role === "user")?.content).toBe("latest request");
+  });
+
+  test("reloads the compacted transcript without resurrecting removed messages", () => {
+    const dbDir = mkdtempSync(join(tmpdir(), "conversation-manager-test-"));
+    const db = new StateDb(dbDir);
+    const sessionId = "compact-reload-session";
+    db.saveConversationSession({
+      id: sessionId, parent_id: null, title: "Reload", slug: "reload", status: "active",
+      metadata: "{}", created_at: 1, updated_at: 1,
+    });
+    try {
+      const manager = new ConversationManager({ keepHeadMessages: 1, keepRecentMessages: 1 }, db, sessionId);
+      manager.addMessage({ role: "system", content: "policy: preserve safeguards", timestamp: new Date(1000) });
+      manager.addMessage({ role: "user", content: "latest request", timestamp: new Date(2000) });
+      manager.addMessage({ role: "tool", content: "obsolete tool output", timestamp: new Date(3000) });
+      manager.addMessage({ role: "assistant", content: "latest response", timestamp: new Date(4000) });
+      manager.compact();
+
+      const reloaded = new ConversationManager(undefined, db, sessionId).getMessages();
+      expect(reloaded.map((entry) => entry.content)).toEqual(manager.getMessages().map((entry) => entry.content));
+      expect(reloaded.map((entry) => entry.content)).not.toContain("obsolete tool output");
+      expect(reloaded[0]?.content).toBe("policy: preserve safeguards");
+      expect(reloaded.some((entry) => entry.role === "user" && entry.content === "latest request")).toBe(true);
+    } finally {
+      db.close();
+      rmSync(dbDir, { recursive: true, force: true });
+    }
   });
 
   test("truncates oversized message content before it enters history", () => {

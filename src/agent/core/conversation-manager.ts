@@ -74,6 +74,18 @@ export class ConversationManager {
     });
   }
 
+  private persistTranscript(messages: ConversationMessage[]): void {
+    if (!this.db || !this.sessionId) return;
+    this.db.replaceConversationMessages(this.sessionId, messages.map((msg, index) => ({
+      id: `cmsg-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+      session_id: this.sessionId!,
+      role: msg.role as 'user' | 'assistant' | 'system' | 'tool',
+      parts: JSON.stringify([{ type: 'text', content: msg.content }]),
+      token_count: 0,
+      created_at: msg.timestamp.getTime(),
+    })));
+  }
+
   addMessage(msg: ConversationMessage): void {
     const content =
       typeof msg.content === "string" && msg.content.length > this.config.maxMessageChars
@@ -165,12 +177,25 @@ export class ConversationManager {
     const topics = extractTopics(oldMessages);
     const summary = `Compacted ${oldMessages.length} messages (${userCount} user, ${assistantCount} assistant, ${toolCount} tool). Topics: ${topics}. Head ${headMessages.length} messages and tail ${recentMessages.length} messages preserved.`;
 
-    this.messages = [
+    const beforeCompact = this.messages;
+    const summaryTimestamp = (() => {
+      const prior = [...headMessages, ...retainedOlder].at(-1)?.timestamp.getTime() ?? 0;
+      const next = recentMessages[0]?.timestamp.getTime();
+      return next !== undefined && next > prior ? prior + (next - prior) / 2 : prior;
+    })();
+    const compactedMessages = [
       ...headMessages,
       ...retainedOlder,
-      { role: "system", content: `[Conversation Summary] ${summary}`, timestamp: new Date() },
+      { role: "system" as const, content: `[Conversation Summary] ${summary}`, timestamp: new Date(summaryTimestamp) },
       ...recentMessages,
     ];
+    try {
+      this.persistTranscript(compactedMessages);
+      this.messages = compactedMessages;
+    } catch (error) {
+      this.messages = beforeCompact;
+      throw error;
+    }
     return summary;
   }
 

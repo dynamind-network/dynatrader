@@ -610,6 +610,50 @@ describe('StateDb', () => {
     });
   });
 
+  describe('conversation message replacement', () => {
+    it('replaces only one session transcript with the requested rows', () => {
+      db.saveConversationSession({
+        id: 'replace-session', parent_id: null, title: 'Replace test', slug: 'replace-test',
+        status: 'active', metadata: '{}', created_at: 1, updated_at: 1,
+      });
+      db.saveConversationSession({
+        id: 'other-session', parent_id: null, title: 'Other', slug: 'other',
+        status: 'active', metadata: '{}', created_at: 1, updated_at: 1,
+      });
+      const original = {
+        id: 'original-message', session_id: 'replace-session', role: 'user' as const,
+        parts: '[{"type":"text","content":"original"}]', token_count: 0, created_at: 1,
+      };
+      const other = { ...original, id: 'other-message', session_id: 'other-session' };
+      db.saveConversationMessage(original);
+      db.saveConversationMessage(other);
+      const replacement = { ...original, id: 'replacement-message', parts: '[{"type":"text","content":"replacement"}]', created_at: 2 };
+
+      db.replaceConversationMessages('replace-session', [replacement]);
+
+      expect(db.getConversationMessages('replace-session')).toEqual([replacement]);
+      expect(db.getConversationMessages('other-session')).toEqual([other]);
+    });
+
+    it('rolls back deletion and inserts when a replacement row violates constraints', () => {
+      db.saveConversationSession({
+        id: 'rollback-session', parent_id: null, title: 'Rollback', slug: 'rollback',
+        status: 'active', metadata: '{}', created_at: 1, updated_at: 1,
+      });
+      const original = {
+        id: 'rollback-original', session_id: 'rollback-session', role: 'user' as const,
+        parts: '[{"type":"text","content":"original"}]', token_count: 0, created_at: 1,
+      };
+      db.saveConversationMessage(original);
+
+      expect(() => db.replaceConversationMessages('rollback-session', [
+        { ...original, id: 'rollback-valid', created_at: 2 },
+        { ...original, id: 'rollback-invalid', role: 'not-a-role' as never, created_at: 3 },
+      ])).toThrow();
+      expect(db.getConversationMessages('rollback-session')).toEqual([original]);
+    });
+  });
+
   describe('withRetry', () => {
     it('should execute write operations within a transaction', () => {
       const result = db.withRetry(() => {

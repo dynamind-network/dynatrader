@@ -1603,6 +1603,22 @@ export class StateDb {
     );
   }
 
+  replaceConversationMessages(sessionId: string, rows: ConversationMessageRow[]): void {
+    if (rows.some((row) => row.session_id !== sessionId)) {
+      throw new Error('Conversation message session_id must match replacement session');
+    }
+    this.withRetry(() => {
+      this.#db.prepare('DELETE FROM conversation_messages WHERE session_id = ?').run(sessionId);
+      const insert = this.#db.prepare(
+        `INSERT INTO conversation_messages (id, session_id, role, parts, token_count, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      );
+      for (const row of rows) {
+        insert.run(row.id, row.session_id, row.role, row.parts, row.token_count, row.created_at);
+      }
+    });
+  }
+
   getConversationMessages(sessionId: string, limit?: number): ConversationMessageRow[] {
     const sql = limit
       ? 'SELECT * FROM conversation_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT ?'
