@@ -647,8 +647,8 @@ describe('StateDb', () => {
       db.saveConversationMessage(original);
 
       expect(() => db.replaceConversationMessages('rollback-session', [
-        { ...original, id: 'rollback-valid', created_at: 2 },
-        { ...original, id: 'rollback-invalid', role: 'not-a-role' as never, created_at: 3 },
+        { ...original, id: 'rollback-duplicate', created_at: 2 },
+        { ...original, id: 'rollback-duplicate', created_at: 3 },
       ])).toThrow();
       expect(db.getConversationMessages('rollback-session')).toEqual([original]);
     });

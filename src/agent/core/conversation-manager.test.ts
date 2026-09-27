@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { ConversationManager } from "./conversation-manager";
 import { StateDb } from "../../state-db";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -160,6 +160,61 @@ describe("ConversationManager", () => {
       expect(reloaded.map((entry) => entry.content)).not.toContain("obsolete tool output");
       expect(reloaded[0]?.content).toBe("policy: preserve safeguards");
       expect(reloaded.some((entry) => entry.role === "user" && entry.content === "latest request")).toBe(true);
+    } finally {
+      db.close();
+      rmSync(dbDir, { recursive: true, force: true });
+    }
+  });
+
+  test("persists no-op duplicate-summary normalization in stable transcript order", () => {
+    const dbDir = mkdtempSync(join(tmpdir(), "conversation-manager-duplicate-summary-"));
+    const db = new StateDb(dbDir);
+    const sessionId = "duplicate-summary-session";
+    db.saveConversationSession({
+      id: sessionId, parent_id: null, title: "Duplicate summaries", slug: "duplicate-summaries", status: "active",
+      metadata: "{}", created_at: 1, updated_at: 1,
+    });
+    try {
+      const manager = new ConversationManager({ keepHeadMessages: 10, keepRecentMessages: 10 }, db, sessionId);
+      const timestamp = new Date(1000);
+      manager.addMessage({ role: "system", content: "policy", timestamp });
+      manager.addMessage({ role: "system", content: "[Conversation Summary] older", timestamp });
+      manager.addMessage({ role: "user", content: "request", timestamp });
+      manager.addMessage({ role: "system", content: "[Conversation Summary] newest", timestamp });
+      manager.compact();
+
+      const reloaded = new ConversationManager(undefined, db, sessionId).getMessages();
+      expect(reloaded.map((entry) => entry.content)).toEqual([
+        "policy", "request", "[Conversation Summary] newest",
+      ]);
+    } finally {
+      db.close();
+      rmSync(dbDir, { recursive: true, force: true });
+    }
+  });
+
+  test("keeps current and stored messages unchanged when compaction persistence fails", () => {
+    const dbDir = mkdtempSync(join(tmpdir(), "conversation-manager-persist-failure-"));
+    const db = new StateDb(dbDir);
+    const sessionId = "compact-failure-session";
+    db.saveConversationSession({
+      id: sessionId, parent_id: null, title: "Failure", slug: "failure", status: "active",
+      metadata: "{}", created_at: 1, updated_at: 1,
+    });
+    try {
+      const manager = new ConversationManager({ keepHeadMessages: 1, keepRecentMessages: 1 }, db, sessionId);
+      const timestamp = new Date(1000);
+      manager.addMessage({ role: "system", content: "policy", timestamp });
+      manager.addMessage({ role: "user", content: "request", timestamp });
+      manager.addMessage({ role: "tool", content: "middle output", timestamp });
+      manager.addMessage({ role: "assistant", content: "response", timestamp });
+      const beforeMessages = manager.getMessages();
+      const beforeRows = db.getConversationMessages(sessionId);
+      vi.spyOn(db, "replaceConversationMessages").mockImplementation(() => { throw new Error("persistence failed"); });
+
+      expect(() => manager.compact()).toThrow("persistence failed");
+      expect(manager.getMessages()).toEqual(beforeMessages);
+      expect(db.getConversationMessages(sessionId)).toEqual(beforeRows);
     } finally {
       db.close();
       rmSync(dbDir, { recursive: true, force: true });

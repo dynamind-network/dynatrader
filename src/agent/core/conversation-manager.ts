@@ -159,7 +159,9 @@ export class ConversationManager {
         for (let index = 0; index < this.messages.length; index++) {
           if (isGeneratedSummary(this.messages[index])) latestSummaryIndex = index;
         }
-        this.messages = this.messages.filter((msg, index) => !isGeneratedSummary(msg) || index === latestSummaryIndex);
+        const normalizedMessages = this.messages.filter((msg, index) => !isGeneratedSummary(msg) || index === latestSummaryIndex);
+        this.persistTranscript(normalizedMessages);
+        this.messages = normalizedMessages;
       }
       return "";
     }

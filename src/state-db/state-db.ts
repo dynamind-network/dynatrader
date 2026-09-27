@@ -1621,8 +1621,8 @@ export class StateDb {
 
   getConversationMessages(sessionId: string, limit?: number): ConversationMessageRow[] {
     const sql = limit
-      ? 'SELECT * FROM conversation_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT ?'
-      : 'SELECT * FROM conversation_messages WHERE session_id = ? ORDER BY created_at ASC';
+      ? 'SELECT * FROM conversation_messages WHERE session_id = ? ORDER BY created_at ASC, rowid ASC LIMIT ?'
+      : 'SELECT * FROM conversation_messages WHERE session_id = ? ORDER BY created_at ASC, rowid ASC';
     const params = limit ? [sessionId, limit] : [sessionId];
     return this.#db.prepare(sql).all(...params) as ConversationMessageRow[];
   }
