@@ -143,8 +143,11 @@ export class ConversationManager {
     if (oldMessages.length === 0) {
       const retainedSummaries = this.messages.filter(isGeneratedSummary);
       if (retainedSummaries.length > 1) {
-        const firstSummaryIndex = this.messages.findIndex(isGeneratedSummary);
-        this.messages = this.messages.filter((msg, index) => !isGeneratedSummary(msg) || index === firstSummaryIndex);
+        let latestSummaryIndex = -1;
+        for (let index = 0; index < this.messages.length; index++) {
+          if (isGeneratedSummary(this.messages[index])) latestSummaryIndex = index;
+        }
+        this.messages = this.messages.filter((msg, index) => !isGeneratedSummary(msg) || index === latestSummaryIndex);
       }
       return "";
     }

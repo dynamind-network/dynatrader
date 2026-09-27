@@ -119,7 +119,7 @@ describe("ConversationManager", () => {
     });
     manager.restore([
       message("system", "policy: preserve access controls"),
-      message("system", "[Conversation Summary] older summary"),
+      message("system", "[Conversation Summary] older summary: stale context"),
       message("user", "latest request"),
       message("system", "[Conversation Summary] duplicate summary"),
     ]);
@@ -128,6 +128,8 @@ describe("ConversationManager", () => {
     const messages = manager.getMessages();
 
     expect(messages.filter((entry) => entry.role === "system" && entry.content?.startsWith("[Conversation Summary]"))).toHaveLength(1);
+    expect(messages.find((entry) => entry.role === "system" && entry.content?.startsWith("[Conversation Summary]"))?.content)
+      .toBe("[Conversation Summary] duplicate summary");
     expect(messages.filter((entry) => entry.role === "system" && !entry.content?.startsWith("[Conversation Summary]"))
       .map((entry) => entry.content)).toEqual(["policy: preserve access controls"]);
     expect(messages.find((entry) => entry.role === "user")?.content).toBe("latest request");
