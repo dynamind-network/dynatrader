@@ -2,6 +2,17 @@ import { describe, expect, test } from "vitest";
 import { InMemoryStore } from "./memory-store";
 
 describe("InMemoryStore", () => {
+  test("hides archived source records from active search but preserves archive lookup", async () => {
+    const store = new InMemoryStore();
+    const timestamp = new Date();
+    await store.put({ id: "source", scope: "agent_memory", kind: "note", payload: { content: "active fact" }, timestamp });
+    await store.put({ id: "archive-source", scope: "agent_memory", kind: "note:archived", payload: { originalId: "source" }, timestamp });
+
+    expect(await store.search({ scope: "agent_memory", limit: 10 })).toEqual([]);
+    expect(await store.search({ scope: "agent_memory", includeArchived: true, limit: 10 })).toHaveLength(2);
+    expect(await store.search({ scope: "agent_memory", kind: "note:archived", limit: 10 })).toHaveLength(1);
+  });
+
   test("merges duplicate memories during compaction", async () => {
     const store = new InMemoryStore();
     const now = new Date();

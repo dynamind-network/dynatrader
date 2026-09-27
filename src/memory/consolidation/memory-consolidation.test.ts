@@ -20,8 +20,11 @@ describe('MemoryConsolidation', () => {
     expect(first.archivedRecords).toBe(1);
     expect(second.duplicatesMerged).toBe(0);
     expect(second.archivedRecords).toBe(0);
-    expect((await backend.search({ scope: 'agent_memory', limit: 20 })).filter((item) => item.id === 'two')).toHaveLength(0);
-    expect((await backend.search({ scope: 'agent_memory', kind: 'observation:archived', limit: 20 }))).toHaveLength(1);
+    const active = await backend.search({ scope: 'agent_memory', limit: 20 });
+    const archived = await backend.search({ scope: 'agent_memory', kind: 'observation:archived', limit: 20 });
+    expect(active).toHaveLength(1);
+    expect(archived).toHaveLength(1);
+    expect((archived[0]?.payload as { originalId?: string }).originalId).not.toBe(active[0]!.id);
   });
 
   it('does not merge across scopes or kinds', async () => {
