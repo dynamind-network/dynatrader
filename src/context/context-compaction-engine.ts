@@ -243,6 +243,19 @@ export class ContextCompactionEngine {
       }
     }
 
+    // Preserve the latest user request even when a long tool/assistant tail pushes it
+    // outside the recent-message window.
+    let latestUserIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        latestUserIndex = i;
+        break;
+      }
+    }
+    if (latestUserIndex >= 0) {
+      keepIndices.add(latestUserIndex);
+    }
+
     // Keep protected tool pairs
     for (const idx of protectedPairs) {
       keepIndices.add(idx);
