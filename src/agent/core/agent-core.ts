@@ -1706,9 +1706,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         }
         const systemWithGuidance = promptLayers.systemPrompt;
 
-        const messagesBeforeCompaction = conversation.getMessages();
-      const convMessages = conversation.getMessagesForRequest();
-      const compactedBeforeRequest = JSON.stringify(messagesBeforeCompaction) !== JSON.stringify(conversation.getMessages());
+        const convMessages = conversation.getMessagesForRequest();
         let messages: ModelRequest["messages"] = [
           { role: "system", content: systemWithGuidance + "\n\n" + (constraints?.join("\n") ?? "") },
         ];
