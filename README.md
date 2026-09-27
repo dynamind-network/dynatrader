@@ -18,7 +18,7 @@
 
 ## Features
 
-- **Multi-agent architecture** — Analyst, researcher, risk manager, and trader agents collaborate on every decision
+- **One primary agent with optional subagents** — Add custom subagents as `.md` files in `agents/`, configure persistent subagents in `profiles.yaml`, and optionally enable pipeline/debate/consensus collaboration modes
 - **7 LLM providers** — OpenAI, Anthropic, OpenRouter, DeepSeek, Google, Ollama, LM Studio
 - **100+ exchanges** — CCXT integration (Binance, Coinbase, Kraken, Hyperliquid, and more)
 - **Paper mode** — Test strategies with real market data, no real money at risk
@@ -161,7 +161,9 @@ dynatrader --stdio      # Start JSON-RPC gateway on stdio
 ```
 dynatrader/
   src/                  # Core runtime
-    agent/              # Agent core (loop, profiles, skills, strategies)
+    agent/core/         # Agent core (loop, profiles, skills, strategies)
+    agent/multi/        # Opt-in pipeline, debate, consensus collaboration
+    agent/profiles/     # Agent profile CRUD manager
     runtime/            # Tools, hooks, skills, subagents, MCP, webhooks
     memory/             # SQLite memory with FTS5 and embeddings
     gateway/            # Telegram, Discord, JSON-RPC gateway
@@ -174,6 +176,19 @@ dynatrader/
   ui/                   # Terminal UI (Ink/React)
   workspace/            # Default workspace templates
 ```
+
+### Agent Model
+
+DynaTrader uses **one primary agent** with optional subagents — not hardcoded roles. The primary agent reads `SOUL.md`, `IDENTITY.md`, and `USER.md` at session start. Subagents are loaded dynamically:
+
+| Source | How to add |
+|--------|-----------|
+| `agents/<name>.md` | Markdown file with YAML frontmatter (OpenCode-style) |
+| `agents/<name>/SOUL.md` + `profile.yaml` | Directory-based agent with full config |
+| `profiles.yaml` | Persistent subagents defined under `subagents[]` |
+| Runtime | Ephemeral subagents spawned via `session_spawn` or delegate task |
+
+Multi-agent collaboration (pipeline, debate, consensus) is **opt-in** — enabled via the `multi/` package when needed, not the default mode.
 
 ## Supported Exchanges
 
