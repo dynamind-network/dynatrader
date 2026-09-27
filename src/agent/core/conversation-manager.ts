@@ -116,10 +116,12 @@ export class ConversationManager {
 
   compact(): string {
     const { keepHeadMessages, keepRecentMessages } = this.config;
+    const isGeneratedSummary = (msg: ConversationMessage) =>
+      msg.role === "system" && msg.content?.startsWith("[Conversation Summary]");
     let latestUserIndex = -1;
     const protectedIndexes = new Set<number>();
     this.messages.forEach((msg, index) => {
-      if (msg.role === "system") protectedIndexes.add(index);
+      if (msg.role === "system" && !isGeneratedSummary(msg)) protectedIndexes.add(index);
       if (msg.role === "user") latestUserIndex = index;
     });
     if (latestUserIndex >= 0) protectedIndexes.add(latestUserIndex);
@@ -127,12 +129,19 @@ export class ConversationManager {
     const keepHeadCount = Math.min(keepHeadMessages, this.messages.length);
     const keepTailStart = Math.max(keepHeadCount, this.messages.length - keepRecentMessages);
     const retainedIndexes = new Set(protectedIndexes);
-    for (let index = 0; index < keepHeadCount; index++) retainedIndexes.add(index);
-    for (let index = keepTailStart; index < this.messages.length; index++) retainedIndexes.add(index);
+    for (let index = 0; index < keepHeadCount; index++) {
+      if (!isGeneratedSummary(this.messages[index])) retainedIndexes.add(index);
+    }
+    for (let index = keepTailStart; index < this.messages.length; index++) {
+      if (!isGeneratedSummary(this.messages[index])) retainedIndexes.add(index);
+    }
     if (retainedIndexes.size === this.messages.length) return "";
 
-    const headMessages = this.messages.slice(0, keepHeadCount);
-    const oldMessages = this.messages.filter((_msg, index) => !retainedIndexes.has(index));
+    const oldMessages = this.messages.filter((_msg, index) =>
+      !retainedIndexes.has(index) && !isGeneratedSummary(this.messages[index]),
+    );
+    if (oldMessages.length === 0) return "";
+    const headMessages = this.messages.filter((_msg, index) => index < keepHeadCount && retainedIndexes.has(index));
     const recentMessages = this.messages.filter((_msg, index) => retainedIndexes.has(index) && index >= keepTailStart);
     const retainedOlder = this.messages.filter((_msg, index) => retainedIndexes.has(index) && index >= keepHeadCount && index < keepTailStart);
 
@@ -144,16 +153,12 @@ export class ConversationManager {
     }
 
     const topics = extractTopics(oldMessages);
-    const previousSummary = this.messages.find(
-      (m) => m.role === "system" && m.content?.startsWith("[Conversation Summary]"),
-    )?.content;
     const summary = `Compacted ${oldMessages.length} messages (${userCount} user, ${assistantCount} assistant, ${toolCount} tool). Topics: ${topics}. Head ${headMessages.length} messages and tail ${recentMessages.length} messages preserved.`;
 
-    const summaryParts = [previousSummary, `[Conversation Summary] ${summary}`].filter(Boolean);
     this.messages = [
       ...headMessages,
       ...retainedOlder,
-      { role: "system", content: summaryParts.join("\n\n"), timestamp: new Date() },
+      { role: "system", content: `[Conversation Summary] ${summary}`, timestamp: new Date() },
       ...recentMessages,
     ];
     return summary;
