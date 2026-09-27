@@ -1,7 +1,7 @@
 /**
  * Tool Result Compressor - Hybrid compression for tool results.
  *
- * Implements the Atomic Agent "Compress" step:
+ * Implements the compression step:
  *   Prompt → Decide → Run → Compress → (not done) → back to Prompt
  *
  * Uses a two-tier approach:
@@ -76,7 +76,7 @@ export interface CompressionStats {
 /**
  * ToolResultCompressor - Hybrid compression for tool results.
  *
- * Implements the Atomic Agent "Compress" step with a two-tier approach:
+ * Implements the compression step with a two-tier approach:
  *   Tier 1: SmartCrusher (deterministic, fast)
  *   Tier 2: LLM summarization (better quality)
  *

@@ -1,7 +1,7 @@
 /**
  * TurnController — Per-Session FIFO, Cross-Session Parallelism
  *
- * Atomic Agent pattern. Every entry point (chat, CLI, daemon, cron)
+ * Every entry point (chat, CLI, daemon, cron)
  * funnels through enqueue(). At most one run() executes concurrently
  * per sessionId. Different sessions never block each other.
  *

@@ -1,7 +1,7 @@
 /**
- * Tool Call Parser - Handles Atomic Agent array-only format.
+ * Tool Call Parser - Handles array-only format.
  *
- * Atomic Agent uses GBNF grammar to enforce:
+ * Uses GBNF grammar to enforce:
  *   [{tool: "name", args: {...}}, ...]
  *
  * This parser handles both:

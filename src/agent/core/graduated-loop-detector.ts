@@ -2,7 +2,7 @@ import type { ToolCall, ToolResult } from "@dyna/contracts";
 import { createHash } from "node:crypto";
 
 /**
- * Graduated loop detection — Atomic Agent pattern.
+ * Graduated loop detection.
  *
  * Three-tier escalation per tool call:
  * - `warn`: inject a notice into the next step's prompt

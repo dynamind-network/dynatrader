@@ -230,7 +230,7 @@ export async function initializeComponents(
     recentTailTokens: 20000,
   }, components.stateDb ?? undefined);
 
-  // --- 3c2. Tool Result Compressor (Atomic Agent Compress step) ---
+  // --- 3c2. Tool Result Compressor ---
   logger.debug('Initializing ToolResultCompressor');
   const compressToolResults = (workspace.config as Record<string, unknown>)?.runtime
     ? !!(workspace.config as Record<string, unknown>).compressToolResults

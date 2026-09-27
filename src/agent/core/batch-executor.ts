@@ -1,7 +1,7 @@
 /**
  * BatchExecutor — Resource-Class-Aware Parallel Tool Execution
  *
- * Atomic Agent pattern. Groups tool calls by ResourceClass:
+ * Groups tool calls by ResourceClass:
  * - `pure_read` / `market`: fan out via Promise.allSettled
  * - `serial_write` / `browser` / `exec` / `session_spawn`: serialize within group
  * - `terminal`: runs solo after all other groups complete

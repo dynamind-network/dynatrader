@@ -1,5 +1,5 @@
 /**
- * Reflection Runner — Atomic Agent Pattern
+ * Reflection Runner
  *
  * Lightweight end-of-turn memory extraction. Fire-and-forget after each reply.
  * Sliding-window segmentation: fire every N turns over last W message pairs.

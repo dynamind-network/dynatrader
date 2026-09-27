@@ -196,7 +196,7 @@ export interface AgentCoreConfig {
   maxParallelToolCalls?: number;
   /** Max wave size for pure_read fan-out. Default: unlimited */
   maxWaveSize?: number;
-  /** Tool result compressor for the Atomic Agent Compress step */
+  /** Tool result compressor for the compression step */
   toolResultCompressor?: import('../../context/tool-result-compressor').ToolResultCompressor;
   /** Enable/disable tool result compression (default: true) */
   compressToolResults?: boolean;
@@ -1131,7 +1131,7 @@ Explore the repository and design an implementation plan. You are strictly read-
       });
       this.budget.recordApiCall();
 
-      // === COMPRESS STEP (Atomic Agent pattern) ===
+      // === COMPRESS STEP ===
       // Compress tool results before feeding back to LLM
       const validResults = batchResult.results
         .filter((slot): slot is typeof slot & { result: NonNullable<typeof slot.result> } =>

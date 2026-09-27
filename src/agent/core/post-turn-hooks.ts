@@ -1,5 +1,5 @@
 /**
- * Post-Turn Hooks (Atomic Agent–informed)
+ * Post-Turn Hooks
  *
  * After each turn, decides whether anything is worth persisting.
  * Most turns have nothing worth syncing — skipping them keeps the loop fast.

@@ -5,7 +5,7 @@
  * Messages are drained at step boundaries and folded into the
  * next prompt as a `### notice` section.
  *
- * Atomic Agent pattern: events from any source (user, parent, supervisor)
+ * Events from any source (user, parent, supervisor)
  * arrive through the same channel. The agent must acknowledge them
  * before the next LLM call.
  */

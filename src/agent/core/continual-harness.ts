@@ -4,7 +4,7 @@
  * Reviews agent trajectories, persists reviewable lessons as supplemental
  * prompts. The agent becomes better the more it works with the user.
  *
- * Atomic Agent pattern: review past trajectories, extract lessons,
+ * Review past trajectories, extract lessons,
  * store as supplemental prompts for future sessions.
  */
 
