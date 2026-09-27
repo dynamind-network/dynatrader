@@ -140,7 +140,14 @@ export class ConversationManager {
     const oldMessages = this.messages.filter((_msg, index) =>
       !retainedIndexes.has(index) && !isGeneratedSummary(this.messages[index]),
     );
-    if (oldMessages.length === 0) return "";
+    if (oldMessages.length === 0) {
+      const retainedSummaries = this.messages.filter(isGeneratedSummary);
+      if (retainedSummaries.length > 1) {
+        const firstSummaryIndex = this.messages.findIndex(isGeneratedSummary);
+        this.messages = this.messages.filter((msg, index) => !isGeneratedSummary(msg) || index === firstSummaryIndex);
+      }
+      return "";
+    }
     const headMessages = this.messages.filter((_msg, index) => index < keepHeadCount && retainedIndexes.has(index));
     const recentMessages = this.messages.filter((_msg, index) => retainedIndexes.has(index) && index >= keepTailStart);
     const retainedOlder = this.messages.filter((_msg, index) => retainedIndexes.has(index) && index >= keepHeadCount && index < keepTailStart);

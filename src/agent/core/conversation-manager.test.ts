@@ -108,6 +108,31 @@ describe("ConversationManager", () => {
     expect(summaries[0]?.content).not.toContain("CANARY_SECRET");
   });
 
+  test("normalizes duplicate generated summaries in a no-op compact", () => {
+    const manager = new ConversationManager({
+      maxMessages: 100,
+      maxContextTokens: 1_000_000,
+      autoCompactThreshold: 0.8,
+      keepHeadMessages: 10,
+      keepRecentMessages: 10,
+      maxMessageChars: 2_000,
+    });
+    manager.restore([
+      message("system", "policy: preserve access controls"),
+      message("system", "[Conversation Summary] older summary"),
+      message("user", "latest request"),
+      message("system", "[Conversation Summary] duplicate summary"),
+    ]);
+
+    manager.compact();
+    const messages = manager.getMessages();
+
+    expect(messages.filter((entry) => entry.role === "system" && entry.content?.startsWith("[Conversation Summary]"))).toHaveLength(1);
+    expect(messages.filter((entry) => entry.role === "system" && !entry.content?.startsWith("[Conversation Summary]"))
+      .map((entry) => entry.content)).toEqual(["policy: preserve access controls"]);
+    expect(messages.find((entry) => entry.role === "user")?.content).toBe("latest request");
+  });
+
   test("truncates oversized message content before it enters history", () => {
     const manager = new ConversationManager({
       maxMessages: 100,
