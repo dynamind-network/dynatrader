@@ -3,7 +3,8 @@ import type { CompactionSink } from '../types';
 
 export interface BenchmarkMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string; tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> }
 export interface BenchmarkFixture { version: 1; id: string; metadata: { model: string; tokenizer: string; seed: number }; messages: BenchmarkMessage[]; gold: { mustRetain: string[]; forbidden: string[] } }
-export interface BenchmarkRun { fixtureId: string; policy: 'identity' | 'current-compaction'; tokenCount: { input: number; output: number; kind: 'estimated'; counter: string }; wallTimeMs: 0; metrics: { retainedFacts: number; factCount: number; forbiddenLeaks: number; toolPairsValid: boolean } }
+export type BenchmarkPolicy = 'identity' | 'current-compaction' | 'duplicate-pruning';
+export interface BenchmarkRun { fixtureId: string; policy: BenchmarkPolicy; tokenCount: { input: number; output: number; savings: number; ratio: number; kind: 'estimated'; counter: string }; wallTimeMs: 0; metrics: { retainedFacts: number; factCount: number; forbiddenLeaks: number; toolPairsValid: boolean } }
 export interface FixtureReplay { fixtureId: string; version: 1; metadata: BenchmarkFixture['metadata']; runs: BenchmarkRun[] }
 export interface Comparison { aggregate: { fixtureCount: number; policies: Record<string, { factRecall: number; forbiddenLeaks: number; tokenSavings: number }> }; worstCase: { fixtureId: string; policy: string; factRecall: number; forbiddenLeaks: number }; perFixture: FixtureReplay[] }
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -40,8 +41,18 @@ export async function replayFixture(input: BenchmarkFixture): Promise<FixtureRep
   const engine=new ContextCompactionEngine(sink,{maxContextTokens:1,autoCompactThreshold:0,keepRecentMessages:3,recentTailTokens:0,preCompactionFlush:false,protectToolPairs:true});
   const compacted=await engine.manualCompact(source as CompactionMessage[]);
   const output=compacted.compressed.map(m=>({...m} as BenchmarkMessage)), inputTokens=tokens(source);
-  const run=(policy:BenchmarkRun['policy'],ms:BenchmarkMessage[]):BenchmarkRun=>{const corpus=ms.map(m=>m.content).join('\n');return{fixtureId:f.id,policy,tokenCount:{input:inputTokens,output:tokens(ms),kind:'estimated',counter:'chars-div-4+role-structure-v1'},wallTimeMs:0,metrics:{retainedFacts:f.gold.mustRetain.filter(x=>corpus.includes(x)).length,factCount:f.gold.mustRetain.length,forbiddenLeaks:f.gold.forbidden.filter(p=>leaks(ms,p)).length,toolPairsValid:pairsValid(ms)}}};
-  return{fixtureId:f.id,version:1,metadata:{...f.metadata},runs:[run('identity',source),run('current-compaction',output)]};
+  const eligible = (m: BenchmarkMessage) => m.role === 'assistant' && !m.tool_calls?.length;
+  const keyOf = (m: BenchmarkMessage) => JSON.stringify([m.role, m.content, m.tool_call_id ?? null]);
+  const seen = new Set<string>();
+  const duplicatePruned = source.filter((m) => {
+    if (!eligible(m)) return true;
+    const key = keyOf(m);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const run=(policy:BenchmarkRun['policy'],ms:BenchmarkMessage[]):BenchmarkRun=>{const corpus=ms.map(m=>m.content).join('\n');return{fixtureId:f.id,policy,tokenCount:{input:inputTokens,output:tokens(ms),savings:inputTokens-tokens(ms),ratio:inputTokens?tokens(ms)/inputTokens:1,kind:'estimated',counter:'chars-div-4+role-structure-v1'},wallTimeMs:0,metrics:{retainedFacts:f.gold.mustRetain.filter(x=>corpus.includes(x)).length,factCount:f.gold.mustRetain.length,forbiddenLeaks:f.gold.forbidden.filter(p=>leaks(ms,p)).length,toolPairsValid:pairsValid(ms)}}};
+  return{fixtureId:f.id,version:1,metadata:{...f.metadata},runs:[run('identity',source),run('current-compaction',output),run('duplicate-pruning',duplicatePruned)]};
 }
 export function compareRuns(replays:FixtureReplay[]):Comparison {
  const ids=new Set<string>(); for(const r of replays){if(ids.has(r.fixtureId))throw new Error(`Duplicate fixture ID: ${r.fixtureId}`);ids.add(r.fixtureId)}

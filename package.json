@@ -36,7 +36,8 @@
     "benchmark": "bun run evals/benchmark-matrix.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:ui": "cd ui && bun run typecheck",
-    "clean": "rm -rf dist .tsbuildinfo"
+    "clean": "rm -rf dist .tsbuildinfo",
+    "context:bench": "bun run src/context/benchmark/run.ts"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

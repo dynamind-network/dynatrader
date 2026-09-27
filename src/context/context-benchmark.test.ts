@@ -22,9 +22,15 @@ const largeFixture: BenchmarkFixture = {
   messages: [
     fixture.messages[0],
     fixture.messages[1],
-    ...Array.from({ length: 12 }, (_, index) => ({ role: 'user' as const, content: `Archive item ${index}; filler filler filler filler filler filler filler filler.` })),
-    fixture.messages[3],
-    fixture.messages[4],
+    { role: 'assistant', content: 'Observation: SYNTH_PATH status=ready.' },
+    { role: 'assistant', content: 'Observation: SYNTH_PATH status=ready.' },
+    { role: 'user', content: 'Archived note: routine check completed.' },
+    { role: 'user', content: 'Archived note: routine check completed.' },
+    { role: 'assistant', content: 'Inspecting the path now.' },
+    { role: 'assistant', content: 'Inspecting the path now.' },
+    ...Array.from({ length: 12 }, () => ({ role: 'assistant' as const, content: 'Repeated archive observation; filler filler filler filler filler.' })),
+    { role: 'assistant', content: 'Calling inspection tool.', tool_calls: [{ id: 'large-call-1', type: 'function', function: { name: 'inspect_path', arguments: '{"path":"SYNTH_PATH"}' } }] },
+    { role: 'tool', content: 'SYNTH_PATH status=ready; SYNTH_CANARY_ALPHA must not leak.', tool_call_id: 'large-call-1' },
   ],
 };
 
@@ -47,13 +53,46 @@ describe('context benchmark harness', () => {
   });
 
   it('runs real deterministic compaction and produces non-identity output', async () => {
-    const first = await replayFixture(largeFixture);
-    const again = await replayFixture(largeFixture);
-    expect(first.runs.map((run) => run.policy)).toEqual(['identity', 'current-compaction']);
+    const first = await replayFixture({ ...largeFixture, messages: [
+      ...largeFixture.messages.slice(0, 2),
+      ...Array.from({ length: 12 }, () => ({ role: 'assistant' as const, content: 'Repeated archive observation; filler filler filler filler filler.' })),
+      ...largeFixture.messages.slice(-2),
+    ], gold: { mustRetain: ['Goal: inspect SYNTH_PATH', 'LIMIT=3', 'status=ready'], forbidden: ['SYNTH_CANARY_ALPHA'] } });
+    const again = await replayFixture({ ...largeFixture, messages: [
+      ...largeFixture.messages.slice(0, 2),
+      ...Array.from({ length: 12 }, () => ({ role: 'assistant' as const, content: 'Repeated archive observation; filler filler filler filler filler.' })),
+      ...largeFixture.messages.slice(-2),
+    ], gold: { mustRetain: ['Goal: inspect SYNTH_PATH', 'LIMIT=3', 'status=ready'], forbidden: ['SYNTH_CANARY_ALPHA'] } });
+    expect(first.runs.map((run) => run.policy)).toEqual(['identity', 'current-compaction', 'duplicate-pruning']);
+    expect(first.runs[2].tokenCount.output).toBeLessThan(first.runs[2].tokenCount.input);
+    expect(first.runs[2].metrics.retainedFacts).toBe(first.runs[2].metrics.factCount);
+    expect(first.runs[2].metrics.toolPairsValid).toBe(true);
     expect(first.runs[1].tokenCount.output).toBeLessThan(first.runs[1].tokenCount.input);
     expect(first).toEqual(again);
   });
 
+  it('keeps the current request, system message, and tool call/result pair intact under duplicate pruning', async () => {
+    const result = await replayFixture({ ...largeFixture, messages: [
+      { role: 'system', content: 'System constraint.' },
+      { role: 'user', content: 'Current request: preserve LIMIT=3.' },
+      { role: 'assistant', content: 'Repeated archive observation.' },
+      { role: 'assistant', content: 'Repeated archive observation.' },
+      { role: 'assistant', content: 'Calling tool.', tool_calls: [{ id: 'protected-1', type: 'function', function: { name: 'inspect', arguments: '{"path":"SYNTH_PATH"}' } }] },
+      { role: 'tool', content: 'Tool result.', tool_call_id: 'protected-1' },
+    ], gold: { mustRetain: ['Current request:', 'LIMIT=3'], forbidden: [] } });
+    const policy = result.runs[2];
+    expect(policy.tokenCount.output).toBeLessThan(policy.tokenCount.input);
+    expect(policy.metrics.retainedFacts).toBe(2);
+    expect(policy.metrics.toolPairsValid).toBe(true);
+  });
+
+  it('keeps a whole run stable and emits token savings and ratio', async () => {
+    const first = renderReport(compareRuns([await replayFixture(largeFixture)]));
+    const second = renderReport(compareRuns([await replayFixture(largeFixture)]));
+    expect(first).toBe(second);
+    expect(first).toContain('"savings"');
+    expect(first).toContain('"ratio"');
+  });
   it('measures raw identity leaks and actual compaction output without leaking report content', async () => {
     const safe = await replayFixture(fixture);
     expect(safe.runs[0].metrics.forbiddenLeaks).toBeGreaterThan(0);
