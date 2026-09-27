@@ -152,11 +152,30 @@ export class CommandService {
         onQuestionRequired: this.options.onQuestionRequired,
         onStartAgentCreate: this.options.onStartAgentCreate,
         onShowSessionPicker: this.options.onShowSessionPicker,
-        onEnterPlanMode: async (goal?: string) => {
-          await this.options.agentLoop?.setPlanningMode(true, goal);
-        },
-        onExitPlanMode: async () => {
-          await this.options.agentLoop?.setPlanningMode(false);
+        onRunPlan: async (goal: string) => {
+          const agentLoop = this.options.agentLoop;
+          if (!agentLoop) throw new Error('Agent not initialized. Please configure API keys.');
+
+          this.options.onProcessingChange(true);
+          let planModeStarted = false;
+          try {
+            await agentLoop.setPlanningMode(true, goal);
+            planModeStarted = true;
+            await agentLoop.run(goal, {
+              workingDirectory: this.options.cwd,
+              conversationId: this.options.getConversationId(),
+              isSubagent: false,
+            });
+            await agentLoop.setPlanningMode(false);
+            planModeStarted = false;
+          } catch (error) {
+            if (planModeStarted) {
+              await agentLoop.setPlanningMode(false).catch(() => {});
+            }
+            throw error;
+          } finally {
+            this.options.onProcessingChange(false);
+          }
         },
         onCompact: async () =>
           this.options.agentLoop?.compact() ?? {

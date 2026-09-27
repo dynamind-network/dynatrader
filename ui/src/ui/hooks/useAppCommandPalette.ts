@@ -153,15 +153,9 @@ export function useAppCommandPalette(options: {
       },
       {
         id: 'plan-cmd',
-        label: 'Enter plan mode',
-        command: '/plan',
-        description: 'Start a read-only planning pass',
-      },
-      {
-        id: 'exit-plan-cmd',
-        label: 'Submit plan',
-        command: '/exit-plan',
-        description: 'Finish planning and request approval',
+        label: 'Create a plan',
+        command: '/plan ',
+        description: 'Enter a goal for a read-only implementation plan',
       },
     ],
     []
@@ -231,6 +225,10 @@ export function useAppCommandPalette(options: {
         description: item.description,
         group: 'command' as const,
         action: () => {
+          if (item.id === 'plan-cmd') {
+            onSetInput(item.command);
+            return;
+          }
           void onSubmitCommandRef.current(item.command);
         },
       })),

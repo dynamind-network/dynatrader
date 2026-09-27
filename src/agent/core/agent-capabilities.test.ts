@@ -40,7 +40,7 @@ describe('general agent capabilities', () => {
     expect(goal.budget.currentTokens).toBe(7);
   });
 
-  it('enforces read-only tools and planning instructions in plan mode', async () => {
+  it('enforces read-only tools during a plan request', async () => {
     let request: any;
     const modelRouter = {
       call: vi.fn(async (value) => {
@@ -60,7 +60,7 @@ describe('general agent capabilities', () => {
     agent.enterPlanMode('planning-session', 'Refactor the module');
     await agent.chat('make a plan', { sessionId: 'planning-session' });
 
-    expect(request.messages[0].content).toContain('PLAN MODE IS ACTIVE for: Refactor the module');
+    expect(request.messages[0].content).toContain('A READ-ONLY PLAN REQUEST IS ACTIVE for: Refactor the module');
     expect(request.tools.map((tool: any) => tool.name)).toEqual(['read']);
     agent.exitPlanMode('planning-session');
     expect(agent.isPlanMode('planning-session')).toBe(false);

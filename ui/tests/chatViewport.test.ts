@@ -273,8 +273,7 @@ describe('chatViewport utilities', () => {
         'Usage:',
         '  Type a message to chat with the AI',
         '  @name task        - Dispatch to a configured workspace agent',
-        '  /plan             - Enter read-only planning mode',
-        '  /exit-plan        - Submit the current plan for approval',
+        '  /plan <goal>      - Generate a read-only plan for review',
       ];
       const toolsLines = [
         'Available runtime tools (8):',

@@ -20,7 +20,6 @@ interface StatusLineProps {
   currentModel?: string;
   currentEffort?: EffortLevel;
   isProcessing?: boolean;
-  isPlanMode?: boolean;
   workspaceAgentCount?: number;
   activeTools?: string[];
   gitStatus?: GitStatus | null;
@@ -162,7 +161,6 @@ function StatusLineComponent(props: StatusLineProps) {
     currentModel,
     currentEffort,
     isProcessing,
-    isPlanMode,
     workspaceAgentCount,
     activeTools,
     gitStatus,
@@ -192,7 +190,6 @@ function StatusLineComponent(props: StatusLineProps) {
 
   const hasTokenBudget =
     tokenBudgetUsed != null && tokenBudgetTotal != null && tokenBudgetTotal > 0;
-  const planLabel = isPlanMode ? 'PLAN' : null;
   // Agent count removed — getVisible() counts configured definitions, not running agents
 
   // Cwd display — truncated from the left so the leaf directory stays visible
@@ -247,14 +244,6 @@ function StatusLineComponent(props: StatusLineProps) {
           <>
             <Sep />
             <Text color={COLORS.highlight}>{currentEffort}</Text>
-          </>
-        )}
-
-        {/* Plan mode */}
-        {planLabel && (
-          <>
-            <Sep />
-            <Text color={COLORS.warning}>{planLabel}</Text>
           </>
         )}
 

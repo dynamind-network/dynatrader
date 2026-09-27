@@ -27,7 +27,7 @@ interface TimelineHandlerOpts {
   activeThinkingContentRef: React.MutableRefObject<string | null>;
   /** Ref mapping toolName -> pending message IDs. */
   pendingToolMessageIdsRef: React.MutableRefObject<Map<string, string[]>>;
-  /** Keep the live plan view in sync with plan-mode events. */
+  /** Keep the live plan view in sync with plan lifecycle events. */
   onPlanChange?: Dispatch<SetStateAction<Plan | null>>;
 }
 
@@ -39,13 +39,13 @@ export function formatPlanTimelineMessage(
 ): string {
   switch (event.type) {
     case 'plan_mode_entered':
-      return event.goal ? `Plan mode enabled: ${event.goal}` : 'Plan mode enabled.';
+      return event.goal ? `Creating a read-only plan: ${event.goal}` : 'Read-only planning started.';
     case 'plan_mode_exited':
       return event.approved
         ? 'Plan approved. Switching to build mode.'
         : event.plan
-          ? `Plan submitted for review: ${event.plan.title}`
-          : 'Plan mode exited.';
+          ? `Plan ready for review: ${event.plan.title}`
+          : 'Read-only planning finished.';
     case 'plan_step_update':
       return `Plan step update [${event.step.status}]: ${event.step.description}`;
   }

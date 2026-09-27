@@ -6,21 +6,30 @@ describe('plan slash commands', () => {
     getCommandRegistry().clear();
     registerBuiltinCommands();
   });
-  it('enters and exits planning through command callbacks', async () => {
-    const enter = vi.fn(async () => {});
-    const exit = vi.fn(async () => {});
+  it('runs a one-shot read-only planning command with a required goal', async () => {
+    const runPlan = vi.fn(async () => {});
     const context = {
       cwd: process.cwd(),
       onMessage: vi.fn(),
-      onEnterPlanMode: enter,
-      onExitPlanMode: exit,
+      onRunPlan: runPlan,
     };
-    expect(await getCommandRegistry().execute('plan', 'fix auth', context)).toContain(
-      'Planning mode enabled'
-    );
-    expect(enter).toHaveBeenCalledWith('fix auth');
-    expect(await getCommandRegistry().execute('exit-plan', '', context)).toContain('submitted');
-    expect(exit).toHaveBeenCalled();
+
+    expect(await getCommandRegistry().execute('plan', 'fix auth', context)).toContain('Plan ready');
+    expect(runPlan).toHaveBeenCalledOnce();
+    expect(runPlan).toHaveBeenCalledWith('fix auth');
+    expect(getCommandRegistry().get('exit-plan')).toBeUndefined();
+  });
+
+  it('requires a goal for /plan', async () => {
+    const runPlan = vi.fn(async () => {});
+    const output = await getCommandRegistry().execute('plan', '', {
+      cwd: process.cwd(),
+      onMessage: vi.fn(),
+      onRunPlan: runPlan,
+    });
+
+    expect(output).toContain('Usage: /plan <goal>');
+    expect(runPlan).not.toHaveBeenCalled();
   });
 
   it('compacts through the DynaTrader runtime and disconnects stored providers', async () => {

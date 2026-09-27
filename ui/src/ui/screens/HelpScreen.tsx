@@ -64,8 +64,7 @@ export function HelpScreen({ onBack }: HelpScreenProps) {
           <Row left="/resume" right="List or resume saved sessions" leftWidth={18} />
           <Row left="/agents" right="List configured agents" leftWidth={18} />
           <Row left="/agents create" right="Create a markdown workspace agent" leftWidth={18} />
-          <Row left="/plan" right="Enter read-only planning mode" leftWidth={18} />
-          <Row left="/exit-plan" right="Approve the current plan" leftWidth={18} />
+          <Row left="/plan <goal>" right="Generate a read-only plan for review" leftWidth={22} />
           <Row left="/plugins" right="List built-in plugins" leftWidth={18} />
           <Row left="/tools" right="List available tools" leftWidth={18} />
           <Row left="/mcp" right="Show connected MCP servers" leftWidth={18} />

@@ -32,8 +32,7 @@ Quick Start:
 - Use @name to dispatch to configured workspace agents
 - Use /agents to list configured agents
 - Use /agents create to add a markdown workspace agent
-- Use /plan to switch into read-only planning mode
-- Use /exit-plan to submit a plan for approval
+- Use /plan <goal> to generate a read-only plan for review
 - Custom tools come from the connected runtime and MCP servers
 - Use /tools to inspect the current runtime tool set
 - ${subagentLine}

@@ -700,7 +700,7 @@ export class AgentCore {
     const id = sessionId ?? this.sessionManager.getActiveSession()?.id ?? "default";
     const planning = this.planningSessions.get(id);
     if (!planning) return "";
-    return `\n\nPLAN MODE IS ACTIVE${planning.goal ? ` for: ${planning.goal}` : ""}.
+    return `A READ-ONLY PLAN REQUEST IS ACTIVE${planning.goal ? ` for: ${planning.goal}` : ""}.
 Explore the repository and design an implementation plan. You are strictly read-only: do not edit files, write memory, execute mutations, or change external state. Use only the read-only tools provided. Return a concrete Markdown plan with a title, short description, and ordered actionable steps including relevant file paths, dependencies, verification, and risks. Do not claim that implementation has occurred.`;
   }
 

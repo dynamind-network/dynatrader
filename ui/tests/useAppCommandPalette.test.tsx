@@ -105,11 +105,17 @@ describe('useAppCommandPalette hook', () => {
       expect(content).toContain("id: 'tools-cmd'");
       expect(content).toContain("id: 'mcp-cmd'");
       expect(content).toContain("id: 'agents-cmd'");
+      expect(content).toContain("id: 'plan-cmd'");
     });
 
     it('maps command targets to group command with onSubmitCommand action', () => {
       expect(content).toContain("group: 'command' as const");
       expect(content).toContain('void onSubmitCommandRef.current(item.command)');
+    });
+
+    it('starts the plan command in the input so the user can supply a goal', () => {
+      expect(content).toContain("if (item.id === 'plan-cmd')");
+      expect(content).toContain('onSetInput(item.command)');
     });
 
     it('defines help-cmd with /help command', () => {

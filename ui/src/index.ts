@@ -121,7 +121,7 @@ export const DEFAULT_SYSTEM_PROMPT = `You are the terminal agent for this worksp
 - "find the auth logic" -> use grep first, then read relevant files
 - "run the tests" -> use shell to run test command
 - "analyze this dataset" -> use runtime tools or spawn a configured subagent
-- "plan a change" -> enter planning mode, inspect the codebase, then submit a reviewable plan
+- "plan a change" -> use /plan <goal> for a read-only, reviewable plan
 
 Current working directory: {cwd}
 `;

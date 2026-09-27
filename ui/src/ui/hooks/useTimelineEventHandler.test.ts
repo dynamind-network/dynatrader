@@ -2,17 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { formatPlanTimelineMessage } from './useTimelineEventHandler.js';
 
 describe('formatPlanTimelineMessage', () => {
-  it('formats plan mode entry with and without a goal', () => {
-    expect(formatPlanTimelineMessage({ type: 'plan_mode_entered' })).toBe('Plan mode enabled.');
+  it('formats one-shot planning lifecycle messages', () => {
+    expect(formatPlanTimelineMessage({ type: 'plan_mode_entered' })).toBe(
+      'Read-only planning started.'
+    );
     expect(
       formatPlanTimelineMessage({
         type: 'plan_mode_entered',
         goal: 'refactor the terminal plan flow',
       })
-    ).toBe('Plan mode enabled: refactor the terminal plan flow');
+    ).toBe('Creating a read-only plan: refactor the terminal plan flow');
   });
 
-  it('formats plan mode exit for approval and review states', () => {
+  it('formats plan approval and review states', () => {
     expect(
       formatPlanTimelineMessage({
         type: 'plan_mode_exited',

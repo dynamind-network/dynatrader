@@ -39,7 +39,6 @@ export function registerBuiltinCommands(): void {
   registry.register(createPositionCommand());
   registry.register(createPlanCommand());
   registry.register(createGoalCommand());
-  registry.register(createExitPlanCommand());
   registry.register(createReloadCommand());
   registry.register(createUndoCommand());
   registry.register(createRedoCommand());
@@ -52,26 +51,15 @@ export function registerBuiltinCommands(): void {
 function createPlanCommand(): SlashCommand {
   return {
     name: 'plan',
-    description: 'Enter read-only planning mode',
+    description: 'Generate a read-only plan for a goal',
     category: 'agent',
-    argumentHint: '[goal]',
+    argumentHint: '<goal>',
     handler: async (args, context) => {
-      if (!context.onEnterPlanMode) return 'Planning mode is unavailable.';
-      await context.onEnterPlanMode(args.trim() || undefined);
-      return `Planning mode enabled.${args.trim() ? ` Goal: ${args.trim()}` : ''} The agent may inspect files but cannot modify them.`;
-    },
-  };
-}
-
-function createExitPlanCommand(): SlashCommand {
-  return {
-    name: 'exit-plan',
-    description: 'Finish planning and request approval',
-    category: 'agent',
-    handler: async (_args, context) => {
-      if (!context.onExitPlanMode) return 'Planning mode is unavailable.';
-      await context.onExitPlanMode();
-      return 'Plan submitted for approval.';
+      const goal = args.trim();
+      if (!goal) return 'Usage: /plan <goal>';
+      if (!context.onRunPlan) return 'Planning is unavailable.';
+      await context.onRunPlan(goal);
+      return 'Plan ready for review.';
     },
   };
 }
@@ -166,8 +154,7 @@ function createHelpCommand(): SlashCommand {
       lines.push('Usage:');
       lines.push('  Type a message to chat with the AI');
       lines.push('  @name task        - Dispatch to a configured workspace agent');
-      lines.push('  /plan             - Enter read-only planning mode');
-      lines.push('  /exit-plan        - Submit the current plan for approval');
+      lines.push('  /plan <goal>      - Generate a read-only plan for review');
 
       return lines.join('\n');
     },

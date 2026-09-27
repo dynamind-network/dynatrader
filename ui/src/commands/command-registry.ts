@@ -50,8 +50,7 @@ export interface CommandContext {
   }) => Promise<string | null>;
   onStartAgentCreate?: () => void;
   onShowSessionPicker?: () => void;
-  onEnterPlanMode?: (goal?: string) => Promise<void>;
-  onExitPlanMode?: () => Promise<void>;
+  onRunPlan?: (goal: string) => Promise<void>;
   onCompact?: () => Promise<{ success: boolean; message: string }>;
   onListTools?: () => Promise<Array<{ name: string; description: string; category: string }>>;
   onListDelegatedTasks?: () => Promise<
