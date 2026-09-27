@@ -86,6 +86,11 @@ export class ConversationManager {
     })));
   }
 
+  private commitTranscript(messages: ConversationMessage[]): void {
+    this.persistTranscript(messages);
+    this.messages = messages;
+  }
+
   addMessage(msg: ConversationMessage): void {
     const content =
       typeof msg.content === "string" && msg.content.length > this.config.maxMessageChars
@@ -160,8 +165,7 @@ export class ConversationManager {
           if (isGeneratedSummary(this.messages[index])) latestSummaryIndex = index;
         }
         const normalizedMessages = this.messages.filter((msg, index) => !isGeneratedSummary(msg) || index === latestSummaryIndex);
-        this.persistTranscript(normalizedMessages);
-        this.messages = normalizedMessages;
+        this.commitTranscript(normalizedMessages);
       }
       return "";
     }
@@ -179,7 +183,6 @@ export class ConversationManager {
     const topics = extractTopics(oldMessages);
     const summary = `Compacted ${oldMessages.length} messages (${userCount} user, ${assistantCount} assistant, ${toolCount} tool). Topics: ${topics}. Head ${headMessages.length} messages and tail ${recentMessages.length} messages preserved.`;
 
-    const beforeCompact = this.messages;
     const summaryTimestamp = (() => {
       const prior = [...headMessages, ...retainedOlder].at(-1)?.timestamp.getTime() ?? 0;
       const next = recentMessages[0]?.timestamp.getTime();
@@ -191,13 +194,7 @@ export class ConversationManager {
       { role: "system" as const, content: `[Conversation Summary] ${summary}`, timestamp: new Date(summaryTimestamp) },
       ...recentMessages,
     ];
-    try {
-      this.persistTranscript(compactedMessages);
-      this.messages = compactedMessages;
-    } catch (error) {
-      this.messages = beforeCompact;
-      throw error;
-    }
+    this.commitTranscript(compactedMessages);
     return summary;
   }
 

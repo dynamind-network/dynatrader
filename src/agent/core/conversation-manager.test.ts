@@ -193,6 +193,34 @@ describe("ConversationManager", () => {
     }
   });
 
+  test("keeps current and stored messages unchanged when no-op summary normalization persistence fails", () => {
+    const dbDir = mkdtempSync(join(tmpdir(), "conversation-manager-noop-persist-failure-"));
+    const db = new StateDb(dbDir);
+    const sessionId = "noop-compact-failure-session";
+    db.saveConversationSession({
+      id: sessionId, parent_id: null, title: "No-op failure", slug: "noop-failure", status: "active",
+      metadata: "{}", created_at: 1, updated_at: 1,
+    });
+    try {
+      const manager = new ConversationManager({ keepHeadMessages: 10, keepRecentMessages: 10 }, db, sessionId);
+      const timestamp = new Date(1000);
+      manager.addMessage({ role: "system", content: "policy", timestamp });
+      manager.addMessage({ role: "system", content: "[Conversation Summary] older", timestamp });
+      manager.addMessage({ role: "user", content: "request", timestamp });
+      manager.addMessage({ role: "system", content: "[Conversation Summary] newest", timestamp });
+      const beforeMessages = manager.getMessages();
+      const beforeRows = db.getConversationMessages(sessionId);
+      vi.spyOn(db, "replaceConversationMessages").mockImplementation(() => { throw new Error("persistence failed"); });
+
+      expect(() => manager.compact()).toThrow("persistence failed");
+      expect(manager.getMessages()).toEqual(beforeMessages);
+      expect(db.getConversationMessages(sessionId)).toEqual(beforeRows);
+    } finally {
+      db.close();
+      rmSync(dbDir, { recursive: true, force: true });
+    }
+  });
+
   test("keeps current and stored messages unchanged when compaction persistence fails", () => {
     const dbDir = mkdtempSync(join(tmpdir(), "conversation-manager-persist-failure-"));
     const db = new StateDb(dbDir);
