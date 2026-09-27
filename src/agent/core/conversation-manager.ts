@@ -116,13 +116,25 @@ export class ConversationManager {
 
   compact(): string {
     const { keepHeadMessages, keepRecentMessages } = this.config;
+    let latestUserIndex = -1;
+    const protectedIndexes = new Set<number>();
+    this.messages.forEach((msg, index) => {
+      if (msg.role === "system") protectedIndexes.add(index);
+      if (msg.role === "user") latestUserIndex = index;
+    });
+    if (latestUserIndex >= 0) protectedIndexes.add(latestUserIndex);
+
     const keepHeadCount = Math.min(keepHeadMessages, this.messages.length);
-    const keepTailCount = Math.min(keepRecentMessages, Math.max(0, this.messages.length - keepHeadCount));
-    if (this.messages.length <= keepHeadCount + keepTailCount) return "";
+    const keepTailStart = Math.max(keepHeadCount, this.messages.length - keepRecentMessages);
+    const retainedIndexes = new Set(protectedIndexes);
+    for (let index = 0; index < keepHeadCount; index++) retainedIndexes.add(index);
+    for (let index = keepTailStart; index < this.messages.length; index++) retainedIndexes.add(index);
+    if (retainedIndexes.size === this.messages.length) return "";
 
     const headMessages = this.messages.slice(0, keepHeadCount);
-    const oldMessages = this.messages.slice(keepHeadCount, this.messages.length - keepTailCount);
-    const recentMessages = this.messages.slice(this.messages.length - keepTailCount);
+    const oldMessages = this.messages.filter((_msg, index) => !retainedIndexes.has(index));
+    const recentMessages = this.messages.filter((_msg, index) => retainedIndexes.has(index) && index >= keepTailStart);
+    const retainedOlder = this.messages.filter((_msg, index) => retainedIndexes.has(index) && index >= keepHeadCount && index < keepTailStart);
 
     let userCount = 0, assistantCount = 0, toolCount = 0;
     for (const msg of oldMessages) {
@@ -140,6 +152,7 @@ export class ConversationManager {
     const summaryParts = [previousSummary, `[Conversation Summary] ${summary}`].filter(Boolean);
     this.messages = [
       ...headMessages,
+      ...retainedOlder,
       { role: "system", content: summaryParts.join("\n\n"), timestamp: new Date() },
       ...recentMessages,
     ];

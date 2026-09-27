@@ -34,6 +34,43 @@ describe("ConversationManager", () => {
     expect(messages.some((entry) => entry.content?.includes("[Conversation Summary]"))).toBe(true);
   });
 
+  test("preserves the latest user request and all system policies during compaction", () => {
+    const manager = new ConversationManager({
+      maxMessages: 100,
+      maxContextTokens: 1_000_000,
+      autoCompactThreshold: 0.8,
+      keepHeadMessages: 1,
+      keepRecentMessages: 2,
+      maxMessageChars: 2_000,
+    });
+
+    manager.addMessage(message("system", "policy: never expose secrets"));
+    manager.addMessage(message("user", "active request: reconcile the portfolio safely"));
+    for (let index = 0; index < 8; index++) {
+      manager.addMessage(message("assistant", `old assistant ${index}`));
+      manager.addMessage(message("tool", `old tool output ${index}`));
+    }
+    manager.addMessage(message("system", "policy: require explicit confirmation"));
+    manager.addMessage(message("assistant", "latest response"));
+
+    const beforeCount = manager.getMessageCount();
+    manager.compact();
+    const messages = manager.getMessages();
+
+    expect(manager.getMessageCount()).toBeLessThan(beforeCount);
+    expect(messages.filter((entry) => entry.role === "system" && !entry.content?.startsWith("[Conversation Summary]"))
+      .map((entry) => entry.content)).toEqual([
+        "policy: never expose secrets",
+        "policy: require explicit confirmation",
+      ]);
+    expect(messages.some((entry) => entry.role === "user" && entry.content === "active request: reconcile the portfolio safely")).toBe(true);
+    expect(messages.some((entry) => entry.content === "old tool output 0")).toBe(false);
+    expect(messages.find((entry) => entry.content === "latest response")?.role).toBe("assistant");
+    expect(messages.some((entry) => entry.role === "system" && entry.content?.startsWith("[Conversation Summary]"))).toBe(true);
+    expect(messages.findIndex((entry) => entry.content === "active request: reconcile the portfolio safely"))
+      .toBeLessThan(messages.findIndex((entry) => entry.content === "latest response"));
+  });
+
   test("truncates oversized message content before it enters history", () => {
     const manager = new ConversationManager({
       maxMessages: 100,
