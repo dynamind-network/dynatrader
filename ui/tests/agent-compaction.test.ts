@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   Compaction,
+  scoreMessageImportance,
   snipToolResults,
   collapseContext,
   compactionCircuitBreaker,
@@ -25,6 +26,16 @@ function mkToolResult(length: number): ContentBlock {
 
 beforeEach(() => {
   resetCompactionCircuitBreaker();
+});
+
+describe('Importance scoring', () => {
+  it('preserves system messages as permanent context', () => {
+    const message = { role: 'system', content: 'Keep this instruction' } as unknown as Message;
+    const score = scoreMessageImportance(message, 0, 1);
+
+    expect(score.durability).toBe('permanent');
+    expect(score.reasons).toContain('system message');
+  });
 });
 
 describe('Compaction constants', () => {

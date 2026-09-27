@@ -31,7 +31,7 @@ export type ContentBlock = TextContent | ThinkingContent | ToolUseContent | Tool
  * Used by agent-loop, context-manager, providers, etc.
  */
 export interface Message {
-  role: 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant';
   content: string | ContentBlock[];
   compacted?: boolean;
 }
