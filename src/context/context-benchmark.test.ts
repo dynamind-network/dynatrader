@@ -39,13 +39,6 @@ const sensitiveFixture: BenchmarkFixture = {
   gold: { mustRetain: [], forbidden: ['SYNTH_BODY_SECRET', 'SYNTH_ARGUMENT_SECRET'] },
 };
 
-const replayWithLeakingCandidate = async (input: BenchmarkFixture) => {
-  const replay = await replayFixture(input);
-  const output = [...input.messages];
-  replay.runs[1].metrics.forbiddenLeaks = input.gold.forbidden.filter((secret) => output.some((message) => message.content.includes(secret) || message.tool_calls?.some((call) => call.function.arguments.includes(secret)))).length;
-  return replay;
-};
-
 describe('context benchmark harness', () => {
   it('validates versioned fixture schema and rejects malformed metadata and tool structures', () => {
     expect(() => loadFixture({ ...fixture, version: 99 })).toThrow(/version/i);
@@ -61,12 +54,20 @@ describe('context benchmark harness', () => {
     expect(first).toEqual(again);
   });
 
-  it('measures forbidden leaks on actual policy output and detects a leaking candidate', async () => {
+  it('measures raw identity leaks and actual compaction output without leaking report content', async () => {
     const safe = await replayFixture(fixture);
     expect(safe.runs[0].metrics.forbiddenLeaks).toBeGreaterThan(0);
-    expect(safe.runs[1].metrics.forbiddenLeaks).toBe(0);
-    const leaking = await replayWithLeakingCandidate(fixture);
-    expect(leaking.runs[1].metrics.forbiddenLeaks).toBeGreaterThan(0);
+    expect(safe.runs[1].metrics.forbiddenLeaks).toBeGreaterThan(0);
+    expect(renderReport(compareRuns([safe]))).not.toContain('SYNTH_CANARY_ALPHA');
+  });
+
+  it.each([
+    ['content', { role: 'user', content: 'FORBIDDEN_CONTENT' }],
+    ['tool arguments', { role: 'assistant', content: '', tool_calls: [{ id: 'arg-call', type: 'function', function: { name: 'safe', arguments: 'FORBIDDEN_ARGUMENT' } }] }],
+    ['tool function names', { role: 'assistant', content: '', tool_calls: [{ id: 'name-call', type: 'function', function: { name: 'FORBIDDEN_FUNCTION', arguments: '{}' } }] }],
+  ] as const)('detects forbidden phrases in %s', async (_location, message) => {
+    const result = await replayFixture({ ...fixture, messages: [message as BenchmarkMessage], gold: { mustRetain: [], forbidden: ['FORBIDDEN_'] } });
+    expect(result.runs[0].metrics.forbiddenLeaks).toBe(1);
   });
 
   it('keeps raw bodies and tool arguments out of serialized metrics-only reports', async () => {
@@ -93,9 +94,11 @@ describe('context benchmark harness', () => {
       const replay = await replayFixture({ ...fixture, messages });
       expect(replay.runs[0].metrics.toolPairsValid).toBe(false);
     }
+    const outOfOrder = await replayFixture({ ...fixture, messages: [resultMessage, call] });
+    expect(outOfOrder.runs[0].metrics.toolPairsValid).toBe(false);
   });
 
-  it('aggregates multiple fixtures, stable order and deterministically ignores duplicate fixture IDs', async () => {
+  it('aggregates multiple fixtures in stable order and rejects duplicate fixture IDs with conflicting metrics', async () => {
     const alpha = await replayFixture(fixture);
     const zulu = await replayFixture(largeFixture);
     const left = compareRuns([zulu, alpha]);
@@ -106,6 +109,9 @@ describe('context benchmark harness', () => {
     expect(left.worstCase).toEqual(right.worstCase);
     expect(left.perFixture.map((item) => item.fixtureId)).toEqual(['synthetic-large-v1', 'synthetic-smoke-v1']);
     expect(right.perFixture.map((item) => item.fixtureId)).toEqual(left.perFixture.map((item) => item.fixtureId));
-    expect(compareRuns([alpha, alpha]).aggregate.fixtureCount).toBe(1);
+    const conflicting = structuredClone(alpha);
+    conflicting.runs[0].metrics.forbiddenLeaks += 1;
+    expect(() => compareRuns([alpha, conflicting])).toThrow(/duplicate fixture/i);
+    expect(() => compareRuns([conflicting, alpha])).toThrow(/duplicate fixture/i);
   });
 });

@@ -17,12 +17,12 @@ function validateMessage(v: unknown): asserts v is BenchmarkMessage {
   }
 }
 function pairsValid(messages: BenchmarkMessage[]): boolean {
-  const calls = new Set<string>(), results = new Set<string>();
+  const pending = new Set<string>(), seen = new Set<string>();
   for (const m of messages) {
-    for (const call of m.tool_calls ?? []) { if (calls.has(call.id)) return false; calls.add(call.id); }
-    if (m.role === 'tool') { const id=m.tool_call_id; if (!id || !calls.has(id) || results.has(id)) return false; results.add(id); }
+    for (const call of m.tool_calls ?? []) { if (seen.has(call.id)) return false; seen.add(call.id); pending.add(call.id); }
+    if (m.role === 'tool') { const id=m.tool_call_id; if (!id || !pending.has(id)) return false; pending.delete(id); }
   }
-  return calls.size === results.size;
+  return pending.size === 0;
 }
 export function loadFixture(value: unknown): BenchmarkFixture {
   if (!record(value)) throw new Error('Invalid fixture');
@@ -33,19 +33,19 @@ export function loadFixture(value: unknown): BenchmarkFixture {
   return value as unknown as BenchmarkFixture;
 }
 function tokens(ms: BenchmarkMessage[]): number { return ms.reduce((n,m)=>n+Math.ceil(m.content.length/4)+4+(m.role==='assistant'?3:0)+(m.tool_calls??[]).reduce((x,c)=>x+Math.ceil((c.id.length+c.type.length+c.function.name.length+c.function.arguments.length)/4),0)+(m.tool_call_id?Math.ceil(m.tool_call_id.length/4):0),0); }
-function redact(ms: BenchmarkMessage[], forbidden: string[]): BenchmarkMessage[] { return ms.map(m=>({...m,content:forbidden.reduce((s,p)=>s.split(p).join('[REDACTED]'),m.content),...(m.tool_calls?{tool_calls:m.tool_calls.map(c=>({...c,function:{...c.function,arguments:forbidden.reduce((s,p)=>s.split(p).join('[REDACTED]'),c.function.arguments)}}))}:{})})); }
 function leaks(ms: BenchmarkMessage[], p: string): boolean { return ms.some(m=>m.content.includes(p)||(m.tool_calls??[]).some(c=>c.function.arguments.includes(p)||c.function.name.includes(p))); }
 const sink: CompactionSink={write:async()=>undefined};
 export async function replayFixture(input: BenchmarkFixture): Promise<FixtureReplay> {
   const f=loadFixture(input), source=f.messages.map(m=>({...m}));
   const engine=new ContextCompactionEngine(sink,{maxContextTokens:1,autoCompactThreshold:0,keepRecentMessages:3,recentTailTokens:0,preCompactionFlush:false,protectToolPairs:true});
   const compacted=await engine.manualCompact(source as CompactionMessage[]);
-  const output=redact(compacted.compressed,f.gold.forbidden), inputTokens=tokens(source);
+  const output=compacted.compressed.map(m=>({...m} as BenchmarkMessage)), inputTokens=tokens(source);
   const run=(policy:BenchmarkRun['policy'],ms:BenchmarkMessage[]):BenchmarkRun=>{const corpus=ms.map(m=>m.content).join('\n');return{fixtureId:f.id,policy,tokenCount:{input:inputTokens,output:tokens(ms),kind:'estimated',counter:'chars-div-4+role-structure-v1'},wallTimeMs:0,metrics:{retainedFacts:f.gold.mustRetain.filter(x=>corpus.includes(x)).length,factCount:f.gold.mustRetain.length,forbiddenLeaks:f.gold.forbidden.filter(p=>leaks(ms,p)).length,toolPairsValid:pairsValid(ms)}}};
   return{fixtureId:f.id,version:1,metadata:{...f.metadata},runs:[run('identity',source),run('current-compaction',output)]};
 }
 export function compareRuns(replays:FixtureReplay[]):Comparison {
- const unique=[...new Map(replays.map(r=>[r.fixtureId,r])).values()], policies=[...new Set(unique.flatMap(r=>r.runs.map(x=>x.policy)))].sort(), aggregate:Comparison['aggregate']['policies']={};
+ const ids=new Set<string>(); for(const r of replays){if(ids.has(r.fixtureId))throw new Error(`Duplicate fixture ID: ${r.fixtureId}`);ids.add(r.fixtureId)}
+ const unique=[...replays], policies=[...new Set(unique.flatMap(r=>r.runs.map(x=>x.policy)))].sort(), aggregate:Comparison['aggregate']['policies']={};
  for(const p of policies){const rs=unique.flatMap(r=>r.runs.filter(x=>x.policy===p)), count=rs.reduce((n,r)=>n+r.metrics.factCount,0);aggregate[p]={factRecall:count?rs.reduce((n,r)=>n+r.metrics.retainedFacts,0)/count:1,forbiddenLeaks:rs.reduce((n,r)=>n+r.metrics.forbiddenLeaks,0),tokenSavings:rs.reduce((n,r)=>n+r.tokenCount.input-r.tokenCount.output,0)}}
  const cs=unique.flatMap(r=>r.runs.map(x=>({fixtureId:r.fixtureId,policy:x.policy,factRecall:x.metrics.factCount?x.metrics.retainedFacts/x.metrics.factCount:1,forbiddenLeaks:x.metrics.forbiddenLeaks}))).sort((a,b)=>a.factRecall-b.factRecall||b.forbiddenLeaks-a.forbiddenLeaks||a.fixtureId.localeCompare(b.fixtureId)||a.policy.localeCompare(b.policy));
  return{aggregate:{fixtureCount:unique.length,policies:aggregate},worstCase:cs[0]??{fixtureId:'',policy:'',factRecall:1,forbiddenLeaks:0},perFixture:unique.sort((a,b)=>a.fixtureId.localeCompare(b.fixtureId))};
