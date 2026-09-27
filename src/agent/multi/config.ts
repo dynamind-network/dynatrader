@@ -6,8 +6,6 @@
  */
 
 import type {
-  DebateConfig,
-  ConsensusConfig,
   PipelineDefinition,
   SurvivalPolicyConfig,
   ResolvedMultiAgentConfig,
@@ -24,21 +22,6 @@ export const DEFAULT_TRADING_PIPELINE: PipelineDefinition = {
   chain: [],
   timeout: 600000,
   failureMode: "graceful",
-};
-
-/** Default debate configuration */
-export const DEFAULT_DEBATE_CONFIG: DebateConfig = {
-  maxRounds: 5,
-  timeout: 600000,
-  consensusThreshold: 0.85,
-};
-
-/** Default consensus configuration */
-export const DEFAULT_CONSENSUS_CONFIG: ConsensusConfig = {
-  proposalTimeout: 120000,
-  votingTimeout: 60000,
-  minProposals: 2,
-  weightedVoting: false,
 };
 
 /** Default survival policy configuration */
@@ -66,8 +49,6 @@ export const DEFAULT_SURVIVAL_POLICY: SurvivalPolicyConfig = {
 /** Default resolved configuration */
 export const DEFAULT_MULTIAGENT_CONFIG: ResolvedMultiAgentConfig = {
   pipelines: {},
-  debate: DEFAULT_DEBATE_CONFIG,
-  consensus: DEFAULT_CONSENSUS_CONFIG,
   survivalPolicy: DEFAULT_SURVIVAL_POLICY,
   enableLogging: false,
 };
@@ -85,8 +66,6 @@ export function parseMultiAgentConfig(
   const cfg = pluginConfig as Record<string, unknown> | undefined;
 
   const pipelines = parsePipelines(cfg?.pipelines);
-  const debate = parseDebateConfig(cfg?.debate);
-  const consensus = parseConsensusConfig(cfg?.consensus);
   const survivalPolicy = parseSurvivalPolicyConfig(cfg?.survivalPolicy);
 
   const enableLogging =
@@ -96,8 +75,6 @@ export function parseMultiAgentConfig(
 
   return {
     pipelines,
-    debate,
-    consensus,
     survivalPolicy,
     enableLogging,
   };
@@ -149,72 +126,6 @@ function parsePipelines(value: unknown): Record<string, PipelineDefinition> {
   }
 
   return pipelines;
-}
-
-/**
- * Parse debate configuration.
- */
-function parseDebateConfig(value: unknown): DebateConfig {
-  if (typeof value !== "object" || value === null) {
-    return DEFAULT_DEBATE_CONFIG;
-  }
-
-  const raw = value as Record<string, unknown>;
-
-  return {
-    maxRounds:
-      typeof raw.maxRounds === "number" && raw.maxRounds >= 1 && raw.maxRounds <= 10
-        ? Math.floor(raw.maxRounds)
-        : DEFAULT_DEBATE_CONFIG.maxRounds,
-    timeout:
-      typeof raw.timeout === "number" && raw.timeout > 0
-        ? raw.timeout
-        : DEFAULT_DEBATE_CONFIG.timeout,
-    consensusThreshold:
-      typeof raw.consensusThreshold === "number" &&
-      raw.consensusThreshold > 0 &&
-      raw.consensusThreshold <= 1
-        ? raw.consensusThreshold
-        : DEFAULT_DEBATE_CONFIG.consensusThreshold,
-    moderatorId:
-      typeof raw.moderatorId === "string" && raw.moderatorId.trim()
-        ? raw.moderatorId.trim()
-        : undefined,
-  };
-}
-
-/**
- * Parse consensus configuration.
- */
-function parseConsensusConfig(value: unknown): ConsensusConfig {
-  if (typeof value !== "object" || value === null) {
-    return DEFAULT_CONSENSUS_CONFIG;
-  }
-
-  const raw = value as Record<string, unknown>;
-
-  return {
-    proposalTimeout:
-      typeof raw.proposalTimeout === "number" && raw.proposalTimeout > 0
-        ? raw.proposalTimeout
-        : DEFAULT_CONSENSUS_CONFIG.proposalTimeout,
-    votingTimeout:
-      typeof raw.votingTimeout === "number" && raw.votingTimeout > 0
-        ? raw.votingTimeout
-        : DEFAULT_CONSENSUS_CONFIG.votingTimeout,
-    minProposals:
-      typeof raw.minProposals === "number" && raw.minProposals >= 1
-        ? Math.floor(raw.minProposals)
-        : DEFAULT_CONSENSUS_CONFIG.minProposals,
-    weightedVoting:
-      typeof raw.weightedVoting === "boolean"
-        ? raw.weightedVoting
-        : DEFAULT_CONSENSUS_CONFIG.weightedVoting,
-    agentWeights:
-      typeof raw.agentWeights === "object" && raw.agentWeights !== null
-        ? parseAgentWeights(raw.agentWeights)
-        : undefined,
-  };
 }
 
 /**
@@ -352,18 +263,6 @@ export function validateConfig(config: ResolvedMultiAgentConfig): {
     if (pipeline.timeout && pipeline.timeout < 10000) {
       errors.push(`Pipeline "${id}" timeout should be at least 10 seconds`);
     }
-  }
-
-  if (config.debate.maxRounds < 1 || config.debate.maxRounds > 20) {
-    errors.push("Debate maxRounds must be between 1 and 20");
-  }
-
-  if (config.debate.consensusThreshold < 0.5 || config.debate.consensusThreshold > 1) {
-    errors.push("Debate consensusThreshold must be between 0.5 and 1.0");
-  }
-
-  if (config.consensus.minProposals !== undefined && config.consensus.minProposals < 1) {
-    errors.push("Consensus minProposals must be at least 1");
   }
 
   return {

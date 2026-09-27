@@ -18,7 +18,7 @@
 
 ## Features
 
-- **One primary agent with optional subagents** — Add custom subagents as `.md` files in `agents/`, configure persistent subagents in `profiles.yaml`, and optionally enable pipeline/debate/consensus collaboration modes
+- **One primary agent with optional subagents** — Add custom subagents as `.md` files in `agents/`, configure persistent subagents in `profiles.yaml`, and optionally enable pipeline collaboration modes
 - **7 LLM providers** — OpenAI, Anthropic, OpenRouter, DeepSeek, Google, Ollama, LM Studio
 - **100+ exchanges** — CCXT integration (Binance, Coinbase, Kraken, Hyperliquid, and more)
 - **Paper mode** — Test strategies with real market data, no real money at risk
@@ -162,7 +162,7 @@ dynatrader --stdio      # Start JSON-RPC gateway on stdio
 dynatrader/
   src/                  # Core runtime
     agent/core/         # Agent core (loop, profiles, skills, strategies)
-    agent/multi/        # Opt-in pipeline, debate, consensus collaboration
+    agent/multi/        # Opt-in pipeline collaboration
     agent/profiles/     # Agent profile CRUD manager
     runtime/            # Tools, hooks, skills, subagents, MCP, webhooks
     memory/             # SQLite memory with FTS5 and embeddings
@@ -188,7 +188,7 @@ DynaTrader uses **one primary agent** with optional subagents — not hardcoded 
 | `profiles.yaml` | Persistent subagents defined under `subagents[]` |
 | Runtime | Ephemeral subagents spawned via `session_spawn` or delegate task |
 
-Multi-agent collaboration (pipeline, debate, consensus) is **opt-in** — enabled via the `multi/` package when needed, not the default mode.
+Multi-agent collaboration (pipeline) is **opt-in** — enabled via the `multi/` package when needed, not the default mode.
 
 ## Supported Exchanges
 
