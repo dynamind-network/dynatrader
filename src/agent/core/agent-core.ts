@@ -53,7 +53,7 @@ import { normalizeVisibleText } from "../../runtime/visible-response";
 import { errorMessage } from "../../utils/errors";
 import {
   generateOrderIntents as generateOrderIntentsFromStrategy,
-  calculateConfidence, generateAnalysis, buildContextMessages,
+  calculateConfidence, generateAnalysis,
 } from "./order-utils";
 import { runPostTurnHooks } from "./post-turn-hooks";
 import { SkillManager } from "./skill-manager";
@@ -1293,16 +1293,6 @@ Explore the repository and design an implementation plan. You are strictly read-
       }
       this.stateMachine.transition("running");
     }
-    if (this.compactionEngine) {
-      const ctx = this.makeAgentContext(sessionId);
-      const memoryContext = await this.buildMemoryContext("");
-      const contextMessages = buildContextMessages(ctx, memoryContext);
-      if (this.compactionEngine.shouldAutoCompact(contextMessages)) {
-        const result = await this.compactionEngine.autoCompact(contextMessages);
-        console.info(`Auto-compaction: ${result.tokensSaved} tokens saved (${(result.compressionRatio * 100).toFixed(1)}%, ${result.messagesRemoved} compressed)`);
-        compacted = true;
-      }
-    }
     return compacted;
   }
 
@@ -1482,7 +1472,9 @@ Explore the repository and design an implementation plan. You are strictly read-
       }
       const systemWithGuidance = promptLayers.systemPrompt;
 
+      const messagesBeforeCompaction = conversation.getMessages();
       const convMessages = conversation.getMessagesForRequest();
+      const compactedBeforeRequest = JSON.stringify(messagesBeforeCompaction) !== JSON.stringify(conversation.getMessages());
       const messages: ModelRequest["messages"] = [
         { role: "system", content: systemWithGuidance + "\n\n" + (constraints?.join("\n") ?? "") },
       ];
@@ -1525,7 +1517,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         await this.recordLoopEvidence(options?.sessionId, content, loopSeverity);
         content = "(Loop detected and circuit breaker engaged. The agent repeated the same output too many times.)";
       }
-      const compacted = await this.runCompaction(options?.sessionId);
+      const compacted = (await this.runCompaction(options?.sessionId)) || compactedBeforeRequest;
 
       this.markDreamLoopCompleted(options?.triggerDreamCycle);
       this.safeTransition("stopping");
@@ -1714,7 +1706,9 @@ Explore the repository and design an implementation plan. You are strictly read-
         }
         const systemWithGuidance = promptLayers.systemPrompt;
 
-        const convMessages = conversation.getMessagesForRequest();
+        const messagesBeforeCompaction = conversation.getMessages();
+      const convMessages = conversation.getMessagesForRequest();
+      const compactedBeforeRequest = JSON.stringify(messagesBeforeCompaction) !== JSON.stringify(conversation.getMessages());
         let messages: ModelRequest["messages"] = [
           { role: "system", content: systemWithGuidance + "\n\n" + (constraints?.join("\n") ?? "") },
         ];

@@ -132,7 +132,7 @@ function createStrategyTemplateDir(): string {
 }
 
 function createMockModelRouter(
-  capture: { systemPrompts: string[]; tasks?: string[]; toolCounts?: number[]; maxTokens?: number[] },
+  capture: { systemPrompts: string[]; requestMessages?: ModelRequest["messages"][]; tasks?: string[]; toolCounts?: number[]; maxTokens?: number[] },
   contextWindowTokens = 128000,
   responses: ModelResponse[] = [],
 ): ModelRouter {
@@ -154,6 +154,7 @@ function createMockModelRouter(
         async call(request: ModelRequest, task?: string): Promise<ModelResponse> {
           if (task) capture.tasks?.push(task);
           capture.systemPrompts.push(String(request.messages[0]?.content ?? ""));
+          capture.requestMessages?.push(request.messages);
           capture.toolCounts?.push(request.tools?.length ?? 0);
           capture.maxTokens?.push(request.maxTokens ?? 0);
           const response = nextResponse();
@@ -168,6 +169,7 @@ function createMockModelRouter(
     async call(request: ModelRequest, task?: string): Promise<ModelResponse> {
       if (task) capture.tasks?.push(task);
       capture.systemPrompts.push(String(request.messages[0]?.content ?? ""));
+      capture.requestMessages?.push(request.messages);
       capture.toolCounts?.push(request.tools?.length ?? 0);
       capture.maxTokens?.push(request.maxTokens ?? 0);
       const response = nextResponse();
@@ -249,6 +251,38 @@ describe("Agent Core", () => {
   });
 
   describe("Execute Turn", () => {
+    it("reports and sends a transcript compacted before the model request", async () => {
+      const capture = { systemPrompts: [] as string[], requestMessages: [] as ModelRequest["messages"][] };
+      const chatAgent = new AgentCore({ memory, modelRouter: createMockModelRouter(capture, 32) });
+      chatAgent.restoreConversation([
+        { role: "system", content: "Protected system policy", timestamp: new Date() },
+        ...Array.from({ length: 12 }, (_, i) => ({ role: "assistant" as const, content: `old transcript entry ${i} ` + "history ".repeat(30), timestamp: new Date() })),
+        { role: "tool", content: "EXACT_OLD_TOOL_BODY_SHOULD_DISAPPEAR", timestamp: new Date() },
+        ...Array.from({ length: 8 }, (_, i) => ({ role: "assistant" as const, content: `later transcript entry ${i} ` + "recent history ".repeat(30), timestamp: new Date() })),
+        { role: "user", content: "CURRENT_REQUEST_KEEP_THIS", timestamp: new Date() },
+      ]);
+
+      const result = await chatAgent.chat("CURRENT_REQUEST_KEEP_THIS");
+      const sent = JSON.stringify(capture.requestMessages);
+      expect(sent).toContain("Protected system policy");
+      expect(sent).toContain("CURRENT_REQUEST_KEEP_THIS");
+      expect(sent).not.toContain("EXACT_OLD_TOOL_BODY_SHOULD_DISAPPEAR");
+      expect(sent).toContain("[Conversation Summary]");
+      expect(result.compacted).toBe(true);
+    });
+
+    it("does not report discarded synthetic-context compaction as transcript compaction", async () => {
+      const engine = {
+        updateConfig: vi.fn(),
+        shouldAutoCompact: vi.fn().mockReturnValue(true),
+        autoCompact: vi.fn().mockResolvedValue({ messages: [], tokensSaved: 10, compressionRatio: 0.5, messagesRemoved: 1 }),
+      };
+      const chatAgent = new AgentCore({ memory, modelRouter: createMockModelRouter({ systemPrompts: [] }), compactionEngine: engine as any });
+      const result = await chatAgent.chat("short transcript");
+      expect(engine.shouldAutoCompact).not.toHaveBeenCalled();
+      expect(engine.autoCompact).not.toHaveBeenCalled();
+      expect(result.compacted).toBe(false);
+    });
     it("should complete agent turn with multiple iterations", async () => {
       const context: AgentTurnContext = {
         now: new Date(),
