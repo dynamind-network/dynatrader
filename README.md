@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://github.com/dynamind-network/dynatrader/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <img src="https://img.shields.io/badge/version-2.3.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.0.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/node-%3E%3D22.19.0-brightgreen" alt="Node">
   <img src="https://img.shields.io/badge/platform-win%20%7C%20macos%20%7C%20linux-lightgrey" alt="Platform">

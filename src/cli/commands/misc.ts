@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { platform } from 'os';
 import { ContextCompactionEngine } from '../../context/context-compaction-engine';
+import packageJson from '../../../package.json';
 
 export async function cmdSetup(): Promise<void> {
   printHeader('DynaTrader Workspace Setup');
@@ -309,15 +310,12 @@ export async function cmdConfig(
 }
 
 export function cmdVersion(workspacePath: string): void {
-  const pkg = {
-    version: '2.3.0',
-    name: 'dynatrader',
-  };
+  const version = packageJson.version;
 
   console.log();
-  console.log(bold(cyan(`DynaTrader v${pkg.version}`)));
+  console.log(bold(cyan(`DynaTrader v${version}`)));
   printSeparator();
-  console.log(`  Version:     ${bold(pkg.version)}`);
+  console.log(`  Version:     ${bold(version)}`);
   console.log(`  Product:     DynaTrader financial market runtime`);
   console.log(`  Runtime:     ${typeof Bun !== 'undefined' ? `Bun ${Bun.version}` : `Node ${process.version}`}`);
   console.log(`  Platform:    ${platform()} ${process.arch}`);
