@@ -5,7 +5,7 @@ describe("buildTelegramChatOptions", () => {
   it("enables tools for the Telegram agent loop", () => {
     expect(buildTelegramChatOptions("tg-123")).toEqual({
       sessionId: "tg-123",
-      templateName: "hermes-conversation",
+      templateName: "dynatrader-conversation",
       allowTools: true,
     });
   });

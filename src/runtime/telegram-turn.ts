@@ -7,7 +7,7 @@ export interface TelegramChatOptions {
 export function buildTelegramChatOptions(sessionId: string): TelegramChatOptions {
   return {
     sessionId,
-    templateName: "hermes-conversation",
+    templateName: "dynatrader-conversation",
     allowTools: true,
   };
 }

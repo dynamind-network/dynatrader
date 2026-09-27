@@ -2,10 +2,9 @@
  * Dream Cycle — Background Review Daemon
  *
  * Runs after every agent turn to check if skills/memory should be saved.
- * Adapted from Hermes Agent's background review pattern which forks an
- * agent after every turn to check if skills/memory should be persisted.
- *
- * This is a non-blocking background operation that:
+   * Forks an agent after every turn to check if skills/memory should be persisted.
+   *
+   * This is a non-blocking background operation that:
  * - Tracks tool call frequency
  * - Detects repeated patterns that should become skills
  * - Monitors memory entry quality

@@ -115,7 +115,7 @@ export type { ToolRegistryConfig } from './runtime/tools/tool-registry';
 export type { ToolDefinition, ToolHandler, ToolCall, ToolResult, ToolCategory } from '@dyna/contracts';
 
 // =============================================================================
-// Plugin System (Cordis-style capability seams)
+// Plugin System (capability seams)
 // =============================================================================
 export { PluginRegistry } from './plugins/registry';
 export type { PluginRegistryOptions, RegisteredPlugin, PluginRegistryStats } from './plugins/registry';

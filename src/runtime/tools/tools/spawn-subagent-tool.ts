@@ -33,7 +33,7 @@ export interface SpawnSubagentRuntimeLike {
 }
 
 /**
- * SpawnSubagentTool - Hermes/OpenClaw-style subagent spawning
+ * SpawnSubagentTool - Subagent spawning
  *
  * Supports two modes:
  * 1. Named agent: Spawn a pre-configured agent from agents/*.md or profiles.yaml

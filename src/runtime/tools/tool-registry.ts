@@ -57,7 +57,7 @@ export class ToolRegistryImpl implements ToolRegistry {
   }
 
   /**
-   * Create a restricted view of this registry — like DeepSeek Harness ToolRestriction.
+   * Create a restricted view of this registry.
    * The returned registry only exposes tools matching the allow list (if provided)
    * and excludes tools in the deny list. Used for sub-agent scoped tool sets.
    */

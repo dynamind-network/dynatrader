@@ -223,7 +223,7 @@ export class SubagentRuntime {
 
   /**
    * Create a temporary agent manifest for ephemeral subagents.
-   * This follows the Hermes pattern where subagents get fresh context
+   * Subagents get fresh context
    * with only the goal and context provided by the parent.
    */
   private createEphemeralManifest(
@@ -231,7 +231,7 @@ export class SubagentRuntime {
     goal?: string,
     context?: string,
   ): SubagentExecutionContext['agentManifest'] {
-    // Build instructions from goal and context (Hermes-style)
+    // Build instructions from goal and context
     const instructions = [
       'You are a focused subagent working on a specific delegated task.',
       '',

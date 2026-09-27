@@ -67,7 +67,7 @@ export interface LoadedPlugin {
 export interface PluginRuntimeOptions {
   workspacePath: string;
   authRuntime?: AuthRuntime;
-  /** Tool registry for plugin tool registration — like DeepSeek Harness's ctx.tools */
+  /** Plugin tool registry */
   toolRegistry?: ToolRegistry;
   auditTrail?: {
     record(event: {
@@ -329,7 +329,7 @@ export class PluginRuntime {
 
     this.plugins.set(manifest.name, loadedPlugin);
 
-    // Register tools if ToolRegistry is available (DeepSeek Harness pattern)
+    // Register tools if ToolRegistry is available
     if (this.toolRegistry && manifest.tools?.length) {
       await this.registerPluginTools(loadedPlugin);
     }
@@ -387,14 +387,14 @@ export class PluginRuntime {
   }
 
   // -----------------------------------------------------------------------
-  // Tool registration (DeepSeek Harness pattern: plugins contribute tools)
+   // Tool registration (plugins contribute tools)
   // -----------------------------------------------------------------------
 
   /**
    * Register all tools declared in the plugin manifest with the ToolRegistry.
-   * Like DeepSeek Harness's Cordis: plugins contribute services (tools)
-   * to a shared context (ToolRegistry).
-   */
+ * Plugins contribute services (tools)
+ * to a shared context (ToolRegistry).
+ */
   async registerPluginTools(plugin: LoadedPlugin): Promise<void> {
     if (!this.toolRegistry || !plugin.manifest.tools?.length) return;
 

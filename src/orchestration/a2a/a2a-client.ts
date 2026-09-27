@@ -8,7 +8,7 @@
  * - Multi-turn conversations
  * - Push notifications
  *
- * Based on Hermes A2A patterns.
+ * A2A client implementation.
  */
 
 import { randomUUID } from 'crypto';

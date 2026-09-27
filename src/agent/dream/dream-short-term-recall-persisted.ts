@@ -3,9 +3,8 @@
  *
  * Extends the in-memory ShortTermRecallStore with SQLite persistence.
  * Survives process restarts for long-running trading sessions.
- *
- * Pattern from Hermes: background sync + persistence layer.
- */
+   *
+   */
 
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';

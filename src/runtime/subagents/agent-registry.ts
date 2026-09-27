@@ -43,7 +43,7 @@ export interface ResolvedManifest extends AgentManifest {
    * Tool profiles this agent needs (e.g., ['base', 'memory', 'trading']).
    * Core profiles (base, memory, multi_agent, messaging, media, browser)
    * are always included. Plugin profiles (trading, risk) require plugin registration.
-   * Like DeepSeek Harness agent presets with toolFilter.
+   * Agent presets with toolFilter.
    */
   profiles?: ToolProfile[];
 }

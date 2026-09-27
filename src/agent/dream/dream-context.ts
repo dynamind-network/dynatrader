@@ -43,7 +43,7 @@ export interface DreamContext {
   twoLayerKnowledge?: TwoLayerKnowledge;
   /** Short-term recall store for dreaming candidates */
   shortTermRecall?: ShortTermRecallStore;
-  /** Drift detector for round-trip mismatch checks (Hermes pattern) */
+  /** Drift detector for round-trip mismatch checks */
   driftDetector?: DriftDetector;
   /** Memory consolidation — geometry-aware clustering of memories */
   memoryConsolidation?: MemoryConsolidation;

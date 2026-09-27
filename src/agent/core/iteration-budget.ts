@@ -101,7 +101,7 @@ export class IterationBudget {
     // Wall-clock time limit (safety net)
     if (this.config.maxTimeMs > 0 && this.getTimeUsed() >= this.config.maxTimeMs) return true;
 
-    // Inactivity timeout (Hermes pattern): if no iteration started recently, agent is stalled
+    // Inactivity timeout: if no iteration started recently, agent is stalled
     if (this.config.inactivityTimeoutMs > 0) {
       const idleMs = Date.now() - this.state.lastIterationTime;
       if (idleMs >= this.config.inactivityTimeoutMs) return true;

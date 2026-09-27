@@ -1,5 +1,5 @@
 /**
- * Skill Manager (Hermes-style)
+ * Skill Manager
  *
  * Manages SKILL.md files. The agent creates and patches skills directly
  * to evolve — no approval workflow. Skills improve through usage.

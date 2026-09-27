@@ -210,12 +210,12 @@ export interface AgentCoreConfig {
    * Active tool profiles — controls which tools the agent exposes to the LLM.
    * Core profiles (base, memory, multi_agent) are always included.
    * Additional profiles add tools on top (e.g., 'trading', 'risk', 'messaging').
-   * Like DeepSeek Harness profiles and Hermes tool router.
+   * Like profiles and tool router.
    */
   activeProfiles?: ToolProfile[];
   /**
    * Active memory recall — pre-reply memory search that injects relevant
-   * context BEFORE the main model generates a reply (OpenClaw pattern).
+    * context BEFORE the main model generates a reply.
    */
   activeMemoryRecall?: ActiveMemoryRecall;
 }
@@ -1458,7 +1458,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         }
       }
 
-      // Pre-reply memory recall (OpenClaw active memory pattern)
+       // Pre-reply memory recall
       // Search memory BEFORE the model generates a reply, not after
       let activeRecallContext = '';
       if (this.activeMemoryRecall) {

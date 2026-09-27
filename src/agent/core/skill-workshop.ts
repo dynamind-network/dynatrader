@@ -1,5 +1,5 @@
 /**
- * Skill Workshop (OpenClaw-style proposal queue)
+ * Skill Workshop
  *
  * A proposal queue between the agent and active skill files.
  * Instead of writing directly to SKILL.md, the agent drafts a proposal.

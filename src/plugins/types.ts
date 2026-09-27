@@ -36,7 +36,7 @@ export interface DynaPlugin {
 }
 
 /**
- * Plugin entry contract (dsh/Cordis style): a plugin module's default export
+ * Plugin entry contract: a plugin module's default export
  * is a factory that receives its resolved config row and returns a plugin.
  * Registrations made during init are effects that unwind on unmount.
  */

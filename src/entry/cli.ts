@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * DynaTrader Unified CLI — Hermes-style dispatcher.
+ * DynaTrader Unified CLI — Dispatcher.
  *
  * Usage:
  *   dynatrader              Launch terminal UI (default)
@@ -11,7 +11,7 @@
  *   dynatrader --dev        Development mode
  *   dynatrader <command>    Operational command (status, trade, etc.)
  *
- * Interface selection follows the Hermes model:
+ * Interface selection follows the model:
  * - Default (no args) → TUI
  * - --tui → TUI (explicit)
  * - --cli → classic CLI

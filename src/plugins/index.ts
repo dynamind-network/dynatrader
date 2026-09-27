@@ -1,7 +1,7 @@
 /**
  * Plugin System — Barrel Exports
  *
- * Cordis-style capability seams for DynaTrader.
+ * Capability seams for DynaTrader.
  * One active provider per capability; consumers call getProvider<T>().
  */
 

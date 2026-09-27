@@ -1,8 +1,7 @@
 /**
  * Dyna-Trader Plugin Kernel Package
  *
- * Self-contained plugin kernel mirroring the Cordis "everything is a plugin"
- * design. Plugins register once, declare services and dependencies, mount in
+ * Self-contained plugin kernel with an "everything is a plugin" design. Plugins register once, declare services and dependencies, mount in
  * topological order, and communicate over an internal event bus with
  * per-listener failure policies.
  */

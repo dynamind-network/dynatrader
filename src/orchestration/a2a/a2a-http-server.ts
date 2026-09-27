@@ -7,7 +7,7 @@
  * - Task lifecycle management
  * - Authentication support
  *
- * Based on Hermes A2A patterns.
+ * A2A HTTP server implementation.
  */
 
 import http from 'http';

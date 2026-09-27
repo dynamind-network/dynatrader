@@ -2,8 +2,7 @@
  * Dream Cycle — Budget-Aware Memory Injection
  *
  * Injects memory with token budget awareness.
- * Adapted from Hermes Agent's frozen snapshot pattern.
- */
+   */
 
 import type { BaseKnowledge } from '../../knowledge/types/base.js';
 

@@ -1,12 +1,12 @@
 /**
- * Active Memory Recall (OpenClaw-style pre-reply memory)
+ * Active Memory Recall (pre-reply memory)
  *
  * Before the main model replies, a lightweight memory search runs in the
  * background and injects relevant context into the prompt. This ensures
  * the model has access to relevant memories BEFORE it generates a reply,
  * not after (which is too late to influence the response).
  *
- * Pattern: OpenClaw's active-memory plugin spawns a hidden sub-agent
+ * Pattern: An active-memory plugin spawns a hidden sub-agent
  * that searches memory and returns compact context. We implement the
  * same concept inline without the sub-agent overhead.
  */
@@ -77,7 +77,7 @@ export class ActiveMemoryRecall {
    * Run pre-reply memory recall. Called BEFORE the main model generates
    * a reply. Returns compact context to inject into the system prompt.
    *
-   * This is the OpenClaw "active memory" pattern — search memory before
+   * This is the "active memory" pattern — search memory before
    * the model replies, not after.
    */
   async recallBeforeReply(userMessage: string): Promise<RecallResult> {

@@ -1106,12 +1106,12 @@ describe("KanbanBoard", () => {
 // Parity tests
 // ---------------------------------------------------------------------------
 
-describe("KanbanBoard Hermes parity", () => {
-  let testDir: string;
-  let board: KanbanBoard;
+describe("KanbanBoard", () => {
+   let testDir: string;
+   let board: KanbanBoard;
 
-  beforeEach(() => {
-    testDir = mkdtempSync(join(tmpdir(), "kanban-hermes-"));
+   beforeEach(() => {
+     testDir = mkdtempSync(join(tmpdir(), "kanban-"));
     board = new KanbanBoard(testDir);
   });
 

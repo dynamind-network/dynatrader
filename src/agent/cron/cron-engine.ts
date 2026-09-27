@@ -1,5 +1,5 @@
 /**
- * CronEngine — jobs.json-only cron system (Hermes/OpenClaw style)
+ * CronEngine — jobs.json-only cron system
  *
  * jobs.json is the single source of truth. Agents manage it via
  * CLI tools (dynatrader cron ...) or direct file edits.

@@ -2,10 +2,9 @@
  * Dream Cycle — Procedural Memory Trigger
  *
  * Auto-creates skills after repeated tool call patterns.
- * Adapted from Hermes Agent's procedural memory pattern which
  * monitors tool usage and creates skills when thresholds are met.
- *
- * This module provides:
+   *
+   * This module provides:
  * - Prompt guidance for skill creation
  * - Tool call pattern analysis
  * - Skill creation threshold management

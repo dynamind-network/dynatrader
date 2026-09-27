@@ -1,8 +1,7 @@
 /**
  * PluginKernel
  *
- * Self-owned plugin kernel mirroring the Cordis "everything is a plugin"
- * design, with no third-party runtime dependency. Plugins register once,
+ * Self-owned plugin kernel with an "everything is a plugin" design, with no third-party runtime dependency. Plugins register once,
  * declare the services they provide and consume, and are mounted in
  * topological dependency order. Services are injected through a per-plugin
  * context, lifecycle events flow over an internal event bus with per-listener

@@ -1,5 +1,5 @@
 /**
- * GoalLoopManager — hermes-style self-continuing goal loop
+ * GoalLoopManager — self-continuing goal loop
  *
  * A per-session goal the agent works toward across multiple turns. After each
  * turn, evaluateAfterTurn() decides whether to continue (feeding a continuation

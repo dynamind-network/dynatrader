@@ -2,10 +2,8 @@
  * Dream Cycle — Drift Detection
  *
  * Detects round-trip mismatches when writing to memory files.
- * Adapted from Hermes Agent's drift detection pattern which verifies
- * that written content matches the intended intent.
- *
- * Prevents inconsistent memory state by checking:
+   *
+   * Prevents inconsistent memory state by checking:
  * - Semantic drift: does the written content match the original intent?
  * - Contradiction drift: does the new content contradict existing memory?
  * - Temporal drift: is the content stale or outdated?

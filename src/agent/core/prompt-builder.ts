@@ -138,7 +138,7 @@ export class PromptBuilder {
    * Register default templates
    */
   private registerDefaultTemplates(): void {
-    this.registerTemplate("hermes-conversation", {
+    this.registerTemplate("dynatrader-conversation", {
       system: `You are a workspace-defined AI agent. Your identity, specialty, and operating rules come from the workspace files loaded into context. You learn from every interaction.
 
 Core Identity:

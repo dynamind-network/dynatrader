@@ -5,7 +5,7 @@
  * Discovers, loads, and manages plugins that provide typed capability providers.
  * One active provider per capability; consumers call getProvider<T>() to access.
  *
- * dsh/Cordis-style contract: a plugin entry module's default export is a
+ * Contract: a plugin entry module's default export is a
  * factory `(config) => DynaPlugin`. The factory receives the resolved config
  * for its composition row (manifest defaults overlaid by row-level config).
  * Every registration made through the plugin context (services, listeners,

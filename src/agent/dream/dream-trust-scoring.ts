@@ -2,8 +2,7 @@
  * Dream Cycle — Trust Scoring
  *
  * Tracks helpful/unhelpful feedback for strategies and knowledge.
- * Adapted from Hermes Agent's trust scoring pattern.
- */
+   */
 
 import type { TrustScoring, TrustLevel } from './dream-enhanced-types.js';
 import { TRUST_WEIGHTS } from './dream-enhanced-types.js';

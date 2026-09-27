@@ -1,8 +1,8 @@
 /**
  * DynaTrader Tool Profiles
  *
- * Canonical tool profile system inspired by DeepSeek Harness's "everything is a plugin"
- * architecture, OpenClaw's memory-core plugin, and Hermes's tool router.
+ * Canonical tool profile system
+ * architecture and tool routing.
  *
  * Architecture (two-tier):
  * - CORE profiles ship with the base agent (like dsh-base bundle):
@@ -23,7 +23,6 @@
 
 /**
  * Core profiles — ship with the base agent, always registered.
- * Like DeepSeek Harness's dsh-base bundle.
  */
 export const CORE_PROFILES = {
   BASE: 'base' as const,
@@ -36,7 +35,7 @@ export const CORE_PROFILES = {
 
 /**
  * Plugin profiles — provided by workspace plugins, only available when loaded.
- * Like DeepSeek Harness's plugin-contributed tools via ctx.tools.register().
+ * Plugins contribute tools via ctx.tools.register().
  */
 export const PLUGIN_PROFILES = {
   TRADING: 'trading' as const,
@@ -174,7 +173,7 @@ export function resolveProfiles(
  * Core profiles are always included. Plugin profiles are included only
  * if available from loaded plugins.
  *
- * This is how sub-agents get scoped tool sets — like DeepSeek Harness's
+ * This is how sub-agents get scoped tool sets —
  * toolFilter on SubagentStartRequest.
  *
  * @param agentProfiles - Profiles declared in agent YAML (e.g., ['base', 'trading'])
@@ -275,7 +274,7 @@ export function listProfiles(): Array<{ profile: ToolProfile; toolCount: number;
  * Declaration of a tool provided by a plugin.
  * Plugins use this to register their tools with the ToolRegistry.
  *
- * Like DeepSeek Harness's Cordis pattern: plugins contribute services
+ * Plugins contribute services
  * (tools) to a shared context (ToolRegistry).
  */
 export interface PluginToolDeclaration {

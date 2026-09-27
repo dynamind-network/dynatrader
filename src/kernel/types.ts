@@ -1,8 +1,7 @@
 /**
  * PluginKernel core type definitions.
  *
- * Self-contained plugin kernel mirroring the Cordis "everything is a plugin"
- * design: plugins declare the services they provide and consume, and the
+ * Self-contained plugin kernel with an "everything is a plugin" design: plugins declare the services they provide and consume, and the
  * kernel resolves them in topological order around a shared event bus.
  */
 

@@ -520,7 +520,7 @@ export async function initializeComponents(
   components.cronEngine.start();
   logger.info('CronEngine started (wired to full agent loop)');
 
-  // Heartbeat auto-tick (OpenClaw/hermes style): when DYNA_HEARTBEAT=true,
+  // Heartbeat auto-tick: when DYNA_HEARTBEAT=true,
   // register a forever interval job that runs the heartbeat check.
   if (process.env['DYNA_HEARTBEAT'] === 'true' && components.cronEngine) {
     const intervalMinutes = parseInt(process.env['DYNA_HEARTBEAT_INTERVAL_MINUTES'] ?? '90', 10);

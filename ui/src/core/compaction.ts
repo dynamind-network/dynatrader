@@ -573,7 +573,7 @@ Keep each insight concise (1 sentence max). Output as a JSON array of strings, e
 };
 
 // ============================================================================
-// Two-Compaction System: Hermes/OpenClaw-Inspired Architecture
+// Two-Compaction System
 // ============================================================================
 
 /**
@@ -678,7 +678,7 @@ export function scoreMessageImportance(
  * Free pre-pass: prune old tool results without LLM call.
  * Saves 30%+ of context for free.
  *
- * Strategy (from Hermes):
+ * Strategy:
  * - Keep tool results for recent messages (within tail budget)
  * - Replace old tool results with placeholder
  * - Preserve tool call structure (arguments)
@@ -764,7 +764,7 @@ export function pruneToolOutputs(
 }
 
 /**
- * Range compression: summarize a span of messages using Hermes-style
+ * Range compression: summarize a span of messages using
  * structured template.
  *
  * Template sections:
@@ -911,7 +911,7 @@ export async function runAutoCompaction(
     currentTask = '',
   } = options;
 
-  // Step 1: Generate structured summary (Hermes-style)
+  // Step 1: Generate structured summary
   const compression = await generateRangeCompression(messages, {
     modelId,
     providerName,
@@ -1065,7 +1065,7 @@ function extractSessionCheckpoint(
  * Multi-pass compression: continue compressing until token budget met
  * or progress stalls below threshold.
  *
- * From OpenClaw PR #97580: "Replace single-pass with multi-pass iterative
+ * From PR #97580: "Replace single-pass with multi-pass iterative
  * approach that continues compressing until token budget is met or
  * progress stalls below a configurable threshold."
  */
