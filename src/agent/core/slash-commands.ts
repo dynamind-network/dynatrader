@@ -25,6 +25,7 @@ export interface CommandContext {
   goalLoop?: any;
   skillFactory?: any;
   dreamEngine?: any;
+  cronEngine?: any;
   getConversationHistory?: () => any[];
   clearConversation?: () => void;
 }
@@ -582,7 +583,7 @@ export function registerDefaultCommands(registry: SlashCommandRegistry): void {
   // /status — Show agent status
   registry.register({
     name: "/status",
-    description: "Show agent status",
+    description: "Show agent status including cron jobs and loop state",
     usage: "/status",
     execute: async (_args, ctx) => {
       const agent = ctx.agent;
@@ -590,10 +591,21 @@ export function registerDefaultCommands(registry: SlashCommandRegistry): void {
       const state = agent.getState?.() ?? "unknown";
       const session = ctx.sessionManager?.getActiveSession?.();
       const history = ctx.getConversationHistory?.() ?? [];
+      let cronJobs: any[] = [];
+      let cronError: string | undefined;
+      if (ctx.cronEngine?.listJobs) {
+        try {
+          cronJobs = await ctx.cronEngine.listJobs();
+        } catch (error) {
+          cronError = error instanceof Error ? error.message : String(error);
+        }
+      }
+      const activeCrons = cronJobs.filter((j: any) => j.enabled && j.state !== "paused");
       const lines = [
         `  State: ${state}`,
         `  Active session: ${session ? `${session.id} — ${session.name}` : "none"}`,
         `  Conversation messages: ${history.length}`,
+        `  Cron Jobs: ${cronError ? `unavailable (${cronError})` : `${activeCrons.length} active of ${cronJobs.length} total`}`,
         `  Memory: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1)}MB`,
       ];
       return { content: `Agent Status:\n${lines.join("\n")}` };
@@ -714,10 +726,7 @@ export function registerDefaultCommands(registry: SlashCommandRegistry): void {
     aliases: ["/portfolio"],
     execute: async (_args, ctx) => {
       try {
-        const lines: string[] = [];
-        lines.push("=== Portfolio Summary ===");
-
-        // Try to get from agent if it has a paperEngine or portfolio method
+        const lines = ["=== Portfolio Summary ==="];
         if (ctx.agent?.paperEngine) {
           try {
             const portfolio = ctx.agent.paperEngine.getPortfolio?.();
@@ -730,11 +739,8 @@ export function registerDefaultCommands(registry: SlashCommandRegistry): void {
               lines.push(`  Open Positions: ${portfolio.positions?.length ?? 0}`);
               return { content: lines.join("\n") };
             }
-          } catch {
-            /* fall through */
-          }
+          } catch { /* preserve unavailable-data fallback */ }
         }
-
         lines.push("  Portfolio data not available.");
         lines.push("  (PaperEngine not wired into CommandContext yet)");
         return { content: lines.join("\n") };
@@ -826,6 +832,139 @@ export function registerDefaultCommands(registry: SlashCommandRegistry): void {
         return { content: lines.join("\n") };
       } catch (err) {
         return { content: `Error: ${(err as Error).message}` };
+      }
+    },
+  });
+
+  // /loop — Persistent recurring prompt job
+  registry.register({
+    name: "/loop",
+    description: "Run a recurring prompt through CronEngine. /loop stop ends loops created here.",
+    usage: "/loop <interval> <prompt> | /loop stop | /loop status",
+    execute: async (args, ctx) => {
+      const text = args.trim();
+      const lower = text.toLowerCase();
+      if (!text) return { content: "Usage: /loop <interval> <prompt>\nExample: /loop 5m /positions" };
+      const engine = ctx.cronEngine;
+      if (!engine) return { content: "No cron engine configured; cannot create or manage loops." };
+      try {
+        const loopJobs = (await engine.listJobs()).filter((job: any) => job.tags?.includes("slash-loop"));
+        if (lower === "stop") {
+          for (const job of loopJobs) await engine.deleteJob(job.id);
+          return { content: loopJobs.length ? `⏹ Loop stopped. Removed ${loopJobs.length} loop job(s).` : "Loop not active; no loop jobs to stop." };
+        }
+        if (lower === "status") {
+          return loopJobs.length
+            ? { content: `Loop active (${loopJobs.length} job(s)):\n${loopJobs.map((job: any) => `${job.id}: ${job.schedule?.display ?? "unknown schedule"} — ${job.enabled ? job.state : "disabled"} — ${job.prompt}`).join("\n")}` }
+            : { content: "Loop: not active. Use /loop <interval> <prompt> to start." };
+        }
+        const match = text.match(/^(\S+)\s+([\s\S]+)$/);
+        if (!match) return { content: "Usage: /loop <interval> <prompt>\nExample: /loop 5m /positions" };
+        const schedule = `every ${match[1]}`;
+        const prompt = match[2]!.trim();
+        if (!prompt) return { content: "Usage: /loop <interval> <prompt>\nExample: /loop 5m /positions" };
+        const job = await engine.createJob({ name: "slash-loop", prompt, schedule, tags: ["slash-loop"], enabled: true, wakeAgent: false, repeatCount: null });
+        const deletionErrors: unknown[] = [];
+        for (const oldJob of loopJobs) {
+          try {
+            await engine.deleteJob(oldJob.id);
+          } catch (error) {
+            deletionErrors.push(error);
+          }
+        }
+        if (deletionErrors.length > 0) {
+          try {
+            await engine.deleteJob(job.id);
+          } catch (rollbackError) {
+            const message = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+            return { content: `Loop error: Could not remove existing loop jobs, and rollback of replacement ${job.id} failed: ${message}` };
+          }
+          const error = deletionErrors[0];
+          const message = error instanceof Error ? error.message : String(error);
+          return { content: `Loop error: ${message}. Replacement job rolled back.` };
+        }
+        return { content: `↻ Loop set: every ${match[1]} → ${prompt} (job ${job.id}).` };
+      } catch (error) {
+        return { content: `Loop error: ${(error as Error).message}` };
+      }
+    },
+  });
+
+  // /cron — Cron job management
+  registry.register({
+    name: "/cron",
+    description: "Manage scheduled cron jobs (list, show, add, run, pause, resume, remove)",
+    usage: "/cron <list|show|add|run|pause|resume|remove> [args]",
+    execute: async (args, ctx) => {
+      const engine = ctx.cronEngine;
+      if (!engine) return { content: "No cron engine configured." };
+      const text = args.trim();
+      const subMatch = text.match(/^(\S+)(?:\s+([\s\S]*))?$/);
+      const sub = subMatch?.[1]?.toLowerCase();
+      const rest = subMatch?.[2] ?? "";
+      const tokens = rest.match(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\S+/g)?.map((token) => token.replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, (_m, doubleQuoted, singleQuoted) => doubleQuoted ?? singleQuoted)) ?? [];
+      try {
+        switch (sub) {
+          case "list": {
+            const jobs = await engine.listJobs();
+            if (jobs.length === 0) return { content: "No cron jobs scheduled." };
+            return { content: `Cron Jobs (${jobs.length}):\n${jobs.map((j: any) => `  ${j.name.padEnd(20)} ${j.schedule?.display?.padEnd(20)} ${j.enabled ? "enabled" : "disabled"}  ${j.state}`).join("\n")}` };
+          }
+          case "show": {
+            const jobId = tokens[0];
+            if (!jobId) return { content: "Usage: /cron show <jobId>" };
+            const job = await engine.getJob(jobId);
+            if (!job) return { content: `Cron job not found: ${jobId}` };
+            return { content: JSON.stringify({ id: job.id, name: job.name, schedule: job.schedule, enabled: job.enabled, state: job.state, lastStatus: job.lastStatus, prompt: job.prompt }, null, 2) };
+          }
+          case "add": {
+            const rawAddArgs = rest.trim();
+            const addTokens = rawAddArgs.match(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\S+/g) ?? [];
+            let schedule: string | undefined;
+            let prompt: string;
+            if (addTokens[0]?.startsWith('"') || addTokens[0]?.startsWith("'")) {
+              schedule = tokens[0];
+              prompt = tokens.slice(1).join(" ");
+            } else if (addTokens.length >= 6) {
+              schedule = addTokens.slice(0, 5).join(" ");
+              prompt = tokens.slice(5).join(" ");
+            } else {
+              schedule = tokens[0];
+              prompt = tokens.slice(1).join(" ");
+            }
+            if (!schedule || !prompt) return { content: "Usage: /cron add <schedule> <prompt>\\nExample: /cron add \\\"0 9 * * *\\\" \\\"Check positions\\\"" };
+            const job = await engine.createJob({ name: "Cron Job", prompt, schedule, enabled: true });
+            return { content: `Cron job created: ${job.id} — ${job.name} (${job.schedule.display})` };
+          }
+          case "run": {
+            const jobId = tokens[0];
+            if (!jobId) return { content: "Usage: /cron run <jobId>" };
+            const execution = await engine.triggerJob(jobId);
+            return { content: `Cron job executed: ${execution.success ? "success" : "failed"} (${execution.duration}ms)` };
+          }
+          case "pause": {
+            const jobId = tokens[0];
+            if (!jobId) return { content: "Usage: /cron pause <jobId>" };
+            const job = await engine.pauseJob(jobId);
+            return { content: `Cron job paused: ${job.name}` };
+          }
+          case "resume": {
+            const jobId = tokens[0];
+            if (!jobId) return { content: "Usage: /cron resume <jobId>" };
+            const job = await engine.resumeJob(jobId);
+            return { content: `Cron job resumed: ${job.name}` };
+          }
+          case "remove": {
+            const jobId = tokens[0];
+            if (!jobId) return { content: "Usage: /cron remove <jobId>" };
+            await engine.deleteJob(jobId);
+            return { content: `Cron job removed: ${jobId}` };
+          }
+          default:
+            return { content: "Usage: /cron <list|show|add|run|pause|resume|remove> [args]\\n  list  — List all jobs\\n  show  — Job details\\n  add   — Create new job\\n  run   — Run immediately\\n  pause — Pause a job\\n  resume — Resume a job\\n  remove — Remove a job" };
+        }
+      } catch (error) {
+        return { content: `Cron error: ${(error as Error).message}` };
       }
     },
   });
