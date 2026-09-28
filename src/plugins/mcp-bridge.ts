@@ -16,7 +16,6 @@ import type {
   SignalProvider,
   RiskProvider,
   NewsProvider,
-  Candle,
   OrderBook,
   Signal,
   ConsensusSignal,
@@ -156,7 +155,7 @@ export class MCPBridge {
     const client = new McpClient(new ToolRegistryImpl());
     await client.connect({ name: config.name, transport: config.transport, command: config.command, args: config.args, url: config.url, env: config.env });
     return {
-      call: (method, args) => client.call(config.name, method, args),
+      call: async (method, args) => decodeMcpToolResult(await client.call(config.name, method, args)),
       disconnect: () => client.disconnect(config.name),
     };
   }
@@ -188,31 +187,35 @@ export class MCPBridge {
     return {
       fetchUniverse: async () => {
         const result = await client.call(mapping.methods.fetchUniverse ?? "fetch_universe", mapping.defaultArgs ?? {});
-        return (result as { symbols?: string[] }).symbols ?? [];
+        return requireStringArrayField(result, "symbols");
       },
       getPrice: async (symbol: string) => {
         const result = await client.call(mapping.methods.getPrice ?? "get_price", { symbol, ...(mapping.defaultArgs ?? {}) });
-        return (result as { price?: number }).price ?? 0;
+        return requireFiniteNumberField(result, "price");
       },
       getOHLCV: async (symbol: string, timeframe: string, limit?: number) => {
         const result = await client.call(mapping.methods.getOHLCV ?? "get_ohlcv", { symbol, timeframe, limit, ...(mapping.defaultArgs ?? {}) });
-        const raw = (result as { candles?: Array<Record<string, unknown>> }).candles ?? [];
-        return raw.map((c) => ({
-          timestamp: Number(c.timestamp),
-          open: Number(c.open),
-          high: Number(c.high),
-          low: Number(c.low),
-          close: Number(c.close),
-          volume: Number(c.volume),
-        })) as Candle[];
+        return requireArrayField(result, "candles").map((value) => {
+          if (!isRecord(value)) {
+            throw new Error("MCP market-data response contains an invalid candle");
+          }
+          return {
+            timestamp: requireFiniteCandleNumber(value.timestamp, "timestamp"),
+            open: requireFiniteCandleNumber(value.open, "open"),
+            high: requireFiniteCandleNumber(value.high, "high"),
+            low: requireFiniteCandleNumber(value.low, "low"),
+            close: requireFiniteCandleNumber(value.close, "close"),
+            volume: requireFiniteCandleNumber(value.volume, "volume"),
+          };
+        });
       },
       getOrderBook: async (symbol: string) => {
         const result = await client.call(mapping.methods.getOrderBook ?? "get_orderbook", { symbol, ...(mapping.defaultArgs ?? {}) });
-        return (result as OrderBook) ?? { bids: [], asks: [], timestamp: Date.now() };
+        return requireOrderBook(result);
       },
       get24hVolume: async (symbol: string) => {
         const result = await client.call(mapping.methods.get24hVolume ?? "get_24h_volume", { symbol, ...(mapping.defaultArgs ?? {}) });
-        return (result as { volume?: number }).volume ?? 0;
+        return requireFiniteNumberField(result, "volume");
       },
     };
   }
@@ -260,7 +263,7 @@ export class MCPBridge {
     return {
       getNews: async (options?: NewsOptions) => {
         const result = await client.call(mapping.methods.getNews ?? "get_news", { options, ...(mapping.defaultArgs ?? {}) });
-        return (result as { articles?: NewsArticle[] }).articles ?? [];
+        return requireNewsArticles(result);
       },
       getSentiment: async (symbol?: string) => {
         const result = await client.call(mapping.methods.getSentiment ?? "get_sentiment", { symbol, ...(mapping.defaultArgs ?? {}) });
@@ -286,6 +289,125 @@ export class MCPBridge {
 // ---------------------------------------------------------------------------
 // Internal MCP Client Handle
 // ---------------------------------------------------------------------------
+
+function requireNewsArticles(result: unknown): NewsArticle[] {
+  const articles = Array.isArray(result)
+    ? result
+    : isRecord(result)
+      ? result.articles
+      : undefined;
+  if (!Array.isArray(articles)) {
+    throw new Error("MCP news response must include an articles array");
+  }
+
+  if (!articles.every(isNewsArticle)) {
+    throw new Error("MCP news response contains an invalid article");
+  }
+  return articles;
+}
+
+function isNewsArticle(value: unknown): value is NewsArticle {
+  if (!isRecord(value)) return false;
+  return typeof value.title === "string" &&
+    typeof value.url === "string" &&
+    typeof value.source === "string" &&
+    typeof value.publishedAt === "string" &&
+    (value.sentiment === undefined || value.sentiment === "bullish" || value.sentiment === "bearish" || value.sentiment === "neutral") &&
+    (value.score === undefined || (typeof value.score === "number" && Number.isFinite(value.score))) &&
+    (value.categories === undefined || isStringArray(value.categories));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function requireArrayField(result: unknown, field: string): unknown[] {
+  const value = isRecord(result) ? result[field] : undefined;
+  if (!Array.isArray(value)) {
+    throw new Error(`MCP market-data response must include an array "${field}" field`);
+  }
+  return value;
+}
+
+function requireFiniteCandleNumber(value: unknown, field: string): number {
+  const numeric = typeof value === "number"
+    ? value
+    : typeof value === "string" && value.trim() !== ""
+      ? Number(value)
+      : Number.NaN;
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`MCP market-data candle field "${field}" must be finite`);
+  }
+  return numeric;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function requireStringArrayField(result: unknown, field: string): string[] {
+  const value = isRecord(result) ? result[field] : undefined;
+  if (!isStringArray(value)) {
+    throw new Error(`MCP market-data response must include a string array "${field}" field`);
+  }
+  return value;
+}
+
+function isOrderBookLevel(value: unknown): value is [number, number] {
+  return Array.isArray(value) && value.length === 2 &&
+    typeof value[0] === "number" && Number.isFinite(value[0]) &&
+    typeof value[1] === "number" && Number.isFinite(value[1]);
+}
+
+function isOrderBookLevels(value: unknown): value is Array<[number, number]> {
+  return Array.isArray(value) && value.every(isOrderBookLevel);
+}
+
+function isOrderBook(value: unknown): value is OrderBook {
+  return isRecord(value) &&
+    isOrderBookLevels(value.bids) &&
+    isOrderBookLevels(value.asks) &&
+    typeof value.timestamp === "number" &&
+    Number.isFinite(value.timestamp);
+}
+
+function requireOrderBook(result: unknown): OrderBook {
+  if (!isOrderBook(result)) {
+    throw new Error("MCP market-data response must include valid bids, asks, and timestamp");
+  }
+  return result;
+}
+
+function requireFiniteNumberField(result: unknown, field: string): number {
+  if (!isRecord(result)) {
+    throw new Error(`MCP market-data response must include a finite numeric "${field}" field`);
+  }
+
+  const value = result[field];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`MCP market-data response must include a finite numeric "${field}" field`);
+  }
+  return value;
+}
+
+function decodeMcpToolResult(result: unknown): unknown {
+  if (!Array.isArray(result) || result.length === 0) return result;
+
+  const textBlocks: string[] = [];
+  for (const content of result) {
+    if (!isRecord(content) || content.type !== "text" || typeof content.text !== "string") {
+      return result;
+    }
+    textBlocks.push(content.text);
+  }
+
+  const text = textBlocks.join("");
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return textBlocks.length === 1 ? text : result;
+  }
+}
 
 interface MCPClientHandle {
   call(method: string, args: Record<string, unknown>): Promise<unknown>;
