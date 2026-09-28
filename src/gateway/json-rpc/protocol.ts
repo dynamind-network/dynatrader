@@ -47,10 +47,6 @@ export const RpcMethods = {
 
   /** Get the current agent state (idle, running, etc.). */
   AGENT_STATE: "agent.state",
-  PLAN_ENTER: "plan.enter",
-  PLAN_EXIT: "plan.exit",
-  PLAN_APPROVE: "plan.approve",
-  PLAN_REJECT: "plan.reject",
 
   /** Set the active persona for the current session. */
   SESSION_SET_PERSONA: "session.set_persona",
@@ -111,11 +107,6 @@ export interface ModelResetParams {
 export interface AgentStateParams {
   // No params needed
 }
-
-export interface PlanParams { sessionId?: string; planId?: string; path?: string; content?: string; reason?: string; goal?: string }
-export interface RpcPlanStep { id: string; description: string; reasoning: string; status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' }
-export interface RpcPlan { id: string; title: string; description: string; steps: RpcPlanStep[]; status: 'draft' | 'proposed' | 'approved' | 'cancelled'; createdAt: string; updatedAt: string; filePath?: string; confidenceScore?: number }
-export interface PlanResult { status: 'planning' | 'awaiting_approval' | 'approved' | 'rejected'; sessionId: string; planId?: string; path?: string; goal?: string; plan?: RpcPlan; approved?: boolean }
 
 // ---------------------------------------------------------------------------
 // RPC Result Types
@@ -242,9 +233,6 @@ export const RpcEvents = {
   ERROR: "error",
   /** A session was created, deleted, or switched. */
   SESSION_UPDATE: "session.update",
-  PLAN_MODE_ENTERED: "plan.mode.entered",
-  PLAN_MODE_EXITED: "plan.mode.exited",
-  PLAN_STEP_UPDATE: "plan.step.update",
   AGENT_TASK_UPDATE: "agent.task.update",
 } as const;
 

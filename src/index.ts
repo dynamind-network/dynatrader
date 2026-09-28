@@ -204,7 +204,7 @@ export type {
 } from './gateway/json-rpc/types';
 export { JsonRpcErrorCodes } from './gateway/json-rpc/types';
 export { RpcMethods, RpcEvents } from './gateway/json-rpc/protocol';
-export type { RpcMethodName, RpcEventName, PlanParams, PlanResult } from './gateway/json-rpc/protocol';
+export type { RpcMethodName, RpcEventName } from './gateway/json-rpc/protocol';
 
 // =============================================================================
 // Auth Profiles (API Key Rotation)

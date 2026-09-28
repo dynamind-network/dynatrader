@@ -57,6 +57,4 @@ export type {
   ModelActiveResult,
   ModelResetResult,
   AgentStateResult,
-  PlanParams,
-  PlanResult,
 } from "./protocol";

@@ -64,9 +64,6 @@ import type {
   ModelActiveResult,
   ModelResetResult,
   AgentStateResult,
-  PlanParams,
-  PlanResult,
-  RpcPlan,
 } from "./protocol";
 
 // ---------------------------------------------------------------------------
@@ -90,8 +87,6 @@ export class JsonRpcServer {
   private cancelFlag = false;
   private processing = false;
   private stateCleanup: (() => void) | null = null;
-  private plans = new Map<string, PlanResult>();
-  private planDrafts = new Map<string, string>();
   private delegatedTasks = new Map<string, DelegatedTask>();
   private delegatedTaskControllers = new Map<string, AbortController>();
   private pendingApprovals = new Map<string, { resolve: (approved: boolean) => void; timeout: ReturnType<typeof setTimeout> }>();
@@ -247,14 +242,6 @@ export class JsonRpcServer {
       // -- Agent state --
       case RpcMethods.AGENT_STATE:
         return this.handleAgentState();
-      case RpcMethods.PLAN_ENTER:
-        return this.handlePlanEnter(params as PlanParams);
-      case RpcMethods.PLAN_EXIT:
-        return this.handlePlanExit(params as PlanParams);
-      case RpcMethods.PLAN_APPROVE:
-        return this.handlePlanApprove(params as PlanParams);
-      case RpcMethods.PLAN_REJECT:
-        return this.handlePlanReject(params as PlanParams);
 
       case RpcMethods.SESSION_SET_PERSONA:
         return this.handleSessionSetPersona(params as unknown as SessionSetPersonaParams);
@@ -498,11 +485,6 @@ export class JsonRpcServer {
         throw new Error("Prompt produced no visible output.");
       }
 
-      const promptSession = params.sessionId ?? this.agent.getActiveSession()?.id ?? "default";
-      if (this.agent.isPlanMode(promptSession) && finalContent.trim()) {
-        this.planDrafts.set(promptSession, finalContent.trim());
-      }
-
       return {
         content: finalContent,
         state: finalState,
@@ -697,86 +679,6 @@ export class JsonRpcServer {
 
   private handleAgentState(): AgentStateResult {
     return { state: this.agent.getState() };
-  }
-
-  private planSession(params: PlanParams): string {
-    return params.sessionId ?? this.agent.getActiveSession()?.id ?? "default";
-  }
-
-  private handlePlanEnter(params: PlanParams): PlanResult {
-    const sessionId = this.planSession(params);
-    this.agent.enterPlanMode(sessionId, params.goal);
-    const result: PlanResult = { status: 'planning', sessionId, planId: params.planId, path: params.path, goal: params.goal };
-    this.plans.set(sessionId, result);
-    this.emitEvent({ type: RpcEvents.PLAN_MODE_ENTERED, ...result });
-    this.emitEvent({ type: RpcEvents.PLAN_STEP_UPDATE, sessionId, planId: params.planId, step: 'exploration', status: 'in_progress' });
-    return result;
-  }
-
-  private async handlePlanExit(params: PlanParams): Promise<PlanResult> {
-    const sessionId = this.planSession(params);
-    const current = this.plans.get(sessionId);
-    const content = params.content?.trim() || this.planDrafts.get(sessionId) || "No plan content was produced yet.";
-    const plan = await this.persistPlan(sessionId, current?.goal, content, params.planId ?? current?.planId);
-    const result: PlanResult = { status: 'awaiting_approval', sessionId, planId: plan.id, path: plan.filePath, goal: current?.goal, plan };
-    this.plans.set(sessionId, result);
-    this.emitEvent({ type: RpcEvents.PLAN_STEP_UPDATE, sessionId, planId: result.planId, step: 'plan_ready', status: 'completed' });
-    this.emitEvent({ type: RpcEvents.PLAN_MODE_EXITED, ...result });
-    return result;
-  }
-
-  private handlePlanApprove(params: PlanParams): PlanResult {
-    const sessionId = this.planSession(params);
-    const current = this.plans.get(sessionId);
-    this.agent.exitPlanMode(sessionId);
-    const plan = current?.plan ? { ...current.plan, status: 'approved' as const, updatedAt: new Date().toISOString() } : undefined;
-    const result: PlanResult = { status: 'approved', sessionId, planId: params.planId ?? current?.planId, path: params.path ?? current?.path, plan, approved: true };
-    this.plans.set(sessionId, result);
-    this.emitEvent({ type: RpcEvents.PLAN_MODE_EXITED, ...result });
-    return result;
-  }
-
-  private handlePlanReject(params: PlanParams): PlanResult {
-    const sessionId = this.planSession(params);
-    const current = this.plans.get(sessionId);
-    this.agent.enterPlanMode(sessionId, current?.goal);
-    const plan = current?.plan
-      ? { ...current.plan, status: 'draft' as const, updatedAt: new Date().toISOString() }
-      : undefined;
-    const result: PlanResult = { status: 'rejected', sessionId, planId: params.planId ?? current?.planId, path: params.path ?? current?.path, goal: current?.goal, plan, approved: false };
-    this.plans.set(sessionId, result);
-    this.emitEvent({ type: RpcEvents.PLAN_STEP_UPDATE, sessionId, planId: result.planId, step: 'revision', status: 'in_progress' });
-    this.emitEvent({ type: RpcEvents.PLAN_MODE_EXITED, ...result });
-    return result;
-  }
-
-  private async persistPlan(sessionId: string, goal: string | undefined, content: string, existingId?: string): Promise<RpcPlan> {
-    const now = new Date().toISOString();
-    const slug = (goal || content.split(/\r?\n/).find(Boolean) || "plan")
-      .replace(/^#+\s*/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "plan";
-    const id = existingId || `plan_${Date.now()}_${randomUUID().slice(0, 8)}`;
-    const directory = path.join(process.cwd(), ".dynamind", "plans");
-    await mkdir(directory, { recursive: true });
-    const filePath = path.join(directory, `${slug}.md`);
-    await writeFile(filePath, content.endsWith("\n") ? content : content + "\n", "utf8");
-    const stepLines = content.split(/\r?\n/).filter((line) => /^\s*(?:\d+\.|[-*]\s+\[[ xX]\])\s+/.test(line));
-    const steps = stepLines.map((line, index) => ({
-      id: `step_${index + 1}`,
-      description: line.replace(/^\s*(?:\d+\.|[-*]\s+\[[ xX]\])\s+/, "").trim(),
-      reasoning: "Generated by the read-only planning agent.",
-      status: "pending" as const,
-    }));
-    return {
-      id,
-      title: (goal || content.split(/\r?\n/).find(Boolean) || "Implementation plan").replace(/^#+\s*/, "").slice(0, 120),
-      description: goal || "Implementation plan produced in read-only mode.",
-      steps: steps.length ? steps : [{ id: "step_1", description: "Execute the approved plan", reasoning: content, status: "pending" }],
-      status: "proposed",
-      createdAt: now,
-      updatedAt: now,
-      filePath,
-      confidenceScore: 0.8,
-    };
   }
 
   // -------------------------------------------------------------------------

@@ -206,6 +206,8 @@ export interface AgentCoreConfig {
     maxPositionPct?: number;
     maxDailyLossPct?: number;
   };
+  /** Cron engine reference for slash-command scheduling */
+  cronEngine?: import('../cron/cron-engine').CronEngine;
   /**
    * Active tool profiles — controls which tools the agent exposes to the LLM.
    * Core profiles (base, memory, multi_agent) are always included.
@@ -305,7 +307,7 @@ export class AgentCore {
   private maxParallelToolCalls: number;
   private maxWaveSize: number | undefined;
   private toolResultCompressor: import('../../context/tool-result-compressor').ToolResultCompressor | null;
-  private planningSessions = new Map<string, { goal?: string; enteredAt: Date }>();
+  private cronEngine: import('../cron/cron-engine').CronEngine | null;
   private toolPolicies = new Map<string, { allowed?: Set<string>; disallowed: Set<string> }>();
   private toolStartTimes: Map<string, number> = new Map();
   private personaCache = new Map<string, string>();
@@ -420,6 +422,7 @@ export class AgentCore {
     this.agentMessaging = config.agentMessaging ?? null;
     this.continualHarness = config.continualHarness ?? null;
     this.memoryFabric = config.memoryFabric ?? null;
+    this.cronEngine = config.cronEngine ?? null;
     this.maxParallelToolCalls = Math.min(config.maxParallelToolCalls ?? 4, 16);
     this.maxWaveSize = config.maxWaveSize;
     this.toolResultCompressor = config.toolResultCompressor ?? null;
@@ -1347,6 +1350,7 @@ Explore the repository and design an implementation plan. You are strictly read-
       memory: this.config.memory,
       skillFactory: this.skillFactory,
       dreamEngine: this.dreamEngine,
+      cronEngine: this.cronEngine,
       getConversationHistory: () => this.getConversationHistory(),
       clearConversation: () => this.clearConversation(),
     };
@@ -1992,6 +1996,9 @@ Explore the repository and design an implementation plan. You are strictly read-
   onStateChange(listener: (state: AgentState) => void): () => void {
     return this.stateMachine.onStateChange((state) => listener(state));
   }
+
+  setCronEngine(engine: import('../cron/cron-engine').CronEngine): void { this.cronEngine = engine; }
+
   getConversationHistory(): ConversationMessage[] { return this.getConversation().getMessages(); }
   forkConversation(): ConversationMessage[] { return this.getConversation().fork(); }
   restoreConversation(messages: ConversationMessage[]): void { this.getConversation().restore(messages); }
