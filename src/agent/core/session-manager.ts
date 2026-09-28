@@ -242,6 +242,27 @@ export class SessionManager {
     this.persistMessage(sessionId, msg);
   }
 
+  replaceSessionMessages(sessionId: string, messages: ConversationMessage[]): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session not found: ${sessionId}`);
+    const replacements = messages.map((message) => ({ ...message }));
+    const updatedAt = new Date();
+    if (this.db) {
+      const rows = replacements.map((message, index) => ({
+        id: `msg-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 9)}`,
+        session_id: sessionId,
+        role: message.role as 'user' | 'assistant' | 'system' | 'tool',
+        parts: JSON.stringify([{ type: 'text', content: message.content }]),
+        token_count: 0,
+        created_at: (message.timestamp instanceof Date ? message.timestamp : new Date()).getTime(),
+      }));
+      this.db.replaceConversationMessages(sessionId, rows);
+      this.persistSession({ ...session, messages: replacements, updatedAt });
+    }
+    session.messages = replacements;
+    session.updatedAt = updatedAt;
+  }
+
   getMessages(): ConversationMessage[] {
     const session = this.getActiveSession();
     if (!session) return [];

@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { JsonRpcServer } from "./server";
 import { JsonRpcErrorCodes } from "./types";
+import { RpcMethods } from "./protocol";
 
 // ---------------------------------------------------------------------------
 // Mock AgentCore
@@ -201,5 +202,47 @@ describe("JsonRpcServer auth", () => {
     expect(response).not.toHaveProperty("error");
     expect(response!.result).toBeDefined();
     expect((response!.result as Record<string, unknown>).state).toBe("idle");
+  });
+
+  it("delegates conversation.compact for the requested session", async () => {
+    const compactResult = { compacted: true, message: "[Conversation Summary] retained task", messageCount: 3 };
+    vi.mocked(mockAgentCore.compactConversation).mockClear();
+    vi.mocked(mockAgentCore.compactConversation).mockReturnValue(compactResult);
+
+    await sendLine(JSON.stringify({
+      jsonrpc: "2.0",
+      id: 11,
+      method: RpcMethods.CONVERSATION_COMPACT,
+      params: { sessionId: "target-session" },
+    }));
+
+    expect(vi.mocked(mockAgentCore.compactConversation)).toHaveBeenCalledOnce();
+    expect(vi.mocked(mockAgentCore.compactConversation)).toHaveBeenCalledWith("target-session");
+    expect(lastResponse()).toMatchObject({ id: 11, result: compactResult });
+  });
+
+  it("rejects conversation.compact while a prompt is being processed", async () => {
+    vi.mocked(mockAgentCore.compactConversation).mockClear();
+    const state = server as unknown as { processing: boolean };
+    const wasProcessing = state.processing;
+    state.processing = true;
+
+    try {
+      await sendLine(JSON.stringify({
+        jsonrpc: "2.0",
+        id: 12,
+        method: RpcMethods.CONVERSATION_COMPACT,
+        params: {},
+      }));
+
+      const response = lastResponse();
+      expect(response?.error).toMatchObject({
+        code: JsonRpcErrorCodes.INTERNAL_ERROR,
+        message: expect.stringContaining("Cannot compact while a prompt is being processed"),
+      });
+      expect(vi.mocked(mockAgentCore.compactConversation)).not.toHaveBeenCalled();
+    } finally {
+      state.processing = wasProcessing;
+    }
   });
 });

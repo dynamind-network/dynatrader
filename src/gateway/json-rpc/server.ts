@@ -216,7 +216,7 @@ export class JsonRpcServer {
       case RpcMethods.PROMPT_CANCEL:
         return this.handleCancel();
       case RpcMethods.CONVERSATION_COMPACT:
-        return this.handleCompact();
+        return this.handleCompact(params);
       case RpcMethods.TOOL_LIST:
         return this.handleToolList(params as { sessionId?: string });
       case RpcMethods.AGENT_DELEGATE:
@@ -525,9 +525,9 @@ export class JsonRpcServer {
     return { cancelled: false };
   }
 
-  private handleCompact(): ConversationCompactResult {
+  private handleCompact(params: { sessionId?: string }): ConversationCompactResult {
     if (this.processing) throw new Error("Cannot compact while a prompt is being processed.");
-    return this.agent.compactConversation();
+    return this.agent.compactConversation(params.sessionId);
   }
 
   private handleToolList(params: { sessionId?: string }): ToolListResult {

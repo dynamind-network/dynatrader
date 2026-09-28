@@ -271,6 +271,64 @@ describe("Agent Core", () => {
       expect(result.compacted).toBe(true);
     });
 
+    it("manually compacts a non-active session and preserves the active transcript", () => {
+      const chatAgent = new AgentCore({
+        memory,
+        modelRouter: createMockModelRouter({ systemPrompts: [] }, 32),
+        conversationConfig: { maxContextTokens: 32, keepHeadMessages: 1, keepRecentMessages: 1 },
+      });
+      const targetSession = chatAgent.createSession("target");
+      const targetMessages = [
+        { role: "system" as const, content: "Protected system policy", timestamp: new Date() },
+        ...Array.from({ length: 8 }, (_, i) => ({ role: "assistant" as const, content: `OLD_BODY_${i} ` + "history ".repeat(100), timestamp: new Date() })),
+        { role: "user" as const, content: "LATEST_USER_REQUEST", timestamp: new Date() },
+        { role: "assistant" as const, content: "LATEST_ASSISTANT_RESPONSE", timestamp: new Date() },
+      ];
+      for (const message of targetMessages) chatAgent["sessionManager"].addMessageToSession(targetSession.id, message);
+      const activeSession = chatAgent.createSession("active");
+      const activeMessages = [{ role: "user" as const, content: "ACTIVE_SESSION_BODY", timestamp: new Date() }];
+      for (const message of activeMessages) chatAgent["sessionManager"].addMessageToSession(activeSession.id, message);
+      chatAgent.switchSession(activeSession.id);
+
+      const result = chatAgent.compactConversation(targetSession.id);
+      expect(result.compacted).toBe(true);
+      expect(JSON.stringify(chatAgent.getConversationHistory())).toContain("ACTIVE_SESSION_BODY");
+      chatAgent.switchSession(targetSession.id);
+      const targetHistory = JSON.stringify(chatAgent.getConversationHistory());
+      expect(targetHistory).toContain("Protected system policy");
+      expect(targetHistory).toContain("LATEST_USER_REQUEST");
+      expect(targetHistory).toContain("[Conversation Summary]");
+      expect(targetHistory).not.toContain("OLD_BODY_");
+      expect(result.messageCount).toBe(chatAgent.getConversationHistory().length);
+    });
+
+    it("synchronizes automatically compacted session transcripts", async () => {
+      const chatAgent = new AgentCore({
+        memory,
+        modelRouter: createMockModelRouter({ systemPrompts: [] }, 32),
+        conversationConfig: { maxContextTokens: 32, keepHeadMessages: 1, keepRecentMessages: 1 },
+      });
+      const targetSession = chatAgent.createSession("auto-target");
+      const sourceMessages = [
+        { role: "system" as const, content: "Protected policy", timestamp: new Date() },
+        ...Array.from({ length: 8 }, (_, i) => ({ role: "assistant" as const, content: `AUTO_OLD_${i} ` + "history ".repeat(100), timestamp: new Date() })),
+        { role: "user" as const, content: "LATEST_AUTO_REQUEST", timestamp: new Date() },
+      ];
+      for (const message of sourceMessages) chatAgent["sessionManager"].addMessageToSession(targetSession.id, message);
+      const activeSession = chatAgent.createSession("auto-active");
+      chatAgent.switchSession(activeSession.id);
+      (chatAgent as any).safeTransition("starting");
+      (chatAgent as any).safeTransition("running");
+
+      const compacted = await (chatAgent as any).runCompaction(targetSession.id);
+
+      expect(compacted).toBe(true);
+      expect(chatAgent.getConversationHistory()).toEqual([]);
+      const savedTarget = chatAgent["sessionManager"].getSession(targetSession.id)!.messages;
+      expect(JSON.stringify(savedTarget)).toContain("[Conversation Summary]");
+      expect(JSON.stringify(savedTarget)).toContain("LATEST_AUTO_REQUEST");
+      expect(JSON.stringify(savedTarget)).not.toContain("AUTO_OLD_");
+    });
     it("does not report discarded synthetic-context compaction as transcript compaction", async () => {
       const engine = {
         updateConfig: vi.fn(),

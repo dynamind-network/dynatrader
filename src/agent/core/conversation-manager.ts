@@ -126,9 +126,17 @@ export class ConversationManager {
     return this.estimateTokens() > this.config.maxContextTokens * this.config.autoCompactThreshold;
   }
 
-  getMessagesForRequest(): ConversationMessage[] {
+  getMessagesForRequestWithStatus(): { messages: ConversationMessage[]; transcriptChanged: boolean } {
+    const originalMessages = this.messages;
     if (this.shouldCompact()) this.compact();
-    return this.getMessages();
+    return {
+      messages: this.getMessages(),
+      transcriptChanged: this.messages !== originalMessages,
+    };
+  }
+
+  getMessagesForRequest(): ConversationMessage[] {
+    return this.getMessagesForRequestWithStatus().messages;
   }
 
   compact(): string {

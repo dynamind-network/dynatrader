@@ -266,6 +266,30 @@ describe("ConversationManager", () => {
     expect(stored).toContain("truncated");
   });
 
+  test("reports whether request preparation changed the transcript", () => {
+    const compacting = new ConversationManager({
+      maxMessages: 100,
+      maxContextTokens: 50,
+      autoCompactThreshold: 0.2,
+      keepHeadMessages: 1,
+      keepRecentMessages: 1,
+      maxMessageChars: 2_000,
+    });
+    compacting.addMessage(message("system", "system root"));
+    compacting.addMessage(message("user", "first user intent ".repeat(20)));
+    compacting.addMessage(message("assistant", "middle assistant ".repeat(20)));
+    compacting.addMessage(message("user", "latest request"));
+
+    const compacted = compacting.getMessagesForRequestWithStatus();
+
+    expect(compacted.transcriptChanged).toBe(true);
+    expect(compacted.messages.some((entry) => entry.content?.startsWith("[Conversation Summary]"))).toBe(true);
+
+    const unchanged = new ConversationManager();
+    unchanged.addMessage(message("user", "small request"));
+    expect(unchanged.getMessagesForRequestWithStatus().transcriptChanged).toBe(false);
+  });
+
   test("compacts automatically before request generation when over budget", () => {
     const manager = new ConversationManager({
       maxMessages: 100,

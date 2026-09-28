@@ -462,6 +462,8 @@ export class AgentCore {
     }
     const created = new ConversationManager(this.conversationConfig);
     created.updateContextWindowTokens(this.conversation.getContextWindowTokens());
+    const session = this.sessionManager.getSession(key);
+    if (session?.messages.length) created.restore(session.messages);
     this.conversationsBySession.set(key, created);
     return created;
   }
@@ -1270,6 +1272,18 @@ Explore the repository and design an implementation plan. You are strictly read-
     return { content, reasoningContent, toolCallResults, usage };
   }
 
+  private syncSessionTranscript(sessionId?: string): void {
+    const key = this.resolveSessionKey(sessionId);
+    if (key === "default") return;
+    this.sessionManager.replaceSessionMessages(key, this.getConversation(key).getMessages());
+  }
+
+  private prepareMessagesForRequest(sessionId?: string): { messages: ConversationMessage[]; transcriptChanged: boolean } {
+    const result = this.getConversation(sessionId).getMessagesForRequestWithStatus();
+    if (result.transcriptChanged) this.syncSessionTranscript(sessionId);
+    return result;
+  }
+
   private async runCompaction(sessionId?: string): Promise<boolean> {
     let compacted = false;
     const conversation = this.getConversation(sessionId);
@@ -1292,6 +1306,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         });
       }
       this.stateMachine.transition("running");
+      if (compacted) this.syncSessionTranscript(sessionId);
     }
     return compacted;
   }
@@ -1472,9 +1487,7 @@ Explore the repository and design an implementation plan. You are strictly read-
       }
       const systemWithGuidance = promptLayers.systemPrompt;
 
-      const messagesBeforeCompaction = conversation.getMessages();
-      const convMessages = conversation.getMessagesForRequest();
-      const compactedBeforeRequest = JSON.stringify(messagesBeforeCompaction) !== JSON.stringify(conversation.getMessages());
+      const { messages: convMessages, transcriptChanged: compactedBeforeRequest } = this.prepareMessagesForRequest(options?.sessionId);
       const messages: ModelRequest["messages"] = [
         { role: "system", content: systemWithGuidance + "\n\n" + (constraints?.join("\n") ?? "") },
       ];
@@ -1706,7 +1719,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         }
         const systemWithGuidance = promptLayers.systemPrompt;
 
-        const convMessages = conversation.getMessagesForRequest();
+        const { messages: convMessages } = self.prepareMessagesForRequest(options?.sessionId);
         let messages: ModelRequest["messages"] = [
           { role: "system", content: systemWithGuidance + "\n\n" + (constraints?.join("\n") ?? "") },
         ];
@@ -2175,13 +2188,14 @@ Explore the repository and design an implementation plan. You are strictly read-
     return this.planningSessions.has(id);
   }
 
-  compactConversation(): { compacted: boolean; message: string; messageCount: number } {
-    const conversation = this.getConversation();
+  compactConversation(sessionId?: string): { compacted: boolean; message: string; messageCount: number } {
+    const conversation = this.getConversation(sessionId);
     if (!conversation.shouldCompact()) {
       return { compacted: false, message: "Compaction not needed yet.", messageCount: conversation.getMessages().length };
     }
     const summary = conversation.compact();
-    return { compacted: true, message: summary, messageCount: conversation.getMessages().length };
+    if (summary.length > 0) this.syncSessionTranscript(sessionId);
+    return { compacted: summary.length > 0, message: summary, messageCount: conversation.getMessages().length };
   }
 
   listAvailableTools(sessionId?: string): ToolDefinition[] {
