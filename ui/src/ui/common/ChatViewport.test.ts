@@ -96,12 +96,11 @@ describe('ChatViewport', () => {
       { key: 'b', text: 'Available Commands:', messageIndex: 1, color: 'gray' },
     ];
 
-    // Use pageSize equal to visibleLines.length so bottomAlignLines doesn't add spacers
     (getChatViewportMetrics as any).mockReturnValue(
       mockMetrics({
         visibleMessages: allMessages.slice(0, 2),
         visibleLines,
-        pageSize: 2,
+        pageSize: 20,
         totalRows: 2,
         maxScrollOffset: 0,
         hasOlder: false,

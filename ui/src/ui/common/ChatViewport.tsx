@@ -17,21 +17,6 @@ interface ChatViewportProps {
   onScrollOffsetChange?: (newOffset: number) => void;
 }
 
-/**
- * When content is shorter than the viewport, prepend blank spacer lines
- * so the latest content sits at the bottom (standard chat UX).
- */
-export function bottomAlignLines(lines: DisplayLine[], pageSize: number): DisplayLine[] {
-  if (lines.length >= pageSize || lines.length === 0) return lines;
-  const spacerCount = pageSize - lines.length;
-  const spacers: DisplayLine[] = Array.from({ length: spacerCount }, (_, i) => ({
-    key: `spacer-${i}`,
-    text: '',
-    messageIndex: -1,
-  }));
-  return [...spacers, ...lines];
-}
-
 export function ChatViewportComponent({
   messages,
   width,
@@ -73,11 +58,6 @@ export function ChatViewportComponent({
     [messages, width, height, effectiveBottomPadding, scrollOffset, showThinking]
   );
 
-  const alignedLines = useMemo(
-    () => bottomAlignLines(metrics.visibleLines, metrics.pageSize),
-    [metrics.visibleLines, metrics.pageSize]
-  );
-
   const scrollbarMetrics = useMemo(
     () => getScrollbarMetrics(metrics.totalRows, metrics.pageSize, metrics.scrollOffset, metrics.maxScrollOffset),
     [metrics.totalRows, metrics.pageSize, metrics.scrollOffset, metrics.maxScrollOffset]
@@ -96,7 +76,7 @@ export function ChatViewportComponent({
         width={width}
         flexShrink={0}
       >
-        <ChatLineList lines={alignedLines} contentWidth={contentWidth} height={messageAreaHeight} />
+        <ChatLineList lines={metrics.visibleLines} contentWidth={contentWidth} height={messageAreaHeight} />
         {showScrollbar && (
           <Scrollbar
             metrics={scrollbarMetrics}

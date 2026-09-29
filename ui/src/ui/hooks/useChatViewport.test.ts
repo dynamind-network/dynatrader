@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   useChatViewport,
   createScrollHandlers,
-  getAutoScrollOffset,
+  getAdjustedScrollOffset,
   computeScrollState,
 } from './useChatViewport.js';
 
@@ -105,47 +105,30 @@ describe('createScrollHandlers', () => {
   });
 });
 
-describe('getAutoScrollOffset', () => {
-  it('returns 0 when at bottom and new message arrives', () => {
-    // offset=0, prevLen=5, currLen=6, pageSize=20
-    const result = getAutoScrollOffset(0, 5, 6, 20);
-    expect(result).toBe(0);
+describe('getAdjustedScrollOffset', () => {
+  it('stays pinned when content grows at the bottom', () => {
+    expect(getAdjustedScrollOffset(0, 100, 110, 20, 90)).toBe(0);
   });
 
-  it('returns 0 when scrollOffset is within threshold and new message arrives', () => {
-    // offset=2 is within threshold of max(3, floor(20*0.1))=3
-    const result = getAutoScrollOffset(2, 5, 6, 20);
-    expect(result).toBe(0);
+  it('stays pinned when content grows within the follow threshold', () => {
+    expect(getAdjustedScrollOffset(2, 100, 110, 20, 90)).toBe(0);
   });
 
-  it('returns 0 when scrollOffset equals threshold and new message arrives', () => {
-    // offset=3 equals threshold of max(3, floor(20*0.1))=3
-    const result = getAutoScrollOffset(3, 5, 6, 20);
-    expect(result).toBe(0);
+  it('keeps a scrolled-up view anchored when content grows below it', () => {
+    expect(getAdjustedScrollOffset(30, 100, 110, 20, 90)).toBe(40);
   });
 
-  it('returns null when scrolled beyond threshold and new message arrives', () => {
-    // offset=10 is beyond threshold of 3
-    const result = getAutoScrollOffset(10, 5, 6, 20);
-    expect(result).toBeNull();
+  it('preserves a deliberate small scroll when content height is unchanged', () => {
+    expect(getAdjustedScrollOffset(2, 100, 100, 20, 80)).toBe(2);
   });
 
-  it('returns null when no new message arrives', () => {
-    const result = getAutoScrollOffset(0, 5, 5, 20);
-    expect(result).toBeNull();
+  it('moves the offset with content shrink to keep the same rows anchored', () => {
+    expect(getAdjustedScrollOffset(40, 110, 100, 20, 80)).toBe(30);
   });
 
-  it('returns null when messages were removed', () => {
-    const result = getAutoScrollOffset(0, 5, 4, 20);
-    expect(result).toBeNull();
-  });
-
-  it('uses percentage-based threshold for large viewports', () => {
-    // pageSize=100, threshold = max(3, floor(100*0.1)) = 10
-    // offset=10 is within threshold
-    expect(getAutoScrollOffset(10, 5, 6, 100)).toBe(0);
-    // offset=11 is beyond threshold
-    expect(getAutoScrollOffset(11, 5, 6, 100)).toBeNull();
+  it('uses a larger follow threshold for tall viewports', () => {
+    expect(getAdjustedScrollOffset(10, 100, 110, 100, 190)).toBe(0);
+    expect(getAdjustedScrollOffset(11, 100, 110, 100, 190)).toBe(21);
   });
 });
 

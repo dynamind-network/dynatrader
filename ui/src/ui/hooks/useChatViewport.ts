@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useLayoutEffect, useRef } from 'react';
 import type { Message } from '../types.js';
 import { getChatViewportMetrics, clampScrollOffset } from '../../utils/chatViewport.js';
 
@@ -63,25 +63,25 @@ export function createScrollHandlers(
 }
 
 /**
- * Pure auto-scroll logic - extracts testable behavior from the hook.
- *
- * Uses a percentage-based threshold: if the user is within 10% of the bottom
- * (or within 3 rows, whichever is larger), new messages auto-scroll to bottom.
- * This prevents the old behavior where scrolling up by even 1-2 rows would
- * disable auto-scroll, while still respecting user intent when they've clearly
- * scrolled up to read older content.
+ * Keep the same visible rows in place while content is appended below them.
+ * Stay pinned to the bottom when the user is already there or close to it.
  */
-export function getAutoScrollOffset(
+export function getAdjustedScrollOffset(
   currentOffset: number,
-  prevHistoryLength: number,
-  currentHistoryLength: number,
-  pageSize: number
-): number | null {
-  if (currentHistoryLength <= prevHistoryLength) return null;
-  // Percentage-based threshold: 10% of viewport or 3 rows, whichever is larger
+  previousRows: number,
+  currentRows: number,
+  pageSize: number,
+  maxScrollOffset: number
+): number {
+  const rowDelta = currentRows - previousRows;
+  if (rowDelta === 0) return clampScrollOffset(currentOffset, maxScrollOffset);
+
+  // Percentage-based threshold: 10% of viewport or 3 rows, whichever is larger.
   const threshold = Math.max(3, Math.floor(pageSize * 0.1));
-  if (currentOffset <= threshold) return 0;
-  return null;
+  const nextOffset = rowDelta > 0 && currentOffset <= threshold
+    ? 0
+    : currentOffset + rowDelta;
+  return clampScrollOffset(nextOffset, maxScrollOffset);
 }
 
 /**
@@ -101,7 +101,6 @@ export function useChatViewport(
   showThinking = true
 ): ChatViewportControls {
   const [scrollOffset, setScrollOffset] = useState(0);
-  const prevHistoryLengthRef = useRef(chatHistory.length);
 
   const metrics = useMemo(() => {
     return getChatViewportMetrics(
@@ -114,24 +113,27 @@ export function useChatViewport(
     );
   }, [chatHistory, viewportWidth, mainAreaHeight, scrollOffset, showThinking]);
 
+  const previousRowsRef = useRef(metrics.totalRows);
+
   const { pageSize, maxScrollOffset } = metrics;
 
   const handlers = useMemo(() => {
     return createScrollHandlers(setScrollOffset, maxScrollOffset, pageSize);
   }, [maxScrollOffset, pageSize]);
 
-  useEffect(() => {
-    const newOffset = getAutoScrollOffset(
+  useLayoutEffect(() => {
+    const nextOffset = getAdjustedScrollOffset(
       scrollOffset,
-      prevHistoryLengthRef.current,
-      chatHistory.length,
-      pageSize
+      previousRowsRef.current,
+      metrics.totalRows,
+      pageSize,
+      maxScrollOffset
     );
-    if (newOffset !== null) {
-      setScrollOffset(newOffset);
+    if (nextOffset !== scrollOffset) {
+      setScrollOffset(nextOffset);
     }
-    prevHistoryLengthRef.current = chatHistory.length;
-  }, [chatHistory.length, scrollOffset, pageSize]);
+    previousRowsRef.current = metrics.totalRows;
+  }, [metrics.totalRows, maxScrollOffset, scrollOffset, pageSize]);
 
   const { isAtBottom, isUserScrolledUp } = computeScrollState(scrollOffset);
 
