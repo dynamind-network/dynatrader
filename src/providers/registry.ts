@@ -1,12 +1,21 @@
 import type { ProviderEntry } from './types.js';
-import { loadProvidersFromYAML, invalidateProvidersCache, getBundledModelIds } from './yaml-loader.js';
+import {
+  loadProvidersFromYAML,
+  invalidateProvidersCache,
+  getBundledModelIds,
+  getConfiguredModelIds,
+  getConfiguredDefaultModels,
+} from './yaml-loader.js';
 import { modelsDevCatalogIsStale, refreshProviderModelLists } from './models-dev.js';
 
 export const PROVIDERS: Record<string, ProviderEntry> = {};
 
 export async function initProvidersFromYAML(): Promise<void> {
   const providers = await loadProvidersFromYAML();
-  await refreshProviderModelLists(providers, getBundledModelIds());
+  await refreshProviderModelLists(providers, getBundledModelIds(), {
+    configuredModelIds: getConfiguredModelIds(),
+    configuredDefaultModels: getConfiguredDefaultModels(),
+  });
   for (const key of Object.keys(PROVIDERS)) {
     delete PROVIDERS[key];
   }
@@ -17,7 +26,10 @@ export async function initProvidersFromYAML(): Promise<void> {
 export async function reloadProviders(): Promise<void> {
   invalidateProvidersCache();
   const providers = await loadProvidersFromYAML({ force: true });
-  await refreshProviderModelLists(providers, getBundledModelIds());
+  await refreshProviderModelLists(providers, getBundledModelIds(), {
+    configuredModelIds: getConfiguredModelIds(),
+    configuredDefaultModels: getConfiguredDefaultModels(),
+  });
   for (const key of Object.keys(PROVIDERS)) {
     delete PROVIDERS[key];
   }
@@ -31,7 +43,11 @@ let modelRefreshInFlight: Promise<boolean> | undefined;
 export async function refreshModels(force = false): Promise<boolean> {
   if (modelRefreshInFlight) return modelRefreshInFlight;
   if (!force && !(await modelsDevCatalogIsStale())) return true;
-  modelRefreshInFlight = refreshProviderModelLists(PROVIDERS, getBundledModelIds(), { forceRefresh: true })
+  modelRefreshInFlight = refreshProviderModelLists(PROVIDERS, getBundledModelIds(), {
+    forceRefresh: true,
+    configuredModelIds: getConfiguredModelIds(),
+    configuredDefaultModels: getConfiguredDefaultModels(),
+  })
     .then(async (updated) => updated && !(await modelsDevCatalogIsStale()))
     .finally(() => { modelRefreshInFlight = undefined; });
   return modelRefreshInFlight;

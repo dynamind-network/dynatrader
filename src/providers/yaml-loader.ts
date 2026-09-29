@@ -26,6 +26,8 @@ interface ModelsYAML {
 let _cache: Record<string, ProviderEntry> | null = null;
 let _cacheTimestamp = 0;
 let _bundledModelIds: Record<string, Set<string>> = {};
+let _configuredModelIds: Record<string, Set<string>> = {};
+let _configuredDefaultModels: Record<string, string> = {};
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_YAML_SIZE = 1024 * 1024;
@@ -193,6 +195,33 @@ export function getBundledModelIds(): Record<string, Set<string>> {
   return _bundledModelIds;
 }
 
+export function getConfiguredModelIds(): Record<string, Set<string>> {
+  return _configuredModelIds;
+}
+
+export function getConfiguredDefaultModels(): Record<string, string> {
+  return _configuredDefaultModels;
+}
+
+function rememberConfiguredModels(config: ModelsYAML | null): void {
+  for (const [providerName, provider] of Object.entries(config?.providers ?? {})) {
+    if (Array.isArray(provider.models)) {
+      const ids = provider.models
+        .map((model) => model?.id)
+        .filter((id): id is string => typeof id === 'string');
+      if (ids.length > 0) {
+        _configuredModelIds[providerName] = new Set([
+          ...(_configuredModelIds[providerName] ?? []),
+          ...ids,
+        ]);
+      }
+    }
+    if (typeof provider.defaultModel === 'string') {
+      _configuredDefaultModels[providerName] = provider.defaultModel;
+    }
+  }
+}
+
 export async function loadProvidersFromYAML(
   options: LoadOptions = {},
 ): Promise<Record<string, ProviderEntry>> {
@@ -223,8 +252,11 @@ export async function loadProvidersFromYAML(
   }
 
   const globalYAMLPath = getDynaTraderPath('models.yaml');
+  _configuredModelIds = {};
+  _configuredDefaultModels = {};
   const globalYAML = await readYAMLFile(globalYAMLPath);
   if (globalYAML) {
+    rememberConfiguredModels(globalYAML);
     providers = mergeProviders(providers, globalYAML);
   }
 
@@ -232,6 +264,7 @@ export async function loadProvidersFromYAML(
   if (workspaceYAMLPath !== globalYAMLPath) {
     const workspaceYAML = await readYAMLFile(workspaceYAMLPath);
     if (workspaceYAML) {
+      rememberConfiguredModels(workspaceYAML);
       providers = mergeProviders(providers, workspaceYAML);
     }
   }

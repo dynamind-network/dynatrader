@@ -105,18 +105,27 @@ function isSupportedChatModel(model: ModelsDevModel): boolean {
 export async function refreshProviderModelLists(
   providers: Record<string, ProviderEntry>,
   bundledModelIds: Record<string, Set<string>>,
-  options: { fetchImpl?: typeof fetch; forceRefresh?: boolean } = {},
+  options: {
+    fetchImpl?: typeof fetch;
+    forceRefresh?: boolean;
+    configuredModelIds?: Record<string, Set<string>>;
+    configuredDefaultModels?: Record<string, string>;
+  } = {},
 ): Promise<boolean> {
   const catalog = await getModelsDevCatalog(options);
   if (!catalog) return false;
 
-  return applyModelsDevCatalog(providers, bundledModelIds, catalog);
+  return applyModelsDevCatalog(providers, bundledModelIds, catalog, options);
 }
 
 export function applyModelsDevCatalog(
   providers: Record<string, ProviderEntry>,
   bundledModelIds: Record<string, Set<string>>,
   catalog: ModelsDevCatalog,
+  options: {
+    configuredModelIds?: Record<string, Set<string>>;
+    configuredDefaultModels?: Record<string, string>;
+  } = {},
 ): boolean {
 
   for (const [providerName, catalogName] of Object.entries(SUPPORTED_CATALOG_PROVIDERS)) {
@@ -138,10 +147,15 @@ export function applyModelsDevCatalog(
 
     // Preserve explicitly configured models; replace the bundled snapshot entries.
     const bundled = bundledModelIds[providerName] ?? new Set<string>();
-    const customModels = entry.models.filter((model) => !bundled.has(model.id));
+    const configured = options.configuredModelIds?.[providerName] ?? new Set<string>();
+    const customModels = entry.models.filter((model) => !bundled.has(model.id) || configured.has(model.id));
     const dynamicIds = new Set(models.map((model) => model.id));
     entry.models = [...models, ...customModels.filter((model) => !dynamicIds.has(model.id))];
-    if (bundled.has(entry.defaultModel) && !dynamicIds.has(entry.defaultModel)) {
+    if (
+      !options.configuredDefaultModels?.[providerName]
+      && bundled.has(entry.defaultModel)
+      && !dynamicIds.has(entry.defaultModel)
+    ) {
       entry.defaultModel = models[0]!.id;
     }
   }

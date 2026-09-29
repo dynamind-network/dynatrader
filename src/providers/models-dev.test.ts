@@ -79,4 +79,32 @@ describe('models.dev model catalog', () => {
     expect(providers.deepseek?.defaultModel).toBe('private-default');
     expect(providers.deepseek?.models.map((model) => model.id)).toEqual(['deepseek-flash', 'private-default']);
   });
+
+  it('preserves user overrides for a bundled model ID and its configured default', () => {
+    const providers = {
+      deepseek: provider('deepseek-chat', [
+        { id: 'deepseek-chat', name: 'My DeepSeek Alias', contextWindow: 64000, maxOutput: 2048 },
+      ]),
+    };
+    applyModelsDevCatalog(providers, { deepseek: new Set(['deepseek-chat']) }, {
+      deepseek: {
+        name: 'DeepSeek',
+        models: {
+          'deepseek-flash': {
+            id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', tool_call: true,
+            modalities: { output: ['text'] }, limit: { context: 1000000, output: 393216 },
+            release_date: '2026-09-10',
+          },
+        },
+      },
+    }, {
+      configuredModelIds: { deepseek: new Set(['deepseek-chat']) },
+      configuredDefaultModels: { deepseek: 'deepseek-chat' },
+    });
+    expect(providers.deepseek?.defaultModel).toBe('deepseek-chat');
+    expect(providers.deepseek?.models).toEqual([
+      expect.objectContaining({ id: 'deepseek-flash' }),
+      expect.objectContaining({ id: 'deepseek-chat', name: 'My DeepSeek Alias' }),
+    ]);
+  });
 });
