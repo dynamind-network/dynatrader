@@ -10,6 +10,7 @@ import {
   type ExchangeConnection,
 } from '../../services/websocket/index.js';
 import { MARKET_SYMBOLS } from '../common/marketSymbols.js';
+import { ScreenPaneWorkspace, useScreenPaneController } from '../layout/ScreenPaneWorkspace.js';
 import { buildMarketUrl, getMarketTicker24hrPath } from '../../config/market-provider.js';
 import {
   useTerminalSize,
@@ -22,6 +23,9 @@ import {
 interface MarketsScreenProps {
   onBack: () => void;
   terminalSize?: { width: number; height: number };
+  workspaceDir?: string;
+  selectedMarketSymbol?: string;
+  onSelectedMarketSymbolChange?: (symbol: string) => void;
 }
 
 interface ExtendedMarketData extends PriceData {
@@ -33,9 +37,11 @@ interface ExtendedMarketData extends PriceData {
   exchanges: Map<Exchange, { price: number; funding: number; volume: number }>;
 }
 
-export function MarketsScreen({ onBack, terminalSize: providedSize }: MarketsScreenProps) {
+export function MarketsScreen({ onBack, terminalSize: providedSize, workspaceDir, onSelectedMarketSymbolChange }: MarketsScreenProps) {
   const internalSize = useTerminalSize();
-  const terminalWidth = providedSize?.width ?? internalSize.width;
+  const outerSize = providedSize ?? internalSize;
+  const paneController = useScreenPaneController({ screenId: 'markets', workspaceDir, terminalSize: outerSize, paneIds: ['tape', 'flow', 'momentum'], defaultPanes: ['tape'] });
+  const terminalWidth = paneController.viewportFor('tape').width;
   const [markets, setMarkets] = useState<ExtendedMarketData[]>([]);
   const [liquidations, setLiquidations] = useState<NormalizedLiquidation[]>([]);
   const [connections, setConnections] = useState<Map<Exchange, ExchangeConnection>>(new Map());
@@ -47,6 +53,11 @@ export function MarketsScreen({ onBack, terminalSize: providedSize }: MarketsScr
   const [sortBy, setSortBy] = useState<'symbol' | 'price' | 'change' | 'funding' | 'oi' | 'spread'>(
     'symbol'
   );
+
+  useEffect(() => {
+    const selected = markets[selectedIndex];
+    if (selected) onSelectedMarketSymbolChange?.(selected.symbol.replace(/USDT$/, ''));
+  }, [markets, selectedIndex, onSelectedMarketSymbolChange]);
 
   const wsManager = getWebSocketManager();
   const breakpoints = getScreenBreakpoints(terminalWidth);
@@ -191,7 +202,7 @@ export function MarketsScreen({ onBack, terminalSize: providedSize }: MarketsScr
       setSelectedIndex(selectedIndex - 1);
     } else if (key.downArrow && selectedIndex < markets.length - 1) {
       setSelectedIndex(selectedIndex + 1);
-    } else if (key.tab) {
+    } else if (input === 'e') {
       setShowExpanded(!showExpanded);
     } else if (input === 's') {
       const sortOptions: (typeof sortBy)[] = [
@@ -205,7 +216,7 @@ export function MarketsScreen({ onBack, terminalSize: providedSize }: MarketsScr
       const currentIdx = sortOptions.indexOf(sortBy);
       setSortBy(sortOptions[(currentIdx + 1) % sortOptions.length]);
     }
-  });
+  }, { isActive: paneController.isInputActive('tape') });
 
   const connectedCount = Array.from(connections.values()).filter(
     (c) => c.state === 'connected'
@@ -367,7 +378,7 @@ export function MarketsScreen({ onBack, terminalSize: providedSize }: MarketsScr
     );
   };
 
-  return (
+  const mainPane = (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
         <Text color="cyan" bold>
@@ -438,6 +449,44 @@ export function MarketsScreen({ onBack, terminalSize: providedSize }: MarketsScr
         <Text dimColor> navigate</Text>
       </Box>
     </Box>
+  );
+
+  const strongest = [...markets].sort((a, b) => b.change24h - a.change24h).slice(0, 5);
+  const funding = [...markets].sort((a, b) => Math.abs(b.avgFunding) - Math.abs(a.avgFunding)).slice(0, 5);
+  const liquidationPane = (
+    <Box flexDirection="column" paddingX={1}>
+      {liquidations.length ? liquidations.slice(0, 10).map((liq, index) => (
+        <Box key={`${liq.timestamp}-${liq.symbol}-${index}`}>
+          <Text color={liq.side === 'long' ? 'red' : 'green'}>{liq.side.toUpperCase().padEnd(5)}</Text>
+          <Text color="white" bold> {liq.symbol}</Text>
+          <Text color="yellow"> ${formatVolume(liq.usdValue)}</Text>
+          <Text dimColor> {new Date(liq.timestamp).toLocaleTimeString()}</Text>
+        </Box>
+      )) : <Text dimColor>Waiting for liquidation events…</Text>}
+      <Text dimColor>Live aggregate from connected exchanges</Text>
+    </Box>
+  );
+  const momentumPane = (
+    <Box flexDirection="column" paddingX={1}>
+      <Text color="green" bold>TOP 24H MOVERS</Text>
+      {strongest.map((market) => <Box key={market.symbol} justifyContent="space-between"><Text color="white" bold>{market.symbol}</Text><Text color={market.change24h >= 0 ? 'green' : 'red'}>{market.change24h >= 0 ? '+' : ''}{market.change24h.toFixed(2)}%</Text></Box>)}
+      <Text dimColor> </Text>
+      <Text color="yellow" bold>FUNDING EXTREMES</Text>
+      {funding.map((market) => <Box key={`funding-${market.symbol}`} justifyContent="space-between"><Text>{market.symbol}</Text><Text color={market.avgFunding > 0 ? 'red' : 'green'}>{market.avgFunding >= 0 ? '+' : ''}{market.avgFunding.toFixed(4)}%</Text></Box>)}
+      <Text dimColor>Cross-venue aggregate · refreshed {lastUpdate.toLocaleTimeString()}</Text>
+    </Box>
+  );
+
+  return (
+    <ScreenPaneWorkspace
+      controller={paneController}
+      terminalSize={outerSize}
+      panes={[
+        { id: 'tape', title: 'MARKET TAPE', content: mainPane },
+        { id: 'flow', title: 'LIQUIDATION FLOW', content: liquidationPane },
+        { id: 'momentum', title: 'CROSS-MARKET PULSE', content: momentumPane },
+      ]}
+    />
   );
 }
 

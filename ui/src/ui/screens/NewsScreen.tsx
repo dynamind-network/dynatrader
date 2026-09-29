@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { providers } from '../../config/providers.js';
+import { useTerminalSize } from '../../hooks/useTerminalSize.js';
+import { ScreenPaneWorkspace, useScreenPaneController } from '../layout/ScreenPaneWorkspace.js';
 
 interface NewsItem {
   title: string;
@@ -11,6 +13,8 @@ interface NewsItem {
 
 interface NewsScreenProps {
   onBack: () => void;
+  terminalSize?: { width: number; height: number };
+  workspaceDir?: string;
 }
 
 const NEWS_REFRESH_MS = 5 * 60 * 1000;
@@ -41,7 +45,10 @@ const FALLBACK_NEWS: NewsItem[] = [
  * F7 - News Screen
  * Shows crypto news from CoinGecko API
  */
-export function NewsScreen({ onBack }: NewsScreenProps) {
+export function NewsScreen({ onBack, terminalSize: providedSize, workspaceDir }: NewsScreenProps) {
+  const internalSize = useTerminalSize();
+  const terminalSize = providedSize ?? internalSize;
+  const paneController = useScreenPaneController({ screenId: 'news', workspaceDir, terminalSize, paneIds: ['feed', 'preview', 'sources'], defaultPanes: ['feed'] });
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +93,7 @@ export function NewsScreen({ onBack }: NewsScreenProps) {
     if (key.return) {
       setPreviewIndex((prev) => (prev === selectedIndex ? null : selectedIndex));
     }
-  });
+  }, { isActive: paneController.isInputActive('feed') });
 
   async function fetchNews() {
     try {
@@ -187,7 +194,7 @@ export function NewsScreen({ onBack }: NewsScreenProps) {
     );
   }
 
-  return (
+  const mainPane = (
     <Box flexDirection="column" padding={1}>
       {/* Header */}
       <Box marginBottom={1}>
@@ -310,6 +317,44 @@ export function NewsScreen({ onBack }: NewsScreenProps) {
         <Text dimColor> for analysis</Text>
       </Box>
     </Box>
+  );
+
+  const sourceCounts = news.reduce<Record<string, number>>((counts, item) => {
+    counts[item.source] = (counts[item.source] ?? 0) + 1;
+    return counts;
+  }, {});
+  const topSources = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const selected = news[selectedIndex];
+  const briefingPane = (
+    <Box flexDirection="column" paddingX={1}>
+      <Text color="cyan" bold>LIVE BRIEFING</Text>
+      <Text>{news.length} headlines in the current feed</Text>
+      <Text dimColor> </Text>
+      <Text color="yellow" bold>SOURCES</Text>
+      {topSources.length ? topSources.map(([source, count]) => (
+        <Box key={source} justifyContent="space-between"><Text>{source}</Text><Text dimColor>{count} stories</Text></Box>
+      )) : <Text dimColor>Waiting for headlines…</Text>}
+      <Text dimColor> </Text>
+      <Text color="yellow" bold>SELECTED STORY</Text>
+      {selected ? <>
+        <Text color="white" bold>{selected.title}</Text>
+        <Text dimColor>{selected.source} · {formatTimeAgo(selected.pubDate)}</Text>
+        {selected.link ? <Text dimColor>{selected.link}</Text> : null}
+      </> : <Text dimColor>Select a headline in the feed.</Text>}
+      {isFallback && <Text color="yellow">Fallback feed · live provider unavailable</Text>}
+      {retryAt && <Text dimColor>Retry after {retryAt.toLocaleTimeString()}</Text>}
+    </Box>
+  );
+
+  return (
+    <ScreenPaneWorkspace
+      controller={paneController}
+      terminalSize={terminalSize}
+      panes={[
+        { id: 'feed', title: 'NEWS FEED', content: mainPane },
+        { id: 'briefing', title: 'NEWS BRIEFING', content: briefingPane },
+      ]}
+    />
   );
 }
 

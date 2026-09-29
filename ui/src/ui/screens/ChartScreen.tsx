@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import asciichart from 'asciichart';
 import { useTerminalSize } from '../ResponsiveLayout.js';
 import { getMarketSymbols } from '../common/marketSymbols.js';
 import { buildMarketUrl, getMarketKlinesPath } from '../../config/market-provider.js';
+import { ScreenPaneWorkspace, useScreenPaneController } from '../layout/ScreenPaneWorkspace.js';
 
 interface ChartScreenProps {
   symbol?: string;
   onBack: () => void;
+  terminalSize?: { width: number; height: number };
+  workspaceDir?: string;
+  selectedMarketSymbol?: string;
+  onSelectedMarketSymbolChange?: (symbol: string) => void;
 }
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
@@ -23,9 +28,12 @@ const REFRESH_RATES: Record<string, number> = {
 const CHART_MIN_HEIGHT = 10;
 const CHART_MAX_HEIGHT = 18;
 
-export function ChartScreen({ symbol: initialSymbol = '', onBack }: ChartScreenProps) {
-  const terminalSize = useTerminalSize();
-  const coins = getMarketSymbols();
+export function ChartScreen({ symbol: initialSymbol = '', onBack, terminalSize: providedSize, workspaceDir, selectedMarketSymbol, onSelectedMarketSymbolChange }: ChartScreenProps) {
+  const internalSize = useTerminalSize();
+  const outerSize = providedSize ?? internalSize;
+  const paneController = useScreenPaneController({ screenId: 'chart', workspaceDir, terminalSize: outerSize, paneIds: ['chart', 'technicals'], defaultPanes: ['chart'] });
+  const terminalSize = paneController.viewportFor('chart');
+  const coins = useMemo(() => getMarketSymbols(), []);
   const [chartData, setChartData] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +48,12 @@ export function ChartScreen({ symbol: initialSymbol = '', onBack }: ChartScreenP
   });
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
+  useEffect(() => {
+    const nextSymbol = selectedMarketSymbol || initialSymbol;
+    const nextIndex = coins.indexOf(nextSymbol);
+    if (nextIndex >= 0) setCoinIndex(nextIndex);
+  }, [selectedMarketSymbol, initialSymbol, coins]);
+
   const interval = INTERVALS[intervalIndex];
   const symbol = coins[coinIndex] ?? coins[0] ?? '';
   const chartHeight = getChartHeight(terminalSize.height);
@@ -52,12 +66,12 @@ export function ChartScreen({ symbol: initialSymbol = '', onBack }: ChartScreenP
     }
 
     if (key.leftArrow) {
-      setCoinIndex((prev) => (prev - 1 + coins.length) % coins.length);
+      setCoinIndex((prev) => { const next = (prev - 1 + coins.length) % coins.length; onSelectedMarketSymbolChange?.(coins[next] ?? ''); return next; });
       return;
     }
 
     if (key.rightArrow) {
-      setCoinIndex((prev) => (prev + 1) % coins.length);
+      setCoinIndex((prev) => { const next = (prev + 1) % coins.length; onSelectedMarketSymbolChange?.(coins[next] ?? ''); return next; });
       return;
     }
 
@@ -72,11 +86,11 @@ export function ChartScreen({ symbol: initialSymbol = '', onBack }: ChartScreenP
     }
 
     if (input === '<' || input === ',') {
-      setCoinIndex((prev) => (prev - 1 + coins.length) % coins.length);
+      setCoinIndex((prev) => { const next = (prev - 1 + coins.length) % coins.length; onSelectedMarketSymbolChange?.(coins[next] ?? ''); return next; });
     } else if (input === '>' || input === '.') {
-      setCoinIndex((prev) => (prev + 1) % coins.length);
+      setCoinIndex((prev) => { const next = (prev + 1) % coins.length; onSelectedMarketSymbolChange?.(coins[next] ?? ''); return next; });
     }
-  });
+  }, { isActive: paneController.isInputActive('chart') });
 
   useEffect(() => {
     fetchChartData();
@@ -142,7 +156,7 @@ export function ChartScreen({ symbol: initialSymbol = '', onBack }: ChartScreenP
     );
   }
 
-  const chartWidth = Math.max(40, terminalSize.width - 16);
+  const chartWidth = Math.max(20, terminalSize.width - 16);
   const chartConfig = {
     height: chartHeight,
     colors: [stats.change >= 0 ? asciichart.green : asciichart.red],
@@ -151,7 +165,8 @@ export function ChartScreen({ symbol: initialSymbol = '', onBack }: ChartScreenP
 
   let chart: string;
   try {
-    chart = asciichart.plot(chartData, chartConfig);
+    const maxPoints = Math.max(2, Math.floor(chartWidth / 11));
+    chart = asciichart.plot(chartData.slice(-maxPoints), chartConfig);
   } catch {
     chart = 'Unable to render chart';
   }
@@ -163,7 +178,7 @@ export function ChartScreen({ symbol: initialSymbol = '', onBack }: ChartScreenP
   const trendSummary = getTrendSummary(chartData, stats.change);
   const volatilitySummary = getVolatilitySummary(chartData, stats.price);
 
-  return (
+  const mainPane = (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
         <Text color="cyan" bold>
@@ -270,6 +285,35 @@ export function ChartScreen({ symbol: initialSymbol = '', onBack }: ChartScreenP
         <Text dimColor> return</Text>
       </Box>
     </Box>
+  );
+
+  return (
+    <ScreenPaneWorkspace
+      controller={paneController}
+      terminalSize={outerSize}
+      panes={[
+        { id: 'chart', title: `CHART · ${symbol}/USDT`, content: mainPane },
+        {
+          id: 'technicals',
+          title: 'TECHNICAL SNAPSHOT',
+          content: (
+            <Box flexDirection="column" paddingX={1}>
+              <Text dimColor>LAST PRICE</Text>
+              <Text color="white" bold>${formatPrice(stats.price)}</Text>
+              <Text dimColor>24H CHANGE</Text>
+              <Text color={stats.change >= 0 ? 'green' : 'red'} bold>{stats.change >= 0 ? '+' : ''}{stats.change.toFixed(2)}%</Text>
+              <Text dimColor>RANGE</Text>
+              <Text color="yellow">{rangePercent.toFixed(2)}% · {positionInRange.toFixed(0)}% through range</Text>
+              <Text dimColor>TREND</Text>
+              <Text color={stats.change >= 0 ? 'green' : 'red'}>{trendSummary}</Text>
+              <Text dimColor>VOLATILITY</Text>
+              <Text>{volatilitySummary}</Text>
+              <Text dimColor>Updated {lastUpdate.toLocaleTimeString()}</Text>
+            </Box>
+          ),
+        },
+      ]}
+    />
   );
 }
 

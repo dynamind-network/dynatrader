@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { useWallet } from '../../contexts/WalletContext.js';
+import { ScreenPaneWorkspace, useScreenPaneController } from '../layout/ScreenPaneWorkspace.js';
+import { COLORS } from '../design/tokens.js';
 import type { PositionWithPnL } from '../../types/wallet.js';
 import {
   useTerminalSize,
@@ -16,11 +18,14 @@ import {
 interface PortfolioScreenProps {
   onBack: () => void;
   terminalSize?: { width: number; height: number };
+  workspaceDir?: string;
 }
 
-export function PortfolioScreen({ onBack, terminalSize: providedSize }: PortfolioScreenProps) {
+export function PortfolioScreen({ onBack, terminalSize: providedSize, workspaceDir }: PortfolioScreenProps) {
   const internalSize = useTerminalSize();
-  const terminalWidth = providedSize?.width ?? internalSize.width;
+  const outerSize = providedSize ?? internalSize;
+  const paneController = useScreenPaneController({ screenId: 'portfolio', workspaceDir, terminalSize: outerSize, paneIds: ['positions', 'risk', 'account'], defaultPanes: ['positions'] });
+  const terminalWidth = paneController.viewportFor('positions').width;
   const {
     isConnected,
     isLoading,
@@ -141,7 +146,7 @@ export function PortfolioScreen({ onBack, terminalSize: providedSize }: Portfoli
     });
   };
 
-  return (
+  const mainPane = (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
         <Text color="cyan" bold>PORTFOLIO [F3]</Text>
@@ -247,6 +252,43 @@ export function PortfolioScreen({ onBack, terminalSize: providedSize }: Portfoli
         </Box>
       )}
     </Box>
+  );
+
+  const concentration = [...positions]
+    .sort((a, b) => b.valueUsd - a.valueUsd)
+    .slice(0, 5);
+
+  return (
+    <ScreenPaneWorkspace
+      controller={paneController}
+      terminalSize={outerSize}
+      panes={[
+        { id: 'positions', title: 'PORTFOLIO · POSITIONS', content: mainPane },
+        {
+          id: 'exposure',
+          title: 'EXPOSURE · TOP HOLDINGS',
+          content: (
+            <Box flexDirection="column" paddingX={1}>
+              <Text color="white" bold>${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })} total value</Text>
+              <Text color={totalPnL >= 0 ? 'green' : 'red'}>{totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString(undefined, { maximumFractionDigits: 2 })} P&L</Text>
+              <Text dimColor> </Text>
+              {concentration.length ? concentration.map((position) => {
+                const share = totalValue > 0 ? position.valueUsd / totalValue * 100 : 0;
+                const bar = Math.max(1, Math.round(share / 4));
+                return (
+                  <Box key={`${position.symbol}-${position.chain}`} flexDirection="column" marginBottom={1}>
+                    <Text><Text color={COLORS.accent} bold>{position.symbol}</Text><Text dimColor> {share.toFixed(1)}%</Text></Text>
+                    <Text color="cyan">{'█'.repeat(bar)}<Text dimColor>{'░'.repeat(Math.max(0, 25 - bar))}</Text></Text>
+                    <Text dimColor>{formatPnL(position.pnl)} · {position.chain}</Text>
+                  </Box>
+                );
+              }) : <Text dimColor>No holdings to display.</Text>}
+              <Text dimColor>Ctrl+O to customize panes</Text>
+            </Box>
+          ),
+        },
+      ]}
+    />
   );
 }
 

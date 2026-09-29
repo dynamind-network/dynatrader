@@ -1,6 +1,7 @@
 import { useMemo, useRef, useEffect } from 'react';
 import type { CommandItem } from '../common/CommandPalette.js';
 import type { ExecutionMode } from '../../core/types.js';
+import { dispatchScreenPaneAction } from '../layout/ScreenPaneWorkspace.js';
 
 interface RecentSessionSummary {
   id: string;
@@ -33,6 +34,7 @@ export function useAppCommandPalette(options: {
   executionMode: ExecutionMode;
   onApplyExecutionMode: (mode: ExecutionMode) => void;
   onSubmitCommand: (text: string) => Promise<void>;
+  activeScreen: string;
 }): CommandItem[] {
   const {
     onSetScreen,
@@ -45,6 +47,7 @@ export function useAppCommandPalette(options: {
     executionMode,
     onApplyExecutionMode,
     onSubmitCommand,
+    activeScreen,
   } = options;
 
   // Use a ref for onSubmitCommand to prevent cascading instability:
@@ -273,6 +276,12 @@ export function useAppCommandPalette(options: {
           onApplyExecutionMode(executionMode === 'normal' ? 'auto-approve' : 'normal');
         },
       },
+      ...( ['markets', 'chart', 'portfolio', 'trades', 'news', 'analysis'].includes(activeScreen) ? [
+        { id: 'pane-next', label: 'Focus next pane', description: 'Switch focus in the current screen', group: 'setting' as const, action: () => dispatchScreenPaneAction('next') },
+        { id: 'pane-add', label: 'Add pane to screen', description: 'Add the next available panel', group: 'setting' as const, action: () => dispatchScreenPaneAction('add') },
+        { id: 'pane-customize', label: 'Customize screen panes', description: 'Resize, reorder, or remove panels', group: 'setting' as const, action: () => dispatchScreenPaneAction('customize') },
+        { id: 'pane-reset', label: 'Reset screen panes', description: 'Restore the default panel layout', group: 'setting' as const, action: () => dispatchScreenPaneAction('reset') },
+      ] : []),
     ];
   }, [
     screenTargets,
@@ -287,5 +296,6 @@ export function useAppCommandPalette(options: {
     // onSubmitCommand intentionally excluded -- accessed via ref
     onApplyExecutionMode,
     executionMode,
+    activeScreen,
   ]);
 }

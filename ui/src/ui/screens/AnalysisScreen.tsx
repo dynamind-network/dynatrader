@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { calculateAllIndicators, type OHLCV } from '../../utils/indicators.js';
 import { getWebSocketManager, type AggregatedMarket } from '../../services/websocket/index.js';
 import { getMarketSymbols } from '../common/marketSymbols.js';
 import { providers } from '../../config/providers.js';
 import { buildMarketUrl, getMarketKlinesPath } from '../../config/market-provider.js';
+import { useTerminalSize } from '../../hooks/useTerminalSize.js';
+import { ScreenPaneWorkspace, useScreenPaneController } from '../layout/ScreenPaneWorkspace.js';
 
 interface Indicator {
   name: string;
@@ -15,6 +17,10 @@ interface Indicator {
 
 interface AnalysisScreenProps {
   onBack: () => void;
+  terminalSize?: { width: number; height: number };
+  workspaceDir?: string;
+  selectedMarketSymbol?: string;
+  onSelectedMarketSymbolChange?: (symbol: string) => void;
 }
 
 type Timeframe = '1h' | '4h' | '1D' | '1W';
@@ -31,8 +37,11 @@ const TIMEFRAMES: { value: Timeframe; label: string; candles: number; interval: 
  * Multi-timeframe support, signal strength scoring
  * Stochastic RSI, ADX, Williams %R, OBV, CVD, Ichimoku, Fibonacci, Pivot Points
  */
-export function AnalysisScreen({ onBack }: AnalysisScreenProps) {
-  const coins = getMarketSymbols();
+export function AnalysisScreen({ onBack, terminalSize: providedSize, workspaceDir, selectedMarketSymbol, onSelectedMarketSymbolChange }: AnalysisScreenProps) {
+  const internalSize = useTerminalSize();
+  const terminalSize = providedSize ?? internalSize;
+  const paneController = useScreenPaneController({ screenId: 'analysis', workspaceDir, terminalSize, paneIds: ['analysis', 'momentum', 'levels'], defaultPanes: ['analysis'] });
+  const coins = useMemo(() => getMarketSymbols(), []);
   const [indicators, setIndicators] = useState({
     momentum: [] as Indicator[],
     trend: [] as Indicator[],
@@ -58,15 +67,21 @@ export function AnalysisScreen({ onBack }: AnalysisScreenProps) {
     'all' | 'momentum' | 'trend' | 'volume' | 'levels'
   >('all');
 
+  useEffect(() => {
+    if (!selectedMarketSymbol) return;
+    const nextIndex = coins.indexOf(selectedMarketSymbol);
+    if (nextIndex >= 0) setCoinIndex(nextIndex);
+  }, [selectedMarketSymbol, coins]);
+
   const coin = coins[coinIndex] ?? coins[0] ?? '';
   const timeframe = TIMEFRAMES[timeframeIndex];
   const wsManager = getWebSocketManager();
 
   useInput((input, key) => {
     if (key.leftArrow || input === '<' || input === ',') {
-      setCoinIndex((prev) => (prev - 1 + coins.length) % coins.length);
+      setCoinIndex((prev) => { const next = (prev - 1 + coins.length) % coins.length; onSelectedMarketSymbolChange?.(coins[next] ?? ''); return next; });
     } else if (key.rightArrow || input === '>' || input === '.') {
-      setCoinIndex((prev) => (prev + 1) % coins.length);
+      setCoinIndex((prev) => { const next = (prev + 1) % coins.length; onSelectedMarketSymbolChange?.(coins[next] ?? ''); return next; });
     } else if (input === '1') {
       setTimeframeIndex(0); // 1h
     } else if (input === '2') {
@@ -86,7 +101,7 @@ export function AnalysisScreen({ onBack }: AnalysisScreenProps) {
     } else if (input === 'a') {
       setShowSection('all');
     }
-  });
+  }, { isActive: paneController.isInputActive('analysis') });
 
   useEffect(() => {
     initializeWebSocket();
@@ -230,7 +245,7 @@ export function AnalysisScreen({ onBack }: AnalysisScreenProps) {
     ...indicators.levels,
   ].filter(() => showSection === 'all' || true); // Filter by section if needed
 
-  return (
+  const mainPane = (
     <Box flexDirection="column" padding={1}>
       {/* Header */}
       <Box marginBottom={1}>
@@ -538,6 +553,39 @@ export function AnalysisScreen({ onBack }: AnalysisScreenProps) {
         </Box>
       </Box>
     </Box>
+  );
+
+  const signalColor = overallSignal.signal === 'bullish' ? 'green' : overallSignal.signal === 'bearish' ? 'red' : 'yellow';
+  const indicatorReadout = [...indicators.momentum, ...indicators.trend, ...indicators.volatility, ...indicators.volume, ...indicators.levels]
+    .slice(0, 8);
+  const signalPane = (
+    <Box flexDirection="column" paddingX={1}>
+      <Text dimColor>{coin} · {timeframe.value} · refreshed {lastUpdate.toLocaleTimeString()}</Text>
+      <Text dimColor> </Text>
+      <Text color={signalColor} bold>{overallSignal.signal.toUpperCase()} · {overallSignal.confidence.toFixed(0)}% confidence</Text>
+      <Text><Text color="green">{overallSignal.bullish} bullish</Text><Text dimColor> · </Text><Text color="red">{overallSignal.bearish} bearish</Text><Text dimColor> · {overallSignal.neutral} neutral</Text></Text>
+      {currentPrice > 0 && <Text color="white">${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 4 })}</Text>}
+      <Text dimColor> </Text>
+      <Text color="yellow" bold>INDICATOR READOUT</Text>
+      {indicatorReadout.length ? indicatorReadout.map((indicator) => (
+        <Box key={indicator.name} justifyContent="space-between">
+          <Text>{indicator.name}</Text>
+          <Text color={indicator.signal === 'bullish' ? 'green' : indicator.signal === 'bearish' ? 'red' : 'yellow'}>{String(indicator.value)} · {indicator.signal}</Text>
+        </Box>
+      )) : <Text dimColor>{loading ? 'Calculating technical indicators…' : 'No indicator values available.'}</Text>}
+      {error && <Text color="red">{error}</Text>}
+    </Box>
+  );
+
+  return (
+    <ScreenPaneWorkspace
+      controller={paneController}
+      terminalSize={terminalSize}
+      panes={[
+        { id: 'analysis', title: `ANALYSIS · ${coin}`, content: mainPane },
+        { id: 'signals', title: 'SIGNAL & INDICATORS', content: signalPane },
+      ]}
+    />
   );
 }
 

@@ -8,6 +8,7 @@ import {
   getScreenBreakpoints,
 } from '../ResponsiveLayout.js';
 import { MARKET_SYMBOLS } from '../common/marketSymbols.js';
+import { ScreenPaneWorkspace, useScreenPaneController } from '../layout/ScreenPaneWorkspace.js';
 
 interface Trade {
   coin: string;
@@ -21,11 +22,14 @@ interface Trade {
 interface TradesScreenProps {
   onBack: () => void;
   terminalSize?: { width: number; height: number };
+  workspaceDir?: string;
 }
 
-export function TradesScreen({ onBack, terminalSize: providedSize }: TradesScreenProps) {
+export function TradesScreen({ onBack, terminalSize: providedSize, workspaceDir }: TradesScreenProps) {
   const internalSize = useTerminalSize();
-  const terminalWidth = providedSize?.width ?? internalSize.width;
+  const terminalSize = providedSize ?? internalSize;
+  const paneController = useScreenPaneController({ screenId: 'trades', workspaceDir, terminalSize, paneIds: ['tape', 'volume', 'activity'], defaultPanes: ['tape'] });
+  const terminalWidth = paneController.viewportFor('tape').width;
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +170,7 @@ export function TradesScreen({ onBack, terminalSize: providedSize }: TradesScree
     );
   };
 
-  return (
+  const mainPane = (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
         <Text color="cyan" bold>
@@ -204,6 +208,38 @@ export function TradesScreen({ onBack, terminalSize: providedSize }: TradesScree
         <Text dimColor> for portfolio</Text>
       </Box>
     </Box>
+  );
+
+  const buys = trades.filter((trade) => trade.side === 'buy');
+  const sells = trades.filter((trade) => trade.side === 'sell');
+  const notional = (items: Trade[]) => items.reduce((sum, trade) => sum + Number(trade.px) * Number(trade.sz), 0);
+  const flowPane = (
+    <Box flexDirection="column" paddingX={1}>
+      <Text dimColor>RECENT PRINTS · {selectedCoin}</Text>
+      <Text color="white" bold>{trades.length} trades observed</Text>
+      <Text color="green">BUY  {buys.length.toString().padStart(3)} · ${formatValue(notional(buys))}</Text>
+      <Text color="red">SELL {sells.length.toString().padStart(3)} · ${formatValue(notional(sells))}</Text>
+      <Text dimColor> </Text>
+      {trades.slice(0, 8).map((trade, index) => (
+        <Box key={`${trade.hash}-${index}`}>
+          <Text dimColor>{new Date(trade.time).toLocaleTimeString()} </Text>
+          <Text color={trade.side === 'buy' ? 'green' : 'red'}>{trade.side.toUpperCase()} </Text>
+          <Text color="yellow">${formatValue(Number(trade.px) * Number(trade.sz))}</Text>
+        </Box>
+      ))}
+      {error && <Text color="red">Feed issue: {error}</Text>}
+    </Box>
+  );
+
+  return (
+    <ScreenPaneWorkspace
+      controller={paneController}
+      terminalSize={terminalSize}
+      panes={[
+        { id: 'tape', title: `TRADES · ${selectedCoin}`, content: mainPane },
+        { id: 'flow', title: 'TAPE FLOW', content: flowPane },
+      ]}
+    />
   );
 }
 

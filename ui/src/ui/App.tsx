@@ -870,6 +870,7 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
     executionMode,
     onApplyExecutionMode: applyExecutionMode,
     onSubmitCommand: submitCommand,
+    activeScreen,
   });
 
   // -- Sync command palette entries --
@@ -1132,6 +1133,7 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                 <StandaloneScreenRenderer
                   activeScreen={rightScreen}
                   onBack={handleSplitClose}
+                  workspaceDir={config.cwd}
                   terminalSize={{
                     width: Math.floor(terminalSize.width / 2),
                     height: mainAreaHeight,
@@ -1212,6 +1214,7 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
               <ScreenRouter
                 activeScreen={activeScreen}
                 onBack={handleBack}
+                workspaceDir={config.cwd}
                 terminalSize={terminalSize}
                 currentModel={currentModel ?? undefined}
                 apiKeys={resolvedApiKeys}

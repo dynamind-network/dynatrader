@@ -24,6 +24,7 @@ interface ScreenRouterProps {
   activeScreen: string;
   onBack: () => void;
   terminalSize: { width: number; height: number };
+  workspaceDir?: string;
   currentModel?: string;
   apiKeys?: Record<string, string>;
   onModelSelect?: (modelId: string) => void;
@@ -38,6 +39,8 @@ interface ScreenRouterProps {
   onEffortSelect?: (effort: EffortLevel) => void;
   onConnectProvider?: (provider: string) => void;
   onModelsLoaded?: (models: CatalogModel[]) => void;
+  selectedMarketSymbol?: string;
+  onSelectedMarketSymbolChange?: (symbol: string) => void;
 }
 
 /**
@@ -53,6 +56,7 @@ export function ScreenRouter({
   activeScreen,
   onBack,
   terminalSize,
+  workspaceDir,
   currentModel,
   apiKeys,
   onModelSelect,
@@ -66,6 +70,8 @@ export function ScreenRouter({
   onEffortSelect,
   onConnectProvider,
   onModelsLoaded,
+  selectedMarketSymbol,
+  onSelectedMarketSymbolChange,
 }: ScreenRouterProps): React.ReactElement {
   const commonProps = {
     onBack,
@@ -76,19 +82,19 @@ export function ScreenRouter({
     case 'help':
       return <HelpScreen {...commonProps} />;
     case 'markets':
-      return <MarketsScreen {...commonProps} />;
+      return <MarketsScreen {...commonProps} terminalSize={terminalSize} workspaceDir={workspaceDir} selectedMarketSymbol={selectedMarketSymbol} onSelectedMarketSymbolChange={onSelectedMarketSymbolChange} />;
     case 'chart':
-      return <ChartScreen {...commonProps} />;
+      return <ChartScreen {...commonProps} terminalSize={terminalSize} workspaceDir={workspaceDir} selectedMarketSymbol={selectedMarketSymbol} onSelectedMarketSymbolChange={onSelectedMarketSymbolChange} />;
     case 'portfolio':
-      return <PortfolioScreen {...commonProps} />;
+      return <PortfolioScreen {...commonProps} terminalSize={terminalSize} workspaceDir={workspaceDir} />;
     case 'trades':
-      return <TradesScreen {...commonProps} />;
+      return <TradesScreen {...commonProps} terminalSize={terminalSize} workspaceDir={workspaceDir} />;
     case 'alerts':
       return <AlertsScreen {...commonProps} />;
     case 'analysis':
-      return <AnalysisScreen {...commonProps} />;
+      return <AnalysisScreen {...commonProps} terminalSize={terminalSize} workspaceDir={workspaceDir} selectedMarketSymbol={selectedMarketSymbol} onSelectedMarketSymbolChange={onSelectedMarketSymbolChange} />;
     case 'news':
-      return <NewsScreen {...commonProps} />;
+      return <NewsScreen {...commonProps} terminalSize={terminalSize} workspaceDir={workspaceDir} />;
     case 'watchlist':
       return <WatchlistScreen {...commonProps} />;
     case 'search':
