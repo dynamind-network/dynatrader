@@ -97,6 +97,7 @@ interface AppProps {
 // ---------------------------------------------------------------------------
 
 function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
+  const [selectedMarketSymbol, setSelectedMarketSymbol] = useState<string | undefined>();
   // -- Centralized tool state management --
   const toolState = useToolState();
 
@@ -1134,6 +1135,8 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                   activeScreen={rightScreen}
                   onBack={handleSplitClose}
                   workspaceDir={config.cwd}
+                  selectedMarketSymbol={selectedMarketSymbol}
+                  onSelectedMarketSymbolChange={setSelectedMarketSymbol}
                   terminalSize={{
                     width: Math.floor(terminalSize.width / 2),
                     height: mainAreaHeight,
@@ -1215,6 +1218,8 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                 activeScreen={activeScreen}
                 onBack={handleBack}
                 workspaceDir={config.cwd}
+                selectedMarketSymbol={selectedMarketSymbol}
+                onSelectedMarketSymbolChange={setSelectedMarketSymbol}
                 terminalSize={terminalSize}
                 currentModel={currentModel ?? undefined}
                 apiKeys={resolvedApiKeys}
