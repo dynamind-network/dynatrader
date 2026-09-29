@@ -70,6 +70,9 @@ import { executeBatch, type BatchCallInput, type BatchExecutionResult } from "./
 import { ReflectionRunner, type ReflectionConfig } from "./reflection-runner";
 import { resolveProfiles, getToolsForProfiles, type ToolProfile } from "../../runtime/tools/tool-profiles";
 import { ActiveMemoryRecall, type RecallResult } from "./active-memory-recall";
+import { classifyShellCommand } from '../../security/shell-command-policy';
+import { HarnessDecisionController, createDecisionModelProvider } from './decision-models';
+import type { DecisionModelsConfig, DecisionModelProvider, DecisionMetrics } from './decision-models';
 
 function stableStringify(value: unknown): string {
   if (value === null || value === undefined) return 'null';
@@ -124,6 +127,13 @@ function parseToolArguments(raw: string): { args?: Record<string, unknown>; erro
   } catch (error) {
     return { error: `Tool arguments were not valid JSON: ${errorMessage(error)}` };
   }
+}
+
+function redactDecisionText(value: string): string {
+  return value
+    .replace(/\bBearer\s+[^\s"']+/gi, 'Bearer [REDACTED]')
+    .replace(/\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*[^\s,;"']+/gi, '$1=[REDACTED]')
+    .replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|tsf_[A-Za-z0-9_-]{12,})\b/g, '[REDACTED]');
 }
 
 const MAX_TOOL_ARGUMENT_HISTORY_CHARS = 8 * 1024;
@@ -236,6 +246,8 @@ export interface AgentCoreConfig {
     * context BEFORE the main model generates a reply.
    */
   activeMemoryRecall?: ActiveMemoryRecall;
+  decisionModels?: DecisionModelsConfig;
+  decisionProvider?: DecisionModelProvider;
 }
 
 export interface DelegationRequest {
@@ -337,6 +349,7 @@ export class AgentCore {
   private delegateEventHandler?: (agent: string, taskId: string, chunk: ModelStreamChunk) => void;
   private toolResultCache = new Map<string, { tool: string; args: unknown; result: ToolResult }>();
   private activeMemoryRecall: ActiveMemoryRecall | null;
+  private decisionController: HarnessDecisionController;
 
   private evictOldest<K, V>(map: Map<K, V>, maxSize: number): void {
     if (map.size > maxSize) {
@@ -351,15 +364,20 @@ export class AgentCore {
     approved: ToolCall[];
     denied: Array<{ call: ToolCall; result: ToolResult }>;
   }> {
-    if (!this.config.requestToolApproval || !this.config.toolRegistry) return { approved: calls, denied: [] };
+    if (!this.config.toolRegistry) return { approved: calls, denied: [] };
     const definitions = new Map(this.config.toolRegistry.list().map((handler) => [handler.definition.name, handler.definition]));
     const approved: ToolCall[] = [];
     const denied: Array<{ call: ToolCall; result: ToolResult }> = [];
     for (const call of calls) {
       const definition = definitions.get(call.tool);
-      const requiresApproval = definition && definition.readOnly !== true &&
+      const commandRisk = await this.assessShellCommandRisk(call);
+      const semanticRiskRequiresApproval = commandRisk?.score != null && commandRisk.score >= 1.5 && (commandRisk.confidence ?? 0) >= 0.65;
+      const normalApprovalRequired = !!this.config.requestToolApproval && !!definition && definition.readOnly !== true &&
         (definition.riskLevel === 'medium' || definition.riskLevel === 'high' || (definition.sideEffects?.length ?? 0) > 0);
-      if (!requiresApproval || await this.config.requestToolApproval(call, definition)) {
+      const requiresApproval = semanticRiskRequiresApproval || normalApprovalRequired;
+      if (semanticRiskRequiresApproval && !this.config.requestToolApproval) {
+        denied.push({ call, result: { success: false, error: 'Decision model flagged this shell action as high impact, and no approval handler is available. Review and run it manually if intended.', durationMs: 0, truncated: false } });
+      } else if (!requiresApproval || await this.config.requestToolApproval!(call, definition!)) {
         approved.push(call);
       } else {
         denied.push({ call, result: { success: false, error: 'User denied this tool call.', durationMs: 0, truncated: false } });
@@ -449,6 +467,15 @@ export class AgentCore {
     this.maxWaveSize = config.maxWaveSize;
     this.toolResultCompressor = config.toolResultCompressor ?? null;
     this.activeMemoryRecall = config.activeMemoryRecall ?? null;
+    const decisionConfig = config.decisionModels;
+    let decisionProvider = config.decisionProvider;
+    if (!decisionProvider && decisionConfig?.enabled) {
+      decisionProvider = createDecisionModelProvider(decisionConfig);
+      if (!decisionProvider) {
+        console.warn(`[decision-models] Enabled provider "${decisionConfig.provider ?? 'unset'}" could not be initialized. Check its registration and API key configuration.`);
+      }
+    }
+    this.decisionController = new HarnessDecisionController(decisionConfig?.enabled ? decisionProvider : undefined, decisionConfig?.features);
     registerDefaultCommands(this.slashCommands);
     this.registerDelegationTool();
     this.registerSkillManageTool();
@@ -819,12 +846,20 @@ Explore the repository and design an implementation plan. You are strictly read-
   }
 
   private async buildMemoryContext(message: string): Promise<string> {
-    const memories = await this.contextEngine.getRelevantMemories(message, 10);
-    const memoryContext = memories
-      .map((m) => `[${m.type}] ${JSON.stringify(m.content).substring(0, 200)}...`)
-      .join("\n");
-
-    return memoryContext;
+    if (this.activeMemoryRecall) {
+      const recall = await this.activeMemoryRecall.recallBeforeReply(message);
+      if (recall.success && recall.count > 0) return recall.context;
+    }
+    const memories = await this.contextEngine.getRelevantMemories(message, 5);
+    const lines: string[] = [];
+    let chars = 0;
+    for (const memory of memories) {
+      const line = `[${memory.type}] ${JSON.stringify(memory.content).slice(0, 360)}`;
+      if (chars + line.length > 1800) break;
+      lines.push(line);
+      chars += line.length;
+    }
+    return lines.join("\n");
   }
 
   private async ensureContext(sessionId?: string): Promise<AgentTurnContext> {
@@ -939,6 +974,7 @@ Explore the repository and design an implementation plan. You are strictly read-
     const usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
     let content = "";
     let reasoningContent: string | undefined;
+    let consecutiveFailedToolBatches = 0;
     const modelRouter = this.config.modelRouter;
     if (!modelRouter) return { content: "Model router not configured.", reasoningContent, toolCallResults, usage };
 
@@ -1242,6 +1278,15 @@ Explore the repository and design an implementation plan. You are strictly read-
           durationMs: slot.durationMs,
           id: authorization.approved[slot.batchIndex]!.id,
         }));
+      const recoveryGuidance = await this.guideRecovery(
+        [...messages].reverse().find((item) => item.role === 'user')?.content?.toString() ?? '',
+        validResults.map((item) => ({ tool: item.tool, args: item.args, result: item.result })),
+        signal,
+        batchResult.loopSignals.length > 0 ? JSON.stringify(batchResult.loopSignals) : undefined,
+      );
+      consecutiveFailedToolBatches = validResults.some((item) => !item.result.success)
+        ? consecutiveFailedToolBatches + 1
+        : 0;
 
       if (this.toolResultCompressor && validResults.length > 0) {
         // Use hybrid compressor (SmartCrusher + LLM)
@@ -1288,11 +1333,20 @@ Explore the repository and design an implementation plan. You are strictly read-
         }
       }
 
+      if (recoveryGuidance) {
+        messages.push({ role: 'system', content: `HARNESS RECOVERY GUIDANCE: ${recoveryGuidance}` });
+      }
+
       // Post-tool-call hooks
       for (const slot of batchResult.results) {
         if (slot.cancelled || !slot.result) continue;
         const toolCall = authorization.approved[slot.batchIndex]!;
         await this.hooksManager.run('post-tool-call', { toolCall, result: slot.result });
+      }
+
+      if (consecutiveFailedToolBatches >= 3) {
+        content = 'Stopped after three consecutive tool batches failed. Review the tool errors above; ask me to continue after correcting the blocker.';
+        break;
       }
 
       // Doom loop detection: track consecutive identical tool+args combinations
@@ -1421,6 +1475,97 @@ Explore the repository and design an implementation plan. You are strictly read-
     }
     this.safeTransition("stopping");
     this.safeTransition("idle");
+  }
+
+  async searchMemory(scope: string, text: string, topK = 20) {
+    return this.config.memory.search({ scope, text, topK: Math.max(1, Math.min(100, topK)) });
+  }
+
+  async writeMemory(input: { scope: string; kind: string; payload: Record<string, unknown>; summary?: string }) {
+    const event = {
+      id: `mem-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      scope: input.scope,
+      kind: input.kind,
+      payload: { ...input.payload, ...(input.summary ? { _summary: input.summary } : {}), _addedAt: new Date().toISOString() },
+      timestamp: new Date(),
+      metadata: { addedBy: 'terminal', source: 'tui-memory-command' },
+    };
+    await this.config.memory.getBackend().put(event);
+    return { id: event.id, scope: event.scope, kind: event.kind };
+  }
+
+  async getMemoryStats() {
+    return this.config.memory.summarize({ scope: 'agent_memory' });
+  }
+
+  getDecisionMetrics(): DecisionMetrics {
+    return this.decisionController.getMetrics();
+  }
+
+  private async assessShellCommandRisk(call: ToolCall, signal?: AbortSignal) {
+    if (!['exec', 'bash', 'shell'].includes(call.tool)) return undefined;
+    const command = call.args.command;
+    if (typeof command !== 'string' || command.trim().length === 0) return undefined;
+    if (classifyShellCommand(command).decision !== 'allow' || !/[|&;<>\n]/.test(command)) return undefined;
+    return this.decisionController.evaluate({
+      kind: 'command-risk',
+      state: { tool: call.tool, command: redactDecisionText(command).slice(0, 4000), cwd: this.workspacePath },
+    }, signal);
+  }
+
+  private async guideRecovery(
+    message: string,
+    results: Array<{ tool: string; args: unknown; result: ToolResult }>,
+    signal?: AbortSignal,
+    stallSignal?: string,
+  ): Promise<string | undefined> {
+    const failures = results.filter((result) => !result.result.success);
+    if (failures.length === 0 && !stallSignal) return undefined;
+    const decision = await this.decisionController.evaluate({
+      kind: 'recovery',
+      state: {
+        goal: redactDecisionText(message).slice(0, 1500),
+        failures: failures.slice(0, 4).map(({ tool, args, result }) => ({
+          tool,
+          args: redactDecisionText(JSON.stringify(args)).slice(0, 500),
+          error: redactDecisionText(result.error ?? 'unknown tool error').slice(0, 1200),
+        })),
+        stallSignal: stallSignal ? redactDecisionText(stallSignal).slice(0, 800) : undefined,
+        attempts: this.doomLoopHistory.length,
+      },
+    }, signal);
+    if (!decision || (decision.confidence ?? 0) < 0.65) return undefined;
+    const guidance: Record<string, string> = {
+      retry_with_feedback: 'Retry only after correcting the reported error; the original error is included in the tool result.',
+      change_approach: 'Choose a different command or tool approach; do not repeat the failed call unchanged.',
+      ask_user: 'The recovery check indicates user input may be needed. Explain the blocker and ask a focused question.',
+      stop: 'The recovery check recommends stopping. Do not continue risky or repetitive actions; explain the blocker.',
+    };
+    return guidance[decision.choice];
+  }
+
+  private async verifyCompletion(
+    goal: string,
+    answer: string,
+    results: ReadonlyArray<{ tool: string; result: ToolResult }>,
+    signal?: AbortSignal,
+  ) {
+    if (results.length === 0) return undefined;
+    const result = await this.decisionController.evaluate({
+      kind: 'completion',
+      state: {
+        goal: redactDecisionText(goal).slice(0, 1500),
+        reportedCompletion: redactDecisionText(answer).slice(0, 2000),
+        evidence: results.slice(-8).map(({ tool, result }) => ({
+          tool,
+          success: result.success,
+          summary: result.success
+            ? redactDecisionText(JSON.stringify(result.data)).slice(0, 350)
+            : redactDecisionText(result.error ?? 'unknown error').slice(0, 350),
+        })),
+      },
+    }, signal);
+    return result && (result.confidence ?? 0) >= 0.65 ? result : undefined;
   }
 
   private safeTransition(state: AgentState): void {
@@ -1578,20 +1723,10 @@ Explore the repository and design an implementation plan. You are strictly read-
         }
       }
 
-       // Pre-reply memory recall
-      // Search memory BEFORE the model generates a reply, not after
-      let activeRecallContext = '';
-      if (this.activeMemoryRecall) {
-        const recallResult = await this.activeMemoryRecall.recallBeforeReply(message);
-        if (recallResult.count > 0) {
-          activeRecallContext = recallResult.context;
-        }
-      }
-
       const promptLayers = promptAssembly.assemble({
         stable: [system, workspaceGuidance, routeGuidance, ANTI_NARRATION_RULES],
         context: [this.goalPrompt(options?.sessionId), this.planningPrompt(options?.sessionId)],
-        volatile: [toolLoopGuard, interAgentContext, supplementalPrompts, activeRecallContext],
+        volatile: [toolLoopGuard, interAgentContext, supplementalPrompts],
         currentContext: agentCtx,
       });
       this.budgetTracker.update("stable", promptLayers.tiers.find((tier) => tier.name === "stable")?.tokens ?? 0);
@@ -1618,6 +1753,36 @@ Explore the repository and design an implementation plan. You are strictly read-
         sessionKey,
         options?.signal,
       );
+      const completionCheck = await this.verifyCompletion(
+        message,
+        content,
+        toolCallResults.map((item) => ({ tool: item.tool, result: item.result })),
+        options?.signal,
+      );
+      if ((completionCheck?.choice === 'verify_more' || completionCheck?.choice === 'ask_user') && this.budget.canStartIteration()) {
+        const askUser = completionCheck.choice === 'ask_user';
+        messages.push(
+          { role: 'assistant', content },
+          { role: 'user', content: askUser
+            ? 'The harness verifier indicates a required detail is missing. Ask the user one focused question; do not call tools.'
+            : 'Before reporting completion, perform one relevant verification step. Use existing tool evidence, run a focused check, then summarize the result.' },
+        );
+        const followup = await this.executeToolLoop(
+          messages,
+          askUser ? [] : this.buildToolDefinitions(options?.sessionId, options?.allowTools ?? true),
+          options?.maxTokens,
+          sessionKey,
+          options?.signal,
+        );
+        content = followup.content;
+        reasoningContent = followup.reasoningContent ?? reasoningContent;
+        toolCallResults = [...toolCallResults, ...followup.toolCallResults];
+        usage = {
+          promptTokens: usage.promptTokens + followup.usage.promptTokens,
+          completionTokens: usage.completionTokens + followup.usage.completionTokens,
+          totalTokens: usage.totalTokens + followup.usage.totalTokens,
+        };
+      }
       this.recordGoalUsage(options?.sessionId, usage, toolCallResults.length);
 
       // Auto-advance step-based goals
@@ -1803,6 +1968,10 @@ Explore the repository and design an implementation plan. You are strictly read-
       let successfulToolCalls = 0;
       let failedToolCalls = 0;
       let finalAssistantTextProduced = false;
+      let completionFollowupUsed = false;
+      let completionAskUserFollowup = false;
+      let consecutiveFailedToolBatches = 0;
+      const verificationEvidence: Array<{ tool: string; result: ToolResult }> = [];
       try {
         const agentCtx = await self.ensureContext(options?.sessionId);
         const memoryContext = await self.buildMemoryContext(message);
@@ -1883,7 +2052,7 @@ Explore the repository and design an implementation plan. You are strictly read-
 
         const promptFootprintTokens = self.estimateRequestTokens(messages);
           const request: ModelRequest = {
-          messages, tools: tools.length > 0 ? tools : undefined,
+          messages, tools: completionAskUserFollowup ? undefined : tools.length > 0 ? tools : undefined,
             maxTokens: self.resolveChatMaxTokens(promptFootprintTokens, options?.maxTokens),
             temperature: 0.3,
             signal: requestSignal,
@@ -1972,6 +2141,20 @@ Explore the repository and design an implementation plan. You are strictly read-
 
           // If we got content and no tool calls, we're done
           if (normalizeVisibleText(contentBuffer) && toolCalls.length === 0) {
+            const completionCheck = completionFollowupUsed
+              ? undefined
+              : await self.verifyCompletion(message, contentBuffer, verificationEvidence, requestSignal);
+            if ((completionCheck?.choice === 'verify_more' || completionCheck?.choice === 'ask_user') && !completionFollowupUsed) {
+              completionFollowupUsed = true;
+              completionAskUserFollowup = completionCheck.choice === 'ask_user';
+              messages.push(
+                { role: 'assistant', content: contentBuffer },
+                { role: 'user', content: completionAskUserFollowup
+                  ? 'The harness verifier indicates a required detail is missing. Ask the user one focused question; do not call tools.'
+                  : 'Before reporting completion, perform one relevant verification step. Use existing tool evidence, run a focused check, then summarize the result.' },
+              );
+              continue;
+            }
             finalAssistantTextProduced = true;
             const loopSeverity = self.graduatedLoopDetector.recordOutput(contentBuffer);
             conversation.addMessage({ role: "assistant", content: contentBuffer, timestamp: new Date() });
@@ -2172,6 +2355,7 @@ Explore the repository and design an implementation plan. You are strictly read-
           
           for (const { call: toolCall, result } of batchResult.results) {
             if (!result) continue;
+            verificationEvidence.push({ tool: toolCall.tool, result });
             if (result.success) successfulToolCalls += 1;
             else failedToolCalls += 1;
             const elapsed = toolCall.id ? Date.now() - (self.toolStartTimes.get(toolCall.id) ?? Date.now()) : 0;
@@ -2190,6 +2374,19 @@ Explore the repository and design an implementation plan. You are strictly read-
             messages.push({ role: "tool", tool_call_id: toolCall.id!, content: serializeToolResultForModel(result) });
           }
 
+          const recoveryGuidance = await self.guideRecovery(
+            message,
+            batchResult.results.flatMap(({ call, result }) => result ? [{ tool: call.tool, args: call.args, result }] : []),
+            requestSignal,
+            batchResult.loopSignals.length > 0 ? JSON.stringify(batchResult.loopSignals) : undefined,
+          );
+          consecutiveFailedToolBatches = batchResult.results.some(({ result }) => result && !result.success)
+            ? consecutiveFailedToolBatches + 1
+            : 0;
+          if (recoveryGuidance) {
+            messages.push({ role: 'system', content: `HARNESS RECOVERY GUIDANCE: ${recoveryGuidance}` });
+          }
+
           // Clean up tool start times
           for (const { call: toolCall } of batchResult.results) {
             if (toolCall.id) self.toolStartTimes.delete(toolCall.id);
@@ -2199,6 +2396,15 @@ Explore the repository and design an implementation plan. You are strictly read-
           for (const { call: toolCall, result } of batchResult.results) {
             if (!result) continue;
             await self.hooksManager.run('post-tool-call', { toolCall, result });
+          }
+
+          if (consecutiveFailedToolBatches >= 3) {
+            const fallback = 'Stopped after three consecutive tool batches failed. Review the tool errors above; ask me to continue after correcting the blocker.';
+            conversation.addMessage({ role: 'assistant', content: fallback, timestamp: new Date() });
+            self.recordSessionMessage(options?.sessionId, { role: 'assistant', content: fallback, timestamp: new Date() });
+            finalAssistantTextProduced = true;
+            yield { type: 'content' as const, content: fallback };
+            break;
           }
 
           self.stateMachine.transition("running");

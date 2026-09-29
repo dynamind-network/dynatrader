@@ -61,6 +61,18 @@ logging:
 terminal:
   maxTurns: 100
 
+# Optional typed decisions at agent failure, completion, and ambiguous shell boundaries.
+# Set TYPESAFE_API_KEY in the runtime environment before enabling.
+decisionModels:
+  enabled: false
+  provider: typesafe
+  model: jev-latest
+  apiKeyEnv: TYPESAFE_API_KEY
+  features:
+    recovery: true
+    completion: true
+    commandRisk: true
+
 memory:
   backend: sqlite
 

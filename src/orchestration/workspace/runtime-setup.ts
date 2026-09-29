@@ -1085,7 +1085,7 @@ function formatLiveRuntimeSection(
     `- Discord: ${gatewayStatus.discord.detail}`,
     `- Agent chat: ${gatewayStatus.agentChat.detail}`,
     '- Use `session_search` to recover earlier turns or cross-session context before guessing.',
-    '- Use `sessions_history` for exact transcript windows and `memory_search` for curated memory.',
+    '- Use `sessions_history` for exact transcript windows, `memory_search` for relevant stored context, and `memory_write` for durable decisions the user should retain.',
     '- Do not create or promote skills at startup; only write durable skills after a loop/review proves they are warranted.',
   ].filter((line): line is string => Boolean(line));
 
@@ -1567,6 +1567,7 @@ function initializeAgentCore(
 
   components.agentCore = new AgentCore({
     memory: memoryStore,
+    decisionModels: workspace.config?.decisionModels,
     modelRouter,
     toolRegistry,
     defaultMode: resolveAgentDefaultMode(config.mode),

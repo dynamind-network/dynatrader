@@ -13,6 +13,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import yaml from 'js-yaml';
 import { z } from 'zod';
+import type { DecisionModelsConfig } from './agent/core/decision-models';
 
 // ---------------------------------------------------------------------------
 // Config types
@@ -74,6 +75,7 @@ export interface DynaConfig {
   terminal?: {
     maxTurns?: number;
   };
+  decisionModels?: DecisionModelsConfig;
   market?: {
     symbols?: string[];
   };
@@ -199,6 +201,18 @@ const ZodConfigSchema = z.object({
   terminal: z.object({
     maxTurns: z.number().int().positive().optional(),
   }).partial().optional(),
+  decisionModels: z.object({
+    enabled: z.boolean().optional(),
+    provider: z.string().min(1).optional(),
+    model: z.string().min(1).optional(),
+    apiKeyEnv: z.string().min(1).optional(),
+    baseUrl: z.string().url().optional(),
+    features: z.object({
+      recovery: z.boolean().optional(),
+      completion: z.boolean().optional(),
+      commandRisk: z.boolean().optional(),
+    }).partial().optional(),
+  }).partial().optional(),
   market: z.object({
     symbols: z.array(z.string()).optional(),
   }).partial().optional(),
@@ -289,6 +303,13 @@ export function defaultConfig(): DynaConfig {
     },
     terminal: {
       maxTurns: 30,
+    },
+    decisionModels: {
+      enabled: false,
+      provider: 'typesafe',
+      model: 'jev-latest',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      features: { recovery: true, completion: true, commandRisk: true },
     },
     market: {
       symbols: [],
@@ -468,6 +489,7 @@ function mergeWithDefaults(raw: Record<string, unknown>): DynaConfig {
         ? ((validated['terminal'] as Record<string, unknown>)['maxTurns'] as number)
         : defaults.terminal?.maxTurns,
     },
+    decisionModels: (validated['decisionModels'] as DecisionModelsConfig) ?? defaults.decisionModels,
     market: {
       symbols: Array.isArray((validated['market'] as Record<string, unknown>)?.['symbols'])
         ? ((validated['market'] as Record<string, unknown>)['symbols'] as string[])

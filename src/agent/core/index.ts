@@ -44,6 +44,7 @@ export * from "./continual-harness";
 export * from "./tool-call-parser";
 export type { ToolCallPayload, ParseResult } from "./tool-call-parser";
 export * from "./active-memory-recall";
+export * from "./decision-models";
 export * from "./skill-workshop";
 
 // Re-export key types

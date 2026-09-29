@@ -56,6 +56,15 @@ storage:
 models:
   provider: lmstudio
   model: google/gemma-4-e2b
+decisionModels:
+  enabled: false
+  provider: typesafe
+  model: jev-latest
+  apiKeyEnv: TYPESAFE_API_KEY
+  features:
+    recovery: true
+    completion: true
+    commandRisk: true
 gateway:
   telegram:
     enabled: true
