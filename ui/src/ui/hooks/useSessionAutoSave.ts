@@ -19,6 +19,8 @@ interface StoredSessionMetadata {
     timestamp: string;
     status?: string;
     toolName?: string;
+    inputPreview?: string;
+    resultPreview?: string;
     runId?: string;
     preview?: string;
     toolArtifact?: unknown;

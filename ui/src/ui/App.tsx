@@ -376,13 +376,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
 
   const workspaceAgentCount = subagentRegistry?.getVisible().length ?? 0;
 
-  // -- Turn progress (count user messages as turns) --
-  const turnNumber = React.useMemo(
-    () => messages.filter((m) => m.role === 'user').length,
-    [messages]
-  );
-  const totalTurns = config.maxTurns;
-
   // -- Sync refs --
   useEffect(() => {
     messagesRef.current = messages;
@@ -1318,8 +1311,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                     gitStatus={gitStatus}
                     contextUsage={contextUsage}
                     cwd={config.cwd}
-                    turnNumber={turnNumber}
-                    totalTurns={totalTurns}
                     undoCount={undoCount}
                     redoCount={redoCount}
                     queueCount={queuedMessages.length}
@@ -1342,8 +1333,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                   gitStatus={gitStatus}
                   contextUsage={contextUsage}
                   cwd={config.cwd}
-                  turnNumber={turnNumber}
-                  totalTurns={totalTurns}
                   undoCount={undoCount}
                   redoCount={redoCount}
                   queueCount={queuedMessages.length}

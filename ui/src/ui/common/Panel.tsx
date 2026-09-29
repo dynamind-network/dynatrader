@@ -60,7 +60,7 @@ export function Panel({
           paddingX={SPACING.xs}
           paddingY={0}
         >
-          <Text bold color={COLORS.accent}>
+          <Text bold color={COLORS.primary}>
             {title}
           </Text>
           {collapsible && (
@@ -85,7 +85,7 @@ export function Panel({
         paddingX={SPACING.xs}
         paddingY={0}
       >
-        <Text bold color={COLORS.accent}>
+        <Text bold color={COLORS.primary}>
           {title}
         </Text>
         {collapsible && (

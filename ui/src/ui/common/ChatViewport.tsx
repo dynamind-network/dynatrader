@@ -52,10 +52,12 @@ export function ChatViewportComponent({
   // for the "jump to bottom" indicator
   const showJumpIndicator = scrollOffset > 0;
   const effectiveBottomPadding = bottomPadding + (showJumpIndicator ? 1 : 0);
+  const topPadding = 1;
+  const contentHeight = Math.max(1, height - topPadding);
 
   const metrics = useMemo(
-    () => getChatViewportMetrics(messages, width, height, effectiveBottomPadding, scrollOffset, showThinking),
-    [messages, width, height, effectiveBottomPadding, scrollOffset, showThinking]
+    () => getChatViewportMetrics(messages, width, contentHeight, effectiveBottomPadding, scrollOffset, showThinking),
+    [messages, width, contentHeight, effectiveBottomPadding, scrollOffset, showThinking]
   );
 
   const scrollbarMetrics = useMemo(
@@ -65,10 +67,11 @@ export function ChatViewportComponent({
 
   const showScrollbar = scrollbarMetrics.show;
   const contentWidth = Math.max(20, width - 1);
-  const messageAreaHeight = Math.max(1, height - effectiveBottomPadding);
+  const messageAreaHeight = Math.max(1, contentHeight - effectiveBottomPadding);
 
   return (
     <Box flexDirection="column" height={height} overflow="hidden" width={width} flexShrink={0}>
+      <Box height={topPadding} width={width} flexShrink={0} />
       <Box
         flexDirection="row"
         height={messageAreaHeight}

@@ -172,19 +172,19 @@ function ChatMessageItemComponent({
 
     return (
       <Box flexDirection="column" width={contentWidth}>
-        <Text color={COLORS.primary} wrap="wrap">
-          <Text color={statusColor} bold>
-            [{statusLabel}]
-          </Text>
-          <Text color={COLORS.muted}> </Text>
+        <Text color={COLORS.primary} wrap="truncate">
+          <Text color={statusColor} bold>{statusLabel}</Text>
+          <Text color={COLORS.muted}>  </Text>
           <Text bold>{toolDisplayName}</Text>
+          {toolStatus === 'pending' && <Text color={COLORS.toolRunning}>  running</Text>}
+          {toolStatus === 'error' && <Text color={COLORS.toolError}>  failed</Text>}
         </Text>
         {previewContent && (
           <Text
             color={statusColor}
             dimColor={toolStatus !== 'pending'}
             italic={toolStatus === 'pending'}
-            wrap="wrap"
+            wrap="truncate"
           >
             {`${GLYPHS.separator}${GLYPHS.separator} ${getCleanContent(previewContent)}`}
           </Text>

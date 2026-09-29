@@ -13,6 +13,9 @@ export interface ViewportToolArtifact {
   contents?: string;
   oldText?: string;
   newText?: string;
+  command?: string;
+  exitCode?: number;
+  shell?: string;
   stdout?: string;
   stderr?: string;
   symbol?: string;
@@ -37,6 +40,8 @@ export interface ViewportMessage {
   timestamp: Date;
   status?: string;
   toolName?: string;
+  inputPreview?: string;
+  resultPreview?: string;
   preview?: string;
   hidden?: boolean;
   toolArtifact?: ViewportToolArtifact;
@@ -208,21 +213,11 @@ function estimateToolArtifactRows(artifact: ViewportToolArtifact, width: number)
 
   switch (artifact.kind) {
     case 'diff': {
-      // DiffRenderer: createDiffLines produces up to MAX_RENDERED_DIFF_LINES (120)
-      const oldLines = (artifact.oldText ?? '').split('\n');
-      const newLines = (artifact.newText ?? '').split('\n');
-      // Rough estimate: diff produces ~80% of total lines as output
-      const diffContentLines = Math.min(Math.ceil((oldLines.length + newLines.length) * 0.8), 120);
-      // BoxedCodeSurface overhead: marginTop:1 + borderStyle:"single" (2) + title:1 + path:1 + marginBottom:1 = ~6
-      return diffContentLines + 6;
+      return 1;
     }
 
     case 'write': {
-      // WriteArtifactRenderer: up to MAX_RENDERED_WRITE_LINES (120)
-      const contentLines = (artifact.contents ?? '').split('\n');
-      const cappedLines = Math.min(contentLines.length, 120);
-      // BoxedCodeSurface overhead: ~6 rows
-      return cappedLines + 6;
+      return 1;
     }
 
     case 'position-card': {
@@ -233,11 +228,9 @@ function estimateToolArtifactRows(artifact: ViewportToolArtifact, width: number)
 
     case 'shell_output': {
       // stdout + stderr lines + borders
-      const stdoutLines = artifact.stdout ? artifact.stdout.split('\n').length : 0;
-      const stderrLines = artifact.stderr ? artifact.stderr.split('\n').length : 0;
-      const headerLines = artifact.stderr ? 1 : 0; // "STDERR:" header
-      // marginTop:1 + marginLeft:2 don't add vertical rows, but content does
-      return stdoutLines + stderrLines + headerLines + 1; // +1 for spacing
+      const stdoutLines = artifact.stdout ? Math.min(5, artifact.stdout.split('\n').length) : 0;
+      const stderrLines = artifact.stderr ? Math.min(5, artifact.stderr.split('\n').length) + 1 : 0;
+      return stdoutLines + stderrLines + 1; // command + optional stderr label
     }
 
     default:
@@ -369,26 +362,22 @@ export function messagesToDisplayLines(
     const role = msg.role ?? 'system';
 
     // Only add blank line between DIFFERENT roles (not after every message)
-    // Claude Code pattern: no blank line between same-role messages
+    // Keep consecutive messages from the same role tightly grouped.
     if (prevRole !== null && prevRole !== role) {
       pushBlank(msgIndex);
     }
     prevRole = role;
 
-    // Insert role indicator line for groups of 3+ consecutive same-role messages
-    if (roleGroupStarts.has(msgIndex)) {
+    // Insert role indicator line for groups of 3+ consecutive messages from
+    // roles without their own message header.
+    if (roleGroupStarts.has(msgIndex) && !['thinking', 'tool'].includes(role)) {
       const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
       pushStyled(`── ${roleLabel} ──`, msgIndex, { color: 'gray', dim: true });
     }
 
     if (role === 'thinking') {
       if (!showThinking) return;
-      const text = msg.preview
-        ? `≈ Thinking: ${msg.preview}`
-        : msg.content
-          ? `≈ Thinking: ${msg.content}`
-          : '≈ Thinking...';
-      pushStyled(text, msgIndex, { dim: true, italic: true, color: 'gray' });
+      pushStyled('✳ Thinking…', msgIndex, { dim: true, color: 'cyan', italic: true });
       return;
     }
 
@@ -396,41 +385,49 @@ export function messagesToDisplayLines(
       const contentLines = (msg.content ?? '').split('\n');
       if (contentLines.length === 0) contentLines.push('');
       contentLines.forEach((line, i) => {
-        const prefix = i === 0 ? '> ' : '  ';
-        pushStyled(prefix + line, msgIndex, { color: 'green', bold: true });
+        const prefix = i === 0 ? '❯ ' : '  ';
+        pushStyled(prefix + line, msgIndex, { color: 'white', bold: i === 0 });
       });
       return;
     }
 
     if (role === 'tool') {
       const toolStatus = msg.status || 'completed';
-      const statusLabel =
-        toolStatus === 'error' ? 'error' : toolStatus === 'pending' ? 'running' : 'done';
       const toolDisplayName = msg.toolName || msg.content || 'tool';
-      pushStyled(`[${statusLabel}] ${toolDisplayName}`, msgIndex, {
-        color: 'white',
+      const args = msg.inputPreview || (toolStatus === 'pending' ? msg.preview : '') || '';
+      const target = args.match(/^[^=]+=\s*(.*?)(?:,\s|$)/)?.[1]
+        ?? (msg.toolArtifact?.kind === 'shell_output' ? msg.toolArtifact.command : undefined)
+        ?? '';
+      const displayName = toolDisplayName === 'exec'
+        ? 'Bash'
+        : toolDisplayName.charAt(0).toUpperCase() + toolDisplayName.slice(1);
+      const invocation = target ? `${displayName}(${target})` : displayName;
+      pushStyled(`● ${invocation}`, msgIndex, {
+        color: toolStatus === 'error' ? 'red' : toolStatus === 'pending' ? 'yellow' : 'green',
         bold: true,
       });
-      const previewContent = msg.preview || '';
+      const hasStructuredOutput = msg.toolArtifact?.kind === 'diff' || msg.toolArtifact?.kind === 'write';
+      const previewContent = hasStructuredOutput
+        ? ''
+        : msg.resultPreview || (toolStatus !== 'pending' ? msg.preview : '') || '';
       if (previewContent) {
-        pushStyled(`└── ${previewContent}`, msgIndex, {
+        const outputHint = msg.toolArtifact?.kind === 'shell_output' ? ' (ctrl+o for details)' : '';
+        pushStyled(`  ⎿ ${previewContent}${outputHint}`, msgIndex, {
           color: toolStatus === 'error' ? 'red' : 'gray',
-          dim: toolStatus !== 'pending',
-          italic: toolStatus === 'pending',
+          dim: toolStatus === 'completed',
         });
       }
-      if (msg.toolArtifact?.kind === 'shell_output') {
-        if (msg.toolArtifact.stdout) {
-          for (const l of msg.toolArtifact.stdout.split('\n')) {
-            pushStyled(l, msgIndex, { dim: true, color: 'gray' });
-          }
-        }
-        if (msg.toolArtifact.stderr) {
-          pushStyled('STDERR:', msgIndex, { color: 'red' });
-          for (const l of msg.toolArtifact.stderr.split('\n')) {
-            pushStyled(l, msgIndex, { color: 'red', dim: true });
-          }
-        }
+      if (msg.toolArtifact?.kind === 'diff') {
+        const added = (msg.toolArtifact.newText ?? '').split('\n').length;
+        const removed = (msg.toolArtifact.oldText ?? '').split('\n').length;
+        pushStyled(`  ⎿ Updated ${msg.toolArtifact.path}  +${added}  −${removed}`, msgIndex, {
+          color: 'gray', dim: true,
+        });
+      } else if (msg.toolArtifact?.kind === 'write') {
+        const lineCount = (msg.toolArtifact.contents ?? '').split('\n').length;
+        pushStyled(`  ⎿ Wrote ${msg.toolArtifact.path}  ·  ${lineCount} lines`, msgIndex, {
+          color: 'gray', dim: true,
+        });
       }
       return;
     }
@@ -489,12 +486,11 @@ export function estimateMessageHeight(
 
   if (role === 'thinking') {
     if (!showThinking) return 0;
-    // Compact: single italic line (preview preferred)
-    totalRows = estimateMessageRows(msg.preview ?? msg.content ?? '≈ Thinking...', safeWidth);
+    totalRows = 1 + (msg.preview || msg.content ? 1 : 0); // label + optional preview
   } else if (role === 'tool') {
     // Status line + optional preview line
     totalRows = 1;
-    const previewContent = msg.preview || msg.content || '';
+    const previewContent = msg.resultPreview || msg.preview || msg.content || '';
     if (previewContent) {
       totalRows += Math.max(1, Math.ceil(previewContent.length / safeWidth));
     }

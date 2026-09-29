@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import path from 'node:path';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
 import { buildHeaderNavLayout } from './header-nav-layout.js';
 import { LiveTickerStrip } from './LiveTickerStrip.js';
-import { COLORS, GLYPHS, SPACING, ANIMATION } from '../design/tokens.js';
+import { COLORS, GLYPHS } from '../design/tokens.js';
 
 interface HeaderNavProps {
   activeScreen: string;
-  /** Active model identifier (e.g. "claude-sonnet-4-20250514") */
+  /** Active model identifier (e.g. "provider/model-name") */
   modelName?: string;
   /** Current working directory */
   cwd?: string;
@@ -16,34 +16,15 @@ interface HeaderNavProps {
   hasTicker?: boolean;
 }
 
-/** Contextual tips that rotate on a timer in the header info row */
-const CONTEXTUAL_TIPS = [
-  'Tab: suggestions',
-  '/help: commands',
-  'Ctrl+T: ticker',
-  'Esc: chat',
-  '/model: switch model',
-  '?: shortcuts',
-];
-
 /**
  * Responsive header bar with navigation hints, version display,
- * model/cwd info, ticker indicator, and rotating contextual tips.
+ * model/cwd info and ticker indicator.
  * Adapts layout based on terminal width.
  */
 export function HeaderNav({ activeScreen, modelName, cwd, hasTicker = false }: HeaderNavProps) {
   const { width } = useTerminalSize();
   const layout = buildHeaderNavLayout(width, activeScreen);
   const [showTicker, setShowTicker] = useState(false);
-  const [tipIndex, setTipIndex] = useState(0);
-
-  // Rotate contextual tips on a fixed interval
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTipIndex((prev) => (prev + 1) % CONTEXTUAL_TIPS.length);
-    }, ANIMATION.verbCycleInterval);
-    return () => clearInterval(interval);
-  }, []);
 
   useInput((_input, key) => {
     if (key.ctrl && _input === 't') {
@@ -73,8 +54,11 @@ export function HeaderNav({ activeScreen, modelName, cwd, hasTicker = false }: H
   // Compute a short cwd label (basename only) for compact display
   const shortCwd = cwd ? path.basename(cwd) : undefined;
 
-  // Determine what to show on the info row
-  const showInfoRow = width >= 60 && (modelName || shortCwd || hasTicker);
+  // Keep secondary context off narrow terminals to protect the navigation row.
+  const showInfoRow = width >= 60 && Boolean(modelName || shortCwd || hasTicker);
+  const contextParts = [modelName, shortCwd, hasTicker ? 'Ctrl+T ticker' : null, 'Ctrl+K commands'].filter(
+    Boolean
+  );
 
   return (
     <Box flexDirection="column">
@@ -94,24 +78,11 @@ export function HeaderNav({ activeScreen, modelName, cwd, hasTicker = false }: H
         ))}
       </Text>
 
-      {/* --- Info row: model, cwd, ticker hint, rotating tip --- */}
+      {/* --- Info row: model, cwd, and stable keyboard hints --- */}
       {showInfoRow && (
-        <Box>
-          {modelName && <Text color={COLORS.muted}>{modelName}</Text>}
-          {modelName && shortCwd && <Text dimColor> {GLYPHS.separator} </Text>}
-          {shortCwd && <Text color={COLORS.muted}>{shortCwd}</Text>}
-          {hasTicker && (
-            <>
-              <Text dimColor>
-                {modelName || shortCwd ? ' ' : ''}
-                {GLYPHS.separator}{' '}
-              </Text>
-              <Text color={COLORS.muted}>Ctrl+T: Ticker</Text>
-            </>
-          )}
-          <Text dimColor>
-            {SPACING.xs > 0 ? ' ' : ''}
-            {GLYPHS.separator} {CONTEXTUAL_TIPS[tipIndex]}
+        <Box width={width} height={1} overflow="hidden">
+          <Text wrap="truncate" color={COLORS.muted}>
+            {contextParts.join(` ${GLYPHS.separator} `)}
           </Text>
         </Box>
       )}

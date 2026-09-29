@@ -5,7 +5,7 @@ import type { ExecutionMode } from '../../index.js';
 import { COLORS, GLYPHS, SPACING } from '../design/tokens.js';
 import { getCommandRegistry, registerBuiltinCommands } from '../../commands/index.js';
 
-// Paste detection thresholds - Claude Code style
+// Paste detection thresholds
 const PASTE_LENGTH_THRESHOLD = 500; // Characters - any substantial paste is > 500
 
 // History configuration
@@ -468,9 +468,16 @@ export const CommandInput = React.forwardRef<CommandInputHandle, CommandInputPro
           </Box>
         )}
 
-        <Box flexDirection="row" alignItems="center">
-          <Text color={COLORS.muted} bold>
-            {'> '}
+        <Box
+          flexDirection="row"
+          alignItems="center"
+          borderStyle="round"
+          borderColor={disabled || inputBlockedRef?.current ? COLORS.border : COLORS.borderAccent}
+          paddingX={1}
+          width="100%"
+        >
+          <Text color={COLORS.success} bold>
+            {'› '}
           </Text>
           {pastePendingRef.current && (
             <Text dimColor>

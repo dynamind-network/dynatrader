@@ -1,7 +1,7 @@
 /**
  * AgentLoop — terminal harness bridge for the DynaTrader runtime SDK
  *
- * This file belongs to the terminal/TUI harness. It keeps the Claude Code-style
+ * This file belongs to the terminal/TUI harness. It keeps the interactive shell
  * shell experience local, while delegating agent execution, tool orchestration,
  * and model/runtime behavior to DynaTrader over JSON-RPC.
  *
@@ -71,7 +71,24 @@ const EVENTS = {
   ERROR: 'error',
   SESSION_UPDATE: 'session.update',
   AGENT_TASK_UPDATE: 'agent.task.update',
+  AGENT_ACTIVITY: 'agent.activity',
 } as const;
+
+function formatToolOutput(toolName: string, result: unknown): string {
+  if (typeof result === 'string') return result;
+  if (!result || typeof result !== 'object') return String(result ?? '');
+
+  const value = result as Record<string, unknown>;
+  if (typeof value.content === 'string') return value.content;
+  if (Array.isArray(value.files)) return value.files.map(String).join('\n');
+  if (toolName === 'write' && typeof value.path === 'string') {
+    return `Wrote ${value.path}${typeof value.bytesWritten === 'number' ? ` (${value.bytesWritten} bytes)` : ''}`;
+  }
+  if (toolName === 'edit' && typeof value.filePath === 'string') {
+    return `Updated ${value.filePath}${typeof value.replacements === 'number' ? ` (${value.replacements} replacement${value.replacements === 1 ? '' : 's'})` : ''}`;
+  }
+  return JSON.stringify(value, null, 2);
+}
 
 // ---------------------------------------------------------------------------
 // Session stats (lightweight local tracking)
@@ -126,6 +143,7 @@ export class AgentLoop {
   private _lastToolSignature: string | null = null;
   private _lastToolSignatureRepeatCount = 0;
   private _loopWarningEmitted = false;
+  private _childTextBuffers = new Map<string, string>();
 
   // Session checkpoint for crash recovery
   private _checkpoint: SessionCheckpoint | null = null;
@@ -221,17 +239,33 @@ export class AgentLoop {
       };
       const pending = this._pendingToolExecutions.get(toolCallId);
       if (pending) {
-        if (success === false) this._stats.failedToolCalls++;
-        else this._stats.successfulToolCalls++;
-        const toolResult: ToolResult = {
-          success: success !== false,
-          output:
-            typeof result === 'string'
+        const rawResult =
+          result && typeof result === 'object' ? (result as Record<string, unknown>) : undefined;
+        const toolSucceeded = success ?? (rawResult?.success as boolean | undefined) ?? true;
+        if (toolSucceeded) this._stats.successfulToolCalls++;
+        else this._stats.failedToolCalls++;
+        const data = rawResult?.data;
+        const outputValue = rawResult?.output ?? rawResult?.stdout ?? data;
+        const output =
+          outputValue !== undefined
+            ? formatToolOutput(pending.name, outputValue)
+            : typeof result === 'string'
               ? result
-              : result === undefined
-                ? (error ?? '')
-                : JSON.stringify(result),
-          summary: error ?? '',
+              : result !== undefined && !rawResult?.error && !rawResult?.stderr
+                ? formatToolOutput(pending.name, result)
+                : (rawResult?.stderr as string | undefined) ??
+                  (rawResult?.error as string | undefined) ??
+                  error ??
+                  (success === false ? 'Tool failed without an error message.' : 'Completed successfully.');
+        const errorText =
+          (rawResult?.error as string | undefined) ??
+          (rawResult?.stderr as string | undefined) ??
+          error;
+        const toolResult: ToolResult = {
+          success: toolSucceeded,
+          output,
+          summary: errorText ?? '',
+          artifacts: rawResult?.artifacts as Record<string, unknown> | undefined,
         };
         const record: ToolExecutionRecord = {
           toolName: pending.name,
@@ -243,7 +277,7 @@ export class AgentLoop {
           approvalRequired: false,
           approved: true,
           parallelizable: false,
-          status: success === false ? 'error' : 'success',
+          status: toolSucceeded ? 'success' : 'error',
           signature: pending.name,
         };
         this._toolLedger.push(record);
@@ -301,6 +335,36 @@ export class AgentLoop {
         type: 'text',
         content: `@${task.agent} [${task.taskId}] ${task.status}${detail ? `:\n\n${detail}` : ''}`,
       });
+    });
+
+    this.client.on(EVENTS.AGENT_ACTIVITY, (params) => {
+      const { agent, taskId, chunk } = params as {
+        agent: string;
+        taskId: string;
+        chunk: { type: string; content?: string; error?: string; toolCall?: { function?: { name?: string; arguments?: string } }; toolResult?: { toolCallId?: string; result?: unknown }; toolProgress?: { toolName?: string; status?: string } };
+      };
+      const key = `${agent}:${taskId}`;
+      const flushChildText = (): void => {
+        const text = this._childTextBuffers.get(key)?.trim();
+        this._childTextBuffers.delete(key);
+        if (text) this.emit({ type: 'text', content: `↳ ${agent} [${taskId}] ${text}` });
+      };
+      if (chunk.type === 'content') {
+        this._childTextBuffers.set(key, (this._childTextBuffers.get(key) ?? '') + (chunk.content ?? ''));
+        return;
+      }
+      flushChildText();
+      let detail = '';
+      if (chunk.type === 'tool_call') {
+        const fn = chunk.toolCall?.function;
+        detail = `calling ${fn?.name ?? 'tool'}${fn?.arguments ? ` ${fn.arguments.slice(0, 600)}` : ''}`;
+      } else if (chunk.type === 'tool_progress') {
+        detail = `${chunk.toolProgress?.status ?? 'running'} ${chunk.toolProgress?.toolName ?? 'tool'}`;
+      } else if (chunk.type === 'tool_result') {
+        const result = chunk.toolResult?.result;
+        detail = `tool result ${JSON.stringify(result ?? {}).slice(0, 1200)}`;
+      } else if (chunk.type === 'error') detail = `error ${chunk.error ?? chunk.content ?? ''}`;
+      if (detail) this.emit({ type: 'text', content: `↳ ${agent} [${taskId}] ${detail}` });
     });
   }
 
@@ -408,8 +472,9 @@ export class AgentLoop {
           this.emit({ type: 'error', error: errorMessage });
           this._activeRun = null;
           reject(new Error(errorMessage));
-        });
+      });
     });
+
   }
 
   stop(): void {

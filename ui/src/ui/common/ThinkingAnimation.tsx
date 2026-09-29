@@ -8,15 +8,88 @@ import { COLORS, GLYPHS, ANIMATION } from '../design/tokens.js';
 
 const THINKING_VERBS = [
   'Thinking',
-  'Analyzing',
-  'Processing',
-  'Working',
-  'Computing',
-  'Reasoning',
+  'Noodling',
+  'Reading',
+  'Searching',
   'Planning',
-  'Evaluating',
-  'Generating',
+  'Building',
+  'Checking',
+  'Writing',
+  'Reasoning',
+  'Working',
+  'Untangling',
+  'Sketching',
+  'Tracing',
+  'Inspecting',
+  'Connecting',
+  'Refining',
+  'Testing',
+  'Mapping',
+  'Tuning',
+  'Fetching',
   'Exploring',
+  'Calculating',
+  'Sifting',
+  'Drafting',
+  'Polishing',
+  'Gathering',
+  'Comparing',
+  'Verifying',
+  'Composing',
+  'Wiring',
+  'Considering',
+  'Sorting',
+  'Reviewing',
+  'Investigating',
+  'Understanding',
+  'Organizing',
+  'Following',
+  'Measuring',
+  'Discovering',
+  'Unpacking',
+  'Combining',
+  'Connecting dots',
+  'Double-checking',
+  'Looking closer',
+  'Making a plan',
+  'Working it out',
+  'Following the trail',
+  'Putting pieces together',
+  'Checking the details',
+  'Finding a path',
+  'Lining things up',
+  'Making sense of it',
+  'Running the numbers',
+  'Reading the room',
+  'Following through',
+  'Narrowing it down',
+  'Taking a closer look',
+  'Joining the dots',
+  'Stepping through it',
+  'Checking assumptions',
+  'Searching the workspace',
+  'Reviewing the context',
+  'Planning the next step',
+  'Tracing the details',
+  'Piecing it together',
+  'Sorting out the details',
+  'Exploring the options',
+  'Checking what changed',
+  'Thinking it through',
+  'Sketching an approach',
+  'Finding the right tool',
+  'Getting oriented',
+  'Laying the groundwork',
+  'Making progress',
+  'Checking the edges',
+  'Tidying things up',
+  'Getting things ready',
+  'Taking stock',
+  'Looking for clues',
+  'Working through it',
+  'Putting it in place',
+  'Making a few checks',
+  'Getting to the bottom of it',
 ] as const;
 
 /** Returns the frozen array of thinking verb phrases. */
@@ -208,14 +281,14 @@ const ThinkingAnimationInner: React.FC<ThinkingAnimationProps> = ({
   } else if (currentToolName) {
     mainText = `Calling ${currentToolName}`;
   } else {
-    mainText = `${currentVerb}...`;
+    mainText = `${currentVerb}…`;
   }
 
-  // Suffixes
-  const elapsedSuffix = elapsedMs !== null ? ` (${formatElapsedTime(elapsedMs)})` : '';
-  const tokensSuffix =
-    typeof tokensUsed === 'number' ? ` ${formatTokensUsed(tokensUsed)} tokens` : '';
-  const interruptHint = ' [Esc to interrupt]';
+  const statusDetails = [
+    elapsedMs !== null ? formatElapsedTime(elapsedMs) : undefined,
+    typeof tokensUsed === 'number' ? `↑ ${tokensUsed.toLocaleString()} tokens` : undefined,
+    'esc to interrupt',
+  ].filter(Boolean).join(' · ');
 
   // Color: thinking = shimmer wave, tool running = yellow pulse
   const isToolRunning = Boolean(currentToolName);
@@ -229,16 +302,14 @@ const ThinkingAnimationInner: React.FC<ThinkingAnimationProps> = ({
   const spinnerColor = pulsePhase > 0.5 ? shimmerColor : baseColor;
 
   return (
-    <Box flexDirection="row" alignItems="center" width={width}>
+    <Box flexDirection="row" alignItems="center" width={width} overflow="hidden" flexShrink={0}>
       <Text color={spinnerColor} wrap="truncate">
         {spinner}{' '}
       </Text>
       <Text color={baseColor} wrap="truncate">
         {mainText}
       </Text>
-      <Text color={COLORS.muted}>{tokensSuffix}</Text>
-      <Text color={COLORS.muted}>{elapsedSuffix}</Text>
-      <Text color={COLORS.inactive}>{interruptHint}</Text>
+      <Text color={COLORS.muted}> ({statusDetails})</Text>
     </Box>
   );
 };

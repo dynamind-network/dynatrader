@@ -41,7 +41,7 @@ export interface ListItemProps {
 }
 
 /**
- * A reusable list item component that follows Claude Code's visual patterns.
+ * A reusable list item component with consistent keyboard and selection states.
  * 
  * Features:
  * - Consistent visual states (focused, selected, disabled)

@@ -29,13 +29,12 @@ interface ChatStatusBannerProps {
 
 const MAX_VISIBLE_QUEUE_MESSAGES = 2;
 const QUEUE_PREVIEW_WIDTH = 42;
-const MIN_QUESTION_BOX_WIDTH = 56;
 const MAX_QUESTION_BOX_WIDTH = 96;
 
 function getMaxContentWidth(terminalWidth?: number): number {
   const available =
-    typeof terminalWidth === 'number' ? Math.max(48, terminalWidth - 6) : MAX_QUESTION_BOX_WIDTH;
-  return Math.max(MIN_QUESTION_BOX_WIDTH, Math.min(MAX_QUESTION_BOX_WIDTH, available));
+    typeof terminalWidth === 'number' ? Math.max(20, terminalWidth - 2) : MAX_QUESTION_BOX_WIDTH;
+  return Math.min(MAX_QUESTION_BOX_WIDTH, available);
 }
 
 function calculateQuestionBoxWidth(
@@ -62,7 +61,7 @@ function calculateQuestionBoxWidth(
     'Type a number, use arrows, or press Enter. Esc cancels.'.length
   );
 
-  return Math.min(maxContentWidth, maxLineLength + 4);
+  return Math.min(maxContentWidth, Math.max(20, maxLineLength + 4));
 }
 
 function truncatePreview(value: string, maxLength = QUEUE_PREVIEW_WIDTH): string {

@@ -29,10 +29,6 @@ interface StatusLineProps {
   rateLimitRemaining?: number | null;
   /** Current working directory — truncated with `...` when too long */
   cwd?: string;
-  /** Current turn number for progress display */
-  turnNumber?: number;
-  /** Total turns for progress display */
-  totalTurns?: number;
   /** Undo/redo stack indicators */
   undoCount?: number;
   redoCount?: number;
@@ -104,8 +100,6 @@ export function statusLinePropsEqual(prev: StatusLineProps, next: StatusLineProp
     prev.currentEffort === next.currentEffort &&
     prev.isProcessing === next.isProcessing &&
     prev.cwd === next.cwd &&
-    prev.turnNumber === next.turnNumber &&
-    prev.totalTurns === next.totalTurns &&
     prev.undoCount === next.undoCount &&
     prev.redoCount === next.redoCount &&
     prev.queueCount === next.queueCount &&
@@ -164,8 +158,6 @@ function StatusLineComponent(props: StatusLineProps) {
     tokenBudgetElapsedMs,
     rateLimitRemaining,
     cwd,
-    turnNumber,
-    totalTurns,
     undoCount,
     redoCount,
     queueCount,
@@ -189,27 +181,44 @@ function StatusLineComponent(props: StatusLineProps) {
   const cwdDisplay =
     cwd && !compact ? truncatePath(cwd, Math.min(30, Math.floor(width * 0.25))) : null;
 
-  // Turn progress display
-  const turnDisplay =
-    typeof turnNumber === 'number' && typeof totalTurns === 'number' && totalTurns > 0
-      ? `${turnNumber}/${totalTurns}`
-      : null;
-
   // Keep the footer to one terminal row at normal console widths. The chat
   // pane already owns a separate row for the thinking indicator.
   if (compact) {
-    const fixedWidth = 22 + (turnDisplay ? turnDisplay.length + 3 : 0) + (contextUsage ? 13 : 0) + ((queueCount ?? 0) > 0 ? 11 : 0);
-    const compactModel = modelName.length > Math.max(10, width - fixedWidth)
-      ? `${modelName.slice(0, Math.max(7, width - fixedWidth - 3))}...`
-      : modelName;
+    const available = Math.max(20, width);
+    const mode = {
+      text: executionMode === 'auto-approve' ? 'AUTO' : 'NORMAL',
+      color: executionMode === 'auto-approve' ? COLORS.warning : COLORS.success,
+      bold: true,
+    };
+    const modelRoom = Math.max(1, available - mode.text.length - 3);
+    const model = {
+      text: modelName.length > modelRoom ? `${modelName.slice(0, Math.max(1, modelRoom - 1))}…` : modelName,
+      color: currentModel ? COLORS.accent : COLORS.muted,
+    };
+    const visible: Array<{ text: string; color: string; bold?: boolean }> = [mode, model];
+    let used = mode.text.length + 3 + model.text.length;
+    const optionalParts = [
+      ...(currentEffort && currentEffort !== 'none' ? [{ text: currentEffort, color: COLORS.highlight }] : []),
+      ...(gitIndicator ? [{ text: gitIndicator, color: COLORS.highlight }] : []),
+      ...(contextUsage ? [{ text: `ctx ${Math.round(contextUsage.percent)}%`, color: COLORS.muted }] : []),
+      ...((queueCount ?? 0) > 0 ? [{ text: `q:${queueCount}`, color: COLORS.warning }] : []),
+    ];
+    for (const part of optionalParts) {
+      if (used + 3 + part.text.length <= available) {
+        visible.push(part);
+        used += 3 + part.text.length;
+      }
+    }
     return (
-      <Box flexDirection="row" flexWrap="nowrap" width={Math.max(20, width)}>
-        <ExecutionModeBadge mode={executionMode} />
-        <Sep />
-        <Text color={currentModel ? COLORS.accent : COLORS.muted} wrap="truncate">{compactModel}</Text>
-        {turnDisplay && <><Sep /><Text color={COLORS.accent}>{turnDisplay}</Text></>}
-        {contextUsage && <><Sep /><ContextProgressBar usage={contextUsage} width={8} /></>}
-        {(queueCount ?? 0) > 0 && <><Sep /><Text color={COLORS.warning}>q:{queueCount}</Text></>}
+      <Box flexDirection="row" flexWrap="nowrap" width={available} overflow="hidden">
+        {visible.map((part, index) => (
+          <React.Fragment key={`${part.text}-${index}`}>
+            {index > 0 && <Sep />}
+            <Text color={part.color} bold={part.bold} wrap="truncate">
+              {part.text}
+            </Text>
+          </React.Fragment>
+        ))}
       </Box>
     );
   }
@@ -249,16 +258,6 @@ function StatusLineComponent(props: StatusLineProps) {
           <>
             <Sep />
             <Text color={COLORS.highlight}>{currentEffort}</Text>
-          </>
-        )}
-
-        {/* Turn progress */}
-        {turnDisplay && (
-          <>
-            <Sep />
-            <Text color={COLORS.accent}>
-              {GLYPHS.diamond} {turnDisplay}
-            </Text>
           </>
         )}
 

@@ -64,6 +64,8 @@ export interface SerializedChatMessage {
   timestamp: string;
   status?: Message['status'];
   toolName?: string;
+  inputPreview?: string;
+  resultPreview?: string;
   runId?: string;
   preview?: string;
   toolArtifact?: Message['toolArtifact'];
@@ -77,6 +79,8 @@ export const serializeChatMessages = (chatMessages: Message[]): SerializedChatMe
     timestamp: message.timestamp.toISOString(),
     status: message.status,
     toolName: message.toolName,
+    inputPreview: message.inputPreview,
+    resultPreview: message.resultPreview,
     runId: message.runId,
     preview: message.preview,
     toolArtifact: message.toolArtifact,
@@ -92,6 +96,8 @@ export const deserializeChatMessages = (
     timestamp: new Date(message.timestamp),
     status: message.status,
     toolName: message.toolName,
+    inputPreview: message.inputPreview,
+    resultPreview: message.resultPreview,
     runId: message.runId,
     preview: message.preview,
     toolArtifact: message.toolArtifact,
@@ -167,6 +173,14 @@ export const getToolArtifact = (
       stdout: String(artifacts.stdout || ''),
       stderr: String(artifacts.stderr || ''),
       truncated: artifacts.truncated === true,
+    };
+  }
+
+  if (artifacts.kind === 'write') {
+    if (typeof artifacts.path !== 'string' || typeof artifacts.contents !== 'string') return undefined;
+    return {
+      kind: 'write', path: artifacts.path, contents: artifacts.contents,
+      isNewFile: artifacts.isNewFile === true, isTruncated: artifacts.isTruncated === true,
     };
   }
 

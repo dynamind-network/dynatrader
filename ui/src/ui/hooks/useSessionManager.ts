@@ -22,6 +22,8 @@ interface StoredSessionMetadata {
     timestamp: string;
     status?: string;
     toolName?: string;
+    inputPreview?: string;
+    resultPreview?: string;
     runId?: string;
     preview?: string;
     toolArtifact?: unknown;
@@ -197,6 +199,8 @@ export function useSessionManager(
               timestamp: new Date(msg.timestamp),
               status: msg.status,
               toolName: msg.toolName,
+              inputPreview: msg.inputPreview,
+              resultPreview: msg.resultPreview,
               runId: msg.runId,
               preview: msg.preview,
               toolArtifact: msg.toolArtifact,
@@ -234,6 +238,9 @@ export function useSessionManager(
       options.toolState.stopProcessing();
 
       if (options.agentLoop) {
+        // Restoring UI state alone leaves the live RPC adapter on its previous
+        // approval mode, so the footer can say AUTO while tools still prompt.
+        options.agentLoop.setExecutionMode(restoredMode);
         options.agentLoop.clearConversation();
         for (const message of session.messages) {
           options.agentLoop.addMessage(message);

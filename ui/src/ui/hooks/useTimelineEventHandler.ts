@@ -61,12 +61,12 @@ export function useTimelineEventHandler(
               return;
             }
 
-            activeThinkingContentRef.current = event.content;
-            const preview = summarizeToolOutput(event.content);
+            activeThinkingContentRef.current = null;
+            const preview = 'Thinking…';
             if (activeThinkingMessageIdRef.current) {
               updateChatMessage(activeThinkingMessageIdRef.current, (message) => ({
                 ...message,
-                content: event.content,
+                content: 'Thinking…',
                 preview,
                 timestamp: new Date(),
               }));
@@ -78,7 +78,7 @@ export function useTimelineEventHandler(
             appendChatMessage({
               id: messageId,
               role: 'thinking',
-              content: event.content,
+              content: 'Thinking…',
               preview,
               timestamp: new Date(),
               runId: activeRunIdRef.current,
@@ -98,6 +98,7 @@ export function useTimelineEventHandler(
               content: event.toolName,
               toolName: event.toolName,
               preview: summarizeToolInput(event.input),
+              inputPreview: summarizeToolInput(event.input),
               timestamp: new Date(),
               status: 'pending',
               runId,
@@ -116,7 +117,7 @@ export function useTimelineEventHandler(
               updateChatMessage(messageId, (message) => ({
                 ...message,
                 status: event.result.success ? 'completed' : 'error',
-                preview: summarizeToolOutput(event.result.output),
+                resultPreview: summarizeToolOutput(event.result.output),
                 toolArtifact: event.result.success
                   ? getToolArtifact(event.toolName, event.result.artifacts)
                   : undefined,

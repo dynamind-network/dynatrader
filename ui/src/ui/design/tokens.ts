@@ -31,7 +31,7 @@ export const COLORS = {
   inactive: 'gray',
 
   /** Interactive elements (links, focus indicators) */
-  accent: 'cyan',
+  accent: 'green',
 
   /** Completed actions, successful operations */
   success: 'green',
@@ -43,13 +43,13 @@ export const COLORS = {
   warning: 'yellow',
 
   /** Selected / active items */
-  highlight: 'magenta',
+  highlight: 'green',
 
   /** Default border color */
   border: 'gray',
 
   /** Interactive / focus border color */
-  borderAccent: 'cyan',
+  borderAccent: 'green',
 
   /** User message marker */
   userMessage: 'green',
@@ -88,7 +88,7 @@ export const COLORS = {
   info: 'cyan',
 
   /** Picker container border */
-  pickerBorder: 'cyan',
+  pickerBorder: 'green',
 
   /** Picker pointer (focused row indicator) */
   pickerPointer: 'green',
@@ -106,7 +106,7 @@ export const COLORS = {
  */
 export const GLYPHS = {
   /** User message prompt marker */
-  userPrompt: '>',
+  userPrompt: '›',
 
   /** Pending tool status marker */
   toolPending: '*',

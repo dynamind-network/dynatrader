@@ -94,7 +94,7 @@ export function getModelDisplayName(modelId: string): string {
   if (lmModel) return lmModel.name;
 
   const knownPrefixes: Record<string, string> = {
-    claude: 'Claude',
+    claude: 'Anthropic',
     deepseek: 'DeepSeek',
     gemini: 'Gemini',
     gpt: 'GPT',

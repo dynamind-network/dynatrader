@@ -93,6 +93,8 @@ export interface Message {
   timestamp: Date;
   status?: ActivityStatus;
   toolName?: string;
+  inputPreview?: string;
+  resultPreview?: string;
   runId?: string;
   preview?: string;
   toolArtifact?: ToolArtifact;
