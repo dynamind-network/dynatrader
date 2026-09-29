@@ -362,6 +362,9 @@ export async function initializeComponents(
   logger.debug('Initializing CCXTAdapter (paper mode)');
   components.exchange = pluginRegistry.getProvider<ExchangeAdapter>('exchange') ?? null;
   const exchangeRegistry = pluginRegistry.getProvider<ReadonlyMap<string, ExchangeAdapter>>('exchange_adapters');
+  if (components.exchange && components.toolRegistry && !components.toolRegistry.get('market_data')) {
+    components.toolRegistry.register(new MarketDataTool({ exchange: components.exchange }));
+  }
 
   // --- 8. Paper Engine ---
   logger.debug('Initializing PaperEngine');
@@ -397,6 +400,15 @@ export async function initializeComponents(
         || !(limits.maxDailyLossPct > 0 && limits.maxDailyLossPct <= 1)
         || !Number.isInteger(limits.maxConcurrentPositions) || limits.maxConcurrentPositions < 1) {
         return 'Trading is disabled until valid maxPositionPct, maxDailyLossPct, and maxConcurrentPositions are configured in workspace/config.yaml.';
+      }
+      const policyFiles = new Set(workspace.policies.map((policy) => policy.filename));
+      const requiredPolicies = mode === 'paper'
+        ? ['trading-safety.policy.json', 'risk-management.policy.json']
+        : ['trading-safety.policy.json', 'risk-management.policy.json', 'auth-governance.policy.json'];
+      const missingPolicies = requiredPolicies.filter((filename) => !policyFiles.has(filename));
+      if (missingPolicies.length > 0) return `Trading is disabled because required policies are missing: ${missingPolicies.join(', ')}.`;
+      if (mode === 'live' && (!workspace.auth?.owner || !Array.isArray(workspace.auth?.approval_required_for))) {
+        return 'Live orders require auth.json with an owner and approval_required_for list.';
       }
       if (!(intent.price && intent.price > 0) || !(intent.stopLoss && intent.stopLoss > 0)) {
         return 'Every order requires a positive price and stop loss so its risk can be checked.';
@@ -502,6 +514,14 @@ export async function initializeComponents(
   components.durableTasks.start();
   logger.info('DurableTaskModel, DaemonSessionManager, AgentMessaging, ContinualHarness, MemoryFabric initialized');
 
+  // Load configured profiles before constructing AgentCore so its main-agent
+  // tool list is filtered from profiles.yaml rather than an empty default.
+  logger.debug('Initializing AgentRegistry');
+  components.agentRegistry = new AgentRegistry(workspacePath);
+  await components.agentRegistry.load();
+  const allAgents = await components.agentRegistry.getAll();
+  logger.info(`Loaded ${allAgents.length} agents into registry`);
+
   // --- 11. Agent Core (wires everything together) ---
   await initializeAgentCore(components, workspacePath, config, workspace, logger);
 
@@ -509,11 +529,7 @@ export async function initializeComponents(
   setupEventBusListeners(components, logger);
 
   // --- 12b. Agent Registry & Agent Router (for subagent delegation) ---
-  logger.debug('Initializing AgentRegistry and AgentRouter');
-  components.agentRegistry = new AgentRegistry(workspacePath);
-  await components.agentRegistry.load();
-  const allAgents = await components.agentRegistry.getAll();
-  logger.info(`Loaded ${allAgents.length} agents into registry`);
+  logger.debug('Initializing AgentRouter');
 
   // --- 12c. Subagent Runtime (agent execution engine) ---
   logger.debug('Initializing SubagentRuntime');

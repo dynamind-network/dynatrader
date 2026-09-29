@@ -11,7 +11,7 @@
     },
     {
       "name": "require-risk-profile",
-      "condition": "mode === 'paper' || mode === 'shadow' || mode === 'micro_live' || mode === 'live'",
+      "condition": "mode === 'shadow' || mode === 'micro_live' || mode === 'live'",
       "action": "require_approval",
       "requiredApprovals": ["operator"],
       "auditLevel": "high"

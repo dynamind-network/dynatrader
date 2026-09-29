@@ -126,6 +126,15 @@ main:
   team: ""
   reportsTo: ""
   roles: []
+  profiles:
+    - base
+    - memory
+    - multi_agent
+    - messaging
+    - media
+    - browser
+    - trading
+    - risk
   heartbeat:
     every: 4h
   subagents:

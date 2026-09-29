@@ -181,6 +181,24 @@ describe('DynaTraderRuntime wiring', () => {
       expect(toolNames).toContain('session_search');
     });
 
+    it('loads main-agent profiles before filtering its trading tools', async () => {
+      writeFileSync(join(testDir, 'profiles.yaml'), [
+        'main:',
+        '  name: Test Agent',
+        '  profiles: [base, trading, risk]',
+        '',
+      ].join('\n'));
+
+      await runtime.start();
+
+      const agentCore = (runtime as any).comp.agentCore as AgentCore;
+      const visible = agentCore.listAvailableTools().map((tool) => tool.name);
+      expect(visible).toContain('market_data');
+      expect(visible).toContain('propose_order');
+      expect(visible).toContain('execute_order');
+      expect(visible).toContain('halt_trading');
+    });
+
     it('should transition to running state after successful start', async () => {
       const statusBefore = runtime.getStatus();
       expect(statusBefore.state).toBe('idle');

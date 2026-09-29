@@ -130,6 +130,7 @@ export interface PluginManifest {
 
 export interface PolicyManifest {
   name: string;
+  filename?: string;
   version: string;
   description: string;
   rules: PolicyRule[];
