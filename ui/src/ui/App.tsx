@@ -356,7 +356,34 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
     },
     currentModel ?? '',
     executionMode,
-    (event) => handlers.handleEvent(event),
+    (event) => {
+      handlers.handleEvent(event);
+      if (event.type === 'subagent_activity') {
+        setMessages((previous) => [...previous, {
+          id: `agent:${event.taskId}:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`,
+          role: 'tool',
+          content: '',
+          toolName: `↳ ${event.agentName} · ${event.taskId.slice(0, 8)}`,
+          preview: event.activity,
+          status: event.status === 'failed' ? 'error' : event.status === 'completed' ? 'completed' : 'pending',
+          timestamp: new Date(),
+          commandOutput: true,
+        }]);
+      }
+      if (event.type === 'turn_end') {
+        const seconds = (event.durationMs / 1000).toFixed(1);
+        const hookLabel = event.hooksPassed + event.hooksFailed > 0
+          ? `hooks: ${event.hooksPassed} passed${event.hooksFailed ? `, ${event.hooksFailed} failed` : ''}`
+          : 'hooks: none';
+        setMessages((previous) => [...previous, {
+          id: `turn-end:${Date.now()}`,
+          role: 'system',
+          content: `◆ stop  [${hookLabel}]\nTurn completed in ${seconds}s.`,
+          timestamp: new Date(),
+          commandOutput: true,
+        }]);
+      }
+    },
     handlers.handleApprovalRequired,
     (event) => handleTimelineEventRef.current(event),
     resolvedApiKeys
@@ -520,6 +547,10 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
     createCustomAgent: async (data: Record<string, unknown>) => {
       return (commandService as any).createCustomAgent(data);
     },
+    onAlwaysApprove: () => {
+      setExecutionMode('auto-approve');
+      agentLoop?.setExecutionMode('auto-approve');
+    },
   });
   const { handleSubmit, resolvePendingApproval, resolvePendingQuestion, askQuestion } =
     inputHandler;
@@ -590,16 +621,19 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
   );
   const navigateToTranscript = useCallback(() => setActiveScreen('transcript'), [setActiveScreen]);
 
-  // -- Handle approval keypress (y/n) --
+  // -- Handle permission card choices --
   const handleApprovalKey = useCallback(
-    (approved: boolean) => {
+    (choice: number) => {
       const pendingApproval = toolState.state.pendingApprovals[0];
       if (pendingApproval) {
-        if (approved) {
+        if (choice === 1) {
+          setExecutionMode('auto-approve');
+          agentLoop?.setExecutionMode('auto-approve');
           toolState.approveTool(pendingApproval.toolName);
-        } else {
+        } else if (choice === 2) {
+          toolState.approveTool(pendingApproval.toolName);
+        } else if (choice === 3) {
           toolState.rejectTool(pendingApproval.toolName);
-          agentLoop?.stop();
         }
       }
     },
@@ -1258,12 +1292,14 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                     </Box>
                   )}
                   {toolState.state.pendingApprovals.length > 0 && (
-                    <Box height={1} width={terminalSize.width}>
+                    <Box width={terminalSize.width}>
                       <ChatStatusBanner
                         position="top"
                         terminalWidth={terminalSize.width}
                         compact={true}
                         pendingApprovalToolName={toolState.state.pendingApprovals[0]?.toolName}
+                        pendingApprovalInput={toolState.state.pendingApprovals[0]?.input}
+                        pendingApprovalReason={toolState.state.pendingApprovals[0]?.reason}
                         isProcessing={toolState.state.isProcessing}
                         queuedMessages={queuedMessages}
                       />

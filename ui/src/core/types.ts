@@ -68,6 +68,7 @@ export interface ToolExecutionContext {
   userId?: string;
   conversationId: string;
   isSubagent: boolean;
+  agentDepth?: number;
   askQuestion?: (prompt: QuestionPrompt) => Promise<string | null>;
 }
 
@@ -216,7 +217,9 @@ export type AgentEvent =
   | { type: 'error'; error: string }
   | { type: 'done'; finalResponse: string }
   | { type: 'plan_interrupted'; reason: 'esc_pressed' | 'user_cancel' }
-  | { type: 'mode_changed'; mode: ExecutionMode };
+  | { type: 'mode_changed'; mode: ExecutionMode }
+  | { type: 'subagent_activity'; taskId: string; agentName: string; activity: string; status: 'running' | 'completed' | 'failed' }
+  | { type: 'turn_end'; durationMs: number; hooksPassed: number; hooksFailed: number };
 
 export interface DynamindConfig {
   apiKey: string;

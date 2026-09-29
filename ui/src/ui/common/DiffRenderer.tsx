@@ -254,7 +254,7 @@ export function createDiffDisplayLines(artifact: DiffToolArtifact) {
 /**
  * Renders a unified diff artifact with:
  * - Line numbers in a dim gray gutter
- * - Tinted backgrounds for added/removed lines
+ * - Subtle tinted backgrounds for added/removed lines
  * - Summary line with addition/removal counts
  * - Per-hunk collapse/expand controls
  * - File extension badge in the title
@@ -370,15 +370,13 @@ export const DiffRenderer: React.FC<{
                       <Text
                         color={
                           line.type === 'add'
-                            ? COLORS.success
+                            ? '#7ee787'
                             : line.type === 'remove'
-                              ? COLORS.error
+                              ? '#ff7b72'
                               : undefined
                         }
                         dimColor={line.type === 'context'}
-                        backgroundColor={
-                          line.type === 'add' ? 'green' : line.type === 'remove' ? 'red' : undefined
-                        }
+                        backgroundColor={line.type === 'add' ? '#142a1b' : line.type === 'remove' ? '#301a1b' : undefined}
                         wrap="wrap"
                       >
                         {prefix}

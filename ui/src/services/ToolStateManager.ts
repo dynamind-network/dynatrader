@@ -5,6 +5,7 @@ export interface ToolState {
   pendingApprovals: Array<{
     toolName: string;
     input: any;
+    reason?: string;
     resolve: (value: boolean) => void;
     timestamp: number;
   }>;
@@ -23,7 +24,7 @@ export interface ToolStateContextType {
   stopProcessing: () => void;
   setCurrentTool: (tool: string | null) => void;
   setActiveTools: (tools: string[]) => void;
-  addPendingApproval: (toolName: string, input: any, resolve: (value: boolean) => void) => void;
+  addPendingApproval: (toolName: string, input: any, resolve: (value: boolean) => void, reason?: string) => void;
   removePendingApproval: (toolName: string) => void;
   approveTool: (toolName: string) => void;
   rejectTool: (toolName: string) => void;
@@ -176,9 +177,9 @@ export function createAgentLoopEventHandler(toolState: ToolStateContextType) {
       }
     },
 
-    handleApprovalRequired: (toolName: string, input: any, _reason?: string): Promise<boolean> => {
+    handleApprovalRequired: (toolName: string, input: any, reason?: string): Promise<boolean> => {
       return new Promise((resolve) => {
-        toolState.addPendingApproval(toolName, input, resolve);
+        toolState.addPendingApproval(toolName, input, resolve, reason);
       });
     },
 

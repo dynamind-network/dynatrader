@@ -240,6 +240,7 @@ export function useSessionManager(
       if (options.agentLoop) {
         // Restoring UI state alone leaves the live RPC adapter on its previous
         // approval mode, so the footer can say AUTO while tools still prompt.
+        await options.agentLoop.endSession();
         options.agentLoop.setExecutionMode(restoredMode);
         options.agentLoop.clearConversation();
         for (const message of session.messages) {
@@ -255,6 +256,7 @@ export function useSessionManager(
   );
 
   const clearSession = useCallback(async (options: ClearSessionOptions): Promise<void> => {
+    await options.agentLoop?.endSession();
     options.agentLoop?.clearConversation();
     options.setMessages([options.createWelcomeMessage()]);
     options.viewport.jumpBottom();

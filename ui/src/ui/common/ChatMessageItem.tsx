@@ -181,7 +181,7 @@ function ChatMessageItemComponent({
         </Text>
         {previewContent && (
           <Text
-            color={statusColor}
+            color={toolStatus === 'error' ? COLORS.toolError : COLORS.primary}
             dimColor={toolStatus !== 'pending'}
             italic={toolStatus === 'pending'}
             wrap="truncate"

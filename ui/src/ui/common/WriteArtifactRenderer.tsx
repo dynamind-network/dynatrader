@@ -51,7 +51,8 @@ interface WriteArtifactRendererProps {
  *
  * Features:
  *  - Line numbers in a dim gray gutter with pipe separator
- *  - Diff-style markers for existing files (green-tinted additions)
+ *  - Neutral source preview for newly created files
+ *  - Diff-style markers for updates to existing files
  *  - File size indicator below the filename
  *  - Configurable truncation with expand/collapse via Tab
  */
@@ -138,11 +139,7 @@ export function WriteArtifactRenderer({
               </Text>
 
               {/* Diff-style content */}
-              <Text
-                color={isModification ? COLORS.success : undefined}
-                backgroundColor={isModification ? COLORS.success : undefined}
-                wrap="wrap"
-              >
+              <Text color={isModification ? '#7ee787' : COLORS.primary} backgroundColor={isModification ? '#142a1b' : undefined} wrap="wrap">
                 {prefix}
                 {line}
               </Text>

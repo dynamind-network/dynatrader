@@ -61,6 +61,7 @@ export function useInputHandler(options: {
   createCustomAgent: (
     data: Record<string, unknown>
   ) => Promise<{ success: boolean; message: string }>;
+  onAlwaysApprove?: () => void;
 }): InputHandlerResult {
   const {
     toolState,
@@ -80,6 +81,7 @@ export function useInputHandler(options: {
     configCwd,
     commandService,
     createCustomAgent,
+    onAlwaysApprove,
   } = options;
 
   const resolvePendingApproval = useCallback(
@@ -231,13 +233,19 @@ export function useInputHandler(options: {
 
       if (toolState.state.pendingApprovals.length > 0) {
         const normalized = trimmedText.toLowerCase();
-        if (normalized === 'y' || normalized === 'yes') {
+        if (normalized === '1') {
+          onAlwaysApprove?.();
+          resolvePendingApproval(true);
+          return;
+        }
+
+        if (normalized === '2' || normalized === 'y' || normalized === 'yes') {
           resolvePendingApproval(true);
           inputRef.current?.clear();
           return;
         }
 
-        if (normalized === 'n' || normalized === 'no') {
+        if (normalized === '3' || normalized === 'n' || normalized === 'no') {
           resolvePendingApproval(false);
           inputRef.current?.clear();
           return;
@@ -247,7 +255,7 @@ export function useInputHandler(options: {
           ...prev,
           {
             role: 'system',
-            content: 'Enter "y" to approve or "n" to deny the pending tool request.',
+            content: 'Choose 1 to always approve, 2 to approve once, or 3 to reject.',
             timestamp: new Date(),
           },
         ]);

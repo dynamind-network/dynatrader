@@ -26,6 +26,7 @@ import { findProviderForModel } from './providers/index.js';
 import { AgentState } from './agent-state.js';
 import { resolveDynatraderLaunchSpec } from './dynatrader-launcher.js';
 import { SessionCheckpoint } from './session-checkpoint.js';
+import { EnhancedHookLoader, loadHookConfig } from '../services/hook-loader.js';
 
 interface RpcClientLike {
   call<T>(method: string, params?: unknown): Promise<T>;
@@ -146,6 +147,8 @@ export class AgentLoop {
   private _loopWarningEmitted = false;
   private _childTextBuffers = new Map<string, string>();
   private _pendingApprovalTools = new Map<string, string>();
+  private _hookLoaderPromise: Promise<EnhancedHookLoader> | null = null;
+  private _sessionHooksStarted = false;
 
   // Session checkpoint for crash recovery
   private _checkpoint: SessionCheckpoint | null = null;
@@ -285,6 +288,10 @@ export class AgentLoop {
         this._toolLedger.push(record);
         this._pendingToolExecutions.delete(toolCallId);
         this.emit({ type: 'tool_end', toolName: pending.name, result: toolResult });
+        void this.getHookLoader().then((loader) => toolSucceeded
+          ? loader.executePostToolHook(pending.name, pending.input as Record<string, unknown>, rawResult ?? {}, { sessionId: this._currentSessionId ?? 'default' })
+          : loader.executePostToolFailureHook(pending.name, pending.input as Record<string, unknown>, rawResult ?? {}, { sessionId: this._currentSessionId ?? 'default' }))
+          .catch((error) => console.warn('Tool lifecycle hook failed:', error));
       }
     });
 
@@ -293,9 +300,10 @@ export class AgentLoop {
         requestId: string;
         action: string;
         summary: string;
+        input?: Record<string, unknown>;
       };
       const toolName = action;
-      const input: Record<string, unknown> = {};
+      const input: Record<string, unknown> = (params as { input?: Record<string, unknown> }).input ?? {};
       this._pendingApprovalTools.set(requestId, toolName);
       this.emit({ type: 'approval_request', toolName, input, reason: summary });
       const decision = this.onApprovalRequired
@@ -410,6 +418,16 @@ export class AgentLoop {
     this._lastToolSignatureRepeatCount = 0;
     this._loopWarningEmitted = false;
     this.emit({ type: 'text', content: '' });
+    this._currentSessionId = context.conversationId;
+    try {
+      const hooks = await this.getHookLoader();
+      if (!this._sessionHooksStarted) {
+        await hooks.executeSessionStartHooks({ sessionId: context.conversationId, cwd: context.workingDirectory });
+        this._sessionHooksStarted = true;
+      }
+    } catch (error) {
+      console.warn('Session start hook setup failed:', error);
+    }
 
     // Track user message in conversation
     this._conversation.push({ role: 'user', content: userMessage });
@@ -464,6 +482,20 @@ export class AgentLoop {
             });
           }
 
+          let hooksPassed = 0;
+          let hooksFailed = 0;
+          try {
+            const hooks = await this.getHookLoader();
+            const stopHookCount = hooks.listHooks().filter((hook) => hook.event === 'Stop').length;
+            const results = await hooks.executeStopHooks({ sessionId: context.conversationId, cwd: context.workingDirectory });
+            hooksPassed = results.filter((item) => item.outcome === 'success').length;
+            hooksFailed = Math.max(0, stopHookCount - hooksPassed);
+          } catch (error) {
+            hooksFailed++;
+            console.warn('Post-turn hook failed:', error);
+          }
+          this.emit({ type: 'turn_end', durationMs: Date.now() - startTime, hooksPassed, hooksFailed });
+
           this._state = AgentState.IDLE;
           this.emit({ type: 'done', finalResponse: result.content });
 
@@ -479,6 +511,13 @@ export class AgentLoop {
       });
     });
 
+  }
+
+  private getHookLoader(): Promise<EnhancedHookLoader> {
+    if (!this._hookLoaderPromise) {
+      this._hookLoaderPromise = loadHookConfig().then((config) => new EnhancedHookLoader(config));
+    }
+    return this._hookLoaderPromise;
   }
 
   stop(): void {
@@ -606,7 +645,18 @@ export class AgentLoop {
     };
   }
 
+  async endSession(): Promise<void> {
+    try {
+      const hooks = await this.getHookLoader();
+      await hooks.executeSessionEndHooks({ sessionId: this._currentSessionId ?? 'default' });
+    } catch (error) {
+      console.warn('Session end hook failed:', error);
+    }
+    this._sessionHooksStarted = false;
+  }
+
   close(): void {
+    void this.endSession();
     this.client.close();
   }
 

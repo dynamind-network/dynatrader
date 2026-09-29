@@ -17,9 +17,11 @@ import type {
   HookInput,
   HookJSONOutput,
   SyncHookJSONOutput,
+  HooksSettings,
 } from './hook-types.js';
 import { hookEvents } from './hook-types.js';
 import { parseJson } from '../utils/json.js';
+import { getErrorMessage } from '../utils/index.js';
 
 export {
   createHookRegistry,
@@ -62,6 +64,7 @@ export interface DataStorageConfig {
 
 export interface DynamindConfig {
   hooks?: HooksConfig;
+  eventHooks?: HooksSettings;
   dataStorage?: DataStorageConfig;
 }
 
@@ -81,7 +84,8 @@ export class EnhancedHookLoader {
 
   constructor(config: DynamindConfig) {
     this.legacyLoader = new LegacyHookLoader(config);
-    this.registry = createHookRegistry();
+    const configured = config.eventHooks ?? (isEventHookSettings(config.hooks) ? config.hooks : undefined);
+    this.registry = createHookRegistry(configured);
     this.executor = getHookExecutor();
   }
 
@@ -135,7 +139,6 @@ export class EnhancedHookLoader {
     for (const registeredHook of matchResult.hooks) {
       try {
         const result = await this.executor.execute(registeredHook.hook, input);
-
         const parsed = this.executor.parseHookOutput(result.stdout);
         if (parsed) {
           const processed = this.executor.processHookOutput(
@@ -214,6 +217,23 @@ export class EnhancedHookLoader {
     }
   }
 
+  async executePostToolFailureHook(toolName: string, toolInput: Record<string, unknown>, toolResult: Record<string, unknown>, sessionContext?: { sessionId?: string; transcriptPath?: string; cwd?: string }): Promise<void> {
+    const matches = this.registry.matchHooks('PostToolUseFailure', toolName, toolInput);
+    const input: HookInput = {
+      hook_event_name: 'PostToolUseFailure',
+      session_id: sessionContext?.sessionId || 'default',
+      transcript_path: sessionContext?.transcriptPath || '',
+      cwd: sessionContext?.cwd || process.cwd(),
+      tool_name: toolName,
+      tool_input: toolInput,
+      tool_result: toolResult,
+    };
+    for (const entry of matches.hooks) {
+      try { await this.executor.execute(entry.hook, input); }
+      catch (error) { console.warn(`PostToolUseFailure hook failed: ${entry.id}`, error); }
+    }
+  }
+
   async executeStopHooks(sessionContext?: {
     sessionId?: string;
     transcriptPath?: string;
@@ -239,6 +259,10 @@ export class EnhancedHookLoader {
     for (const registeredHook of matchResult.hooks) {
       try {
         const result = await this.executor.execute(registeredHook.hook, input);
+        if (result.exitCode !== 0) {
+          results.push({ shouldBlock: false, outcome: 'non_blocking_error', systemMessage: result.stderr || `Hook exited ${result.exitCode}` });
+          continue;
+        }
 
         const parsed = this.executor.parseHookOutput(result.stdout);
         if (parsed) {
@@ -255,9 +279,12 @@ export class EnhancedHookLoader {
             systemMessage: processed.systemMessage,
             additionalContext: processed.additionalContext,
           });
+        } else {
+          results.push({ shouldBlock: false, outcome: 'success' });
         }
       } catch (error) {
         console.warn(`Stop hook failed: ${registeredHook.id}`, error);
+        results.push({ shouldBlock: false, outcome: 'non_blocking_error', systemMessage: getErrorMessage(error) });
       }
     }
 
@@ -492,8 +519,12 @@ export async function loadHookConfig(): Promise<DynamindConfig> {
       const { readFile } = await import('fs/promises');
       const content = await readFile(configPath, 'utf-8');
       const parsed = parseJson(content);
-      if (parsed) {
-        return parsed as DynamindConfig;
+      if (parsed && typeof parsed === 'object') {
+        const config = parsed as Record<string, unknown>;
+        if (isEventHookSettings(config.hooks)) {
+          return { eventHooks: config.hooks as HooksSettings };
+        }
+        return config as DynamindConfig;
       }
     } catch {
       continue;
@@ -506,4 +537,11 @@ export async function loadHookConfig(): Promise<DynamindConfig> {
       postTool: { enabled: false, command: '' },
     },
   };
+}
+
+function isEventHookSettings(value: unknown): value is HooksSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.entries(value).some(([key, entries]) =>
+    hookEvents.includes(key as HookEvent) && Array.isArray(entries)
+  );
 }

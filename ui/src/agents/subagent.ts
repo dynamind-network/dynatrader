@@ -229,9 +229,11 @@ export async function executeSpawnedAgent(options: SpawnedAgentOpts): Promise<st
     }
   );
 
+  const agentDepth = (context.agentDepth ?? 0) + 1;
   return spawnedAgentLoop.run(task, {
     ...context,
     isSubagent: true,
+    agentDepth,
   });
 }
 
@@ -346,7 +348,8 @@ ${descriptions.join('\n')}`;
     if (executionMode !== 'sync' && executionMode !== 'async') {
       return this.error('Invalid execution_mode: must be "sync" or "async"');
     }
-    if (this.currentDepth >= this.maxDepth) {
+    const currentDepth = context.agentDepth ?? this.currentDepth;
+    if (currentDepth >= this.maxDepth) {
       return this.error('Cannot spawn agent: maximum nesting depth reached.');
     }
 
@@ -356,7 +359,7 @@ ${descriptions.join('\n')}`;
         `Unknown preset: ${presetName}. Available: ${this.subagentRegistry.getNames().join(', ')}`
       );
     }
-    if (!definition.canSpawnSubagents && this.currentDepth > 0) {
+    if (!definition.canSpawnSubagents && currentDepth > 0) {
       return this.error(`Preset ${presetName} cannot be called from another agent`);
     }
 
@@ -367,6 +370,7 @@ ${descriptions.join('\n')}`;
 
     if (executionMode === 'async') {
       const taskId = randomUUID();
+      this.emitActivity(taskId, presetName, 'Started in background.', 'running');
       void this.runAgentTask(taskId, presetName, task, definition, context);
       return this.success(
         `Agent ${presetName} started in background.\nTask ID: ${taskId}\nUse read_agent_result with this task ID to fetch the result.`
@@ -378,12 +382,15 @@ ${descriptions.join('\n')}`;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const result = await this.executeSubagent(presetName, task, definition, context);
+        const taskId = randomUUID();
+        this.emitActivity(taskId, presetName, 'Started.', 'running');
+        const result = await this.executeSubagent(taskId, presetName, task, definition, context);
 
         if (!result) {
           throw new Error('Spawned agent returned empty result');
         }
 
+        this.emitActivity(taskId, presetName, result, 'completed');
         return this.success(`[${presetName} completed]\n\n${result}`);
       } catch (err) {
         const message = getErrorMessage(err);
@@ -411,6 +418,7 @@ ${descriptions.join('\n')}`;
   }
 
   private async executeSubagent(
+    taskId: string,
     presetName: string,
     task: string,
     definition: SubagentDefinition,
@@ -424,7 +432,14 @@ ${descriptions.join('\n')}`;
       task,
       toolRegistry: this.toolRegistry,
       context,
-      onEvent: this.onEvent,
+      onEvent: (event) => {
+        let activity = '';
+        if (event.type === 'text') activity = event.content;
+        else if (event.type === 'tool_start') activity = `Running ${event.toolName}`;
+        else if (event.type === 'tool_end') activity = `${event.result.success ? 'Completed' : 'Failed'} ${event.toolName}`;
+        else if (event.type === 'error') activity = event.error;
+        if (activity.trim()) this.emitActivity(taskId, presetName, activity.trim().slice(0, 700), event.type === 'error' ? 'failed' : 'running');
+      },
     });
   }
 
@@ -441,7 +456,8 @@ ${descriptions.join('\n')}`;
     await fs.mkdir(resultPath, { recursive: true });
 
     try {
-      const result = await this.executeSubagent(presetName, task, definition, context);
+      const result = await this.executeSubagent(taskId, presetName, task, definition, context);
+      this.emitActivity(taskId, presetName, result, 'completed');
       await this.writeResult(resultPath, {
         taskId,
         presetName,
@@ -451,6 +467,7 @@ ${descriptions.join('\n')}`;
         completedAt: new Date().toISOString(),
       });
     } catch (error) {
+      this.emitActivity(taskId, presetName, getErrorMessage(error), 'failed');
       await this.writeResult(resultPath, {
         taskId,
         presetName,
@@ -460,6 +477,10 @@ ${descriptions.join('\n')}`;
         completedAt: new Date().toISOString(),
       });
     }
+  }
+
+  private emitActivity(taskId: string, agentName: string, activity: string, status: 'running' | 'completed' | 'failed'): void {
+    this.onEvent?.({ type: 'subagent_activity', taskId, agentName, activity, status });
   }
 
   private async writeResult(resultsDir: string, data: AgentResultData): Promise<void> {

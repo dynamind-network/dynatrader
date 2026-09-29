@@ -83,12 +83,12 @@ export function ToolStateProvider({ children }: ToolStateProviderProps) {
   }, []);
 
   const addPendingApproval = useCallback(
-    (toolName: string, input: unknown, resolve: (value: boolean) => void) => {
+    (toolName: string, input: unknown, resolve: (value: boolean) => void, reason?: string) => {
       setState((prev) => ({
         ...prev,
         pendingApprovals: [
           ...prev.pendingApprovals,
-          { toolName, input, resolve, timestamp: Date.now() },
+          { toolName, input, reason, resolve, timestamp: Date.now() },
         ],
       }));
     },

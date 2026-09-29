@@ -11,7 +11,7 @@ interface KeyboardShortcutsOptions {
   onEscape?: () => void;
   onEscapeWithQueue?: () => void;
   onModeChange?: (mode: ExecutionMode) => void;
-  onApprovalKey?: (approved: boolean) => void;
+  onApprovalKey?: (choice: number) => void;
   onQuestionSelect?: (optionIndex: number) => void;
   onQuestionReject?: () => void;
   onQuestionNavigate?: (direction: 'up' | 'down') => void;
@@ -281,9 +281,19 @@ export function useKeyboardShortcuts({
 
       if (hasPendingApproval && activeScreen === 'chat' && inputChar && inputChar.length === 1) {
         const char = inputChar.toLowerCase();
-        if (char === 'y' || char === 'n') {
+        if (key.ctrl && (char === 'c' || inputChar === '\u0003')) {
           onBlockInput?.(SHORTCUT_INPUT_BLOCK_MS);
-          onApprovalKey?.(char === 'y');
+          onApprovalKey?.(3);
+          return;
+        }
+        if (char === '1' || char === '2' || char === '3' || char === 'y' || char === 'n') {
+          onBlockInput?.(SHORTCUT_INPUT_BLOCK_MS);
+          onApprovalKey?.(char === '1' || char === 'y' ? 1 : char === 'n' ? 3 : Number(char));
+          return;
+        }
+        if (key.ctrl && (char === 'o' || inputChar === '\u000f')) {
+          onBlockInput?.(SHORTCUT_INPUT_BLOCK_MS);
+          onApprovalKey?.(1);
           return;
         }
       }

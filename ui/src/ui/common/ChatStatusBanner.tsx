@@ -10,6 +10,8 @@ interface ChatStatusBannerProps {
   terminalWidth?: number;
   compact?: boolean;
   pendingApprovalToolName?: string;
+  pendingApprovalInput?: Record<string, unknown>;
+  pendingApprovalReason?: string;
   approvalState?: ApprovalState;
   toolDescription?: string;
   toolArguments?: string;
@@ -90,6 +92,8 @@ export function ChatStatusBanner({
   terminalWidth,
   compact = false,
   pendingApprovalToolName,
+  pendingApprovalInput,
+  pendingApprovalReason,
   approvalState = 'pending',
   toolDescription,
   toolArguments,
@@ -101,17 +105,6 @@ export function ChatStatusBanner({
   const maxWidth = getMaxContentWidth(terminalWidth);
 
   if (position === 'top') {
-    if (compact && pendingApprovalToolName) {
-      return (
-        <Box flexDirection="row" alignItems="center" gap={1}>
-          <Text color="yellow" bold>
-            {pendingApprovalToolName}
-          </Text>
-          <Text dimColor>(y/n)</Text>
-        </Box>
-      );
-    }
-
     if (pendingQuestion) {
       const { question, options, allowCustomText } = pendingQuestion;
       const questionWidth = calculateQuestionBoxWidth(
@@ -178,27 +171,31 @@ export function ChatStatusBanner({
       return (
         <Box
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={approvalBadge.color}
           paddingX={1}
-          paddingY={0}
           width={maxWidth}
         >
           <Text color={approvalBadge.color} bold>
-            {GLYPHS.separator} Approval needed: {pendingApprovalToolName} {GLYPHS.separator}{' '}
+            {GLYPHS.separator} Permission request: {pendingApprovalToolName} {GLYPHS.separator}{' '}
             {approvalBadge.text}
           </Text>
-          {toolDescription && (
+          {(toolDescription || pendingApprovalReason) && (
             <Text dimColor>
-              {'  '}Description: {toolDescription}
+              {'  '}{toolDescription || pendingApprovalReason}
             </Text>
           )}
-          {toolArguments && (
+          {(toolArguments || pendingApprovalInput) && (
             <Text dimColor>
-              {'  '}Arguments: {toolArguments}
+              {'  '}{toolArguments || formatApprovalInput(pendingApprovalInput)}
             </Text>
           )}
-          <Text dimColor>Press y to approve, n to deny</Text>
+          <Box flexDirection="column" marginTop={1}>
+            <Text bold color={approvalState === 'pending' ? COLORS.highlight : COLORS.muted}>1 (●) Yes, and don&apos;t ask again for anything (always-approve mode)</Text>
+            <Text dimColor>2 (○) Yes, proceed once</Text>
+            <Text dimColor>3 (○) No, reject (type to add feedback)</Text>
+          </Box>
+          <Text dimColor>1/2/3: select  |  Ctrl+o: auto mode  |  Ctrl+c: cancel</Text>
         </Box>
       );
     }
@@ -244,4 +241,11 @@ export function ChatStatusBanner({
       )}
     </Box>
   );
+}
+
+function formatApprovalInput(input?: Record<string, unknown>): string {
+  if (!input) return '';
+  const preferred = input.command ?? input.path ?? input.file_path ?? input.url ?? input.task;
+  if (typeof preferred === 'string') return preferred.replace(/\s+/g, ' ').slice(0, 180);
+  return Object.keys(input).length ? JSON.stringify(input).slice(0, 180) : '';
 }
