@@ -143,6 +143,10 @@ export function createAgentLoopEventHandler(toolState: ToolStateContextType) {
           toolState.startProcessing();
           break;
 
+        case 'approval_auto_resolved':
+          toolState.approveTool(event.toolName);
+          break;
+
         case 'loop_warning':
           if (event.message) {
             console.warn('Agent loop warning:', event.message);

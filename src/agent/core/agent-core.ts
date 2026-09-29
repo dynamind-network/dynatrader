@@ -1412,6 +1412,17 @@ Explore the repository and design an implementation plan. You are strictly read-
     return compacted;
   }
 
+  private resetStateForNewPrompt(): void {
+    const state = this.stateMachine.getState();
+    if (state === "idle") return;
+    if (state === "error" || state === "stopping") {
+      this.safeTransition("idle");
+      return;
+    }
+    this.safeTransition("stopping");
+    this.safeTransition("idle");
+  }
+
   private safeTransition(state: AgentState): void {
     try {
       this.stateMachine.transition(state);
@@ -1489,6 +1500,7 @@ Explore the repository and design an implementation plan. You are strictly read-
     if (sessionKey !== "default") {
       this.sessionManager.ensureSession(sessionKey);
     }
+    this.resetStateForNewPrompt();
     this.safeTransition("starting");
     this.syncModelContextWindow();
     conversation.addMessage({ role: "user", content: message, timestamp: new Date() });
@@ -1776,6 +1788,7 @@ Explore the repository and design an implementation plan. You are strictly read-
     if (sessionKey !== "default") {
       this.sessionManager.ensureSession(sessionKey);
     }
+    this.resetStateForNewPrompt();
     this.safeTransition("starting");
     this.syncModelContextWindow();
     conversation.addMessage({ role: "user", content: message, timestamp: new Date() });
@@ -2248,6 +2261,12 @@ Explore the repository and design an implementation plan. You are strictly read-
         self.safeTransition("idle");
         yield { type: "error" as const, error: error instanceof Error ? error.message : "Unknown error" };
       } finally {
+        if (requestSignal.aborted) {
+          const state = self.stateMachine.getState();
+          if (state === "error") self.safeTransition("idle");
+          else if (state !== "idle" && state !== "stopping") self.safeTransition("stopping");
+          if (self.stateMachine.getState() === "stopping") self.safeTransition("idle");
+        }
         if (self.activeChatAbortController === requestController) {
           self.activeChatAbortController = null;
           self.cancelRequested = false;

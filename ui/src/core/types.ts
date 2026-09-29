@@ -205,6 +205,7 @@ export type AgentEvent =
       input: Record<string, unknown>;
       reason: string;
     }
+  | { type: 'approval_auto_resolved'; toolName: string }
   | {
       type: 'loop_warning';
       message: string;

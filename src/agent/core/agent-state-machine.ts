@@ -2,7 +2,7 @@ import type { AgentState } from "@dyna/contracts";
 
 const VALID_TRANSITIONS: Record<AgentState, AgentState[]> = {
   idle: ["starting", "error"],
-  starting: ["running", "error"],
+  starting: ["running", "stopping", "error"],
   running: ["tool_executing", "compacting", "stopping", "error"],
   tool_executing: ["running", "stopping", "error"],
   compacting: ["running", "stopping", "error"],

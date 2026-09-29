@@ -26,6 +26,8 @@ export const RpcMethods = {
   PROMPT_SUBMIT: "prompt.submit",
   /** Cancel the current in-progress prompt. */
   PROMPT_CANCEL: "prompt.cancel",
+  /** Change approval behavior during an active or future prompt. */
+  PROMPT_APPROVAL_MODE_SET: "prompt.approval_mode.set",
   CONVERSATION_COMPACT: "conversation.compact",
   TOOL_LIST: "tool.list",
   AGENT_DELEGATE: "agent.delegate",

@@ -219,6 +219,8 @@ export class JsonRpcServer {
         return this.handleSubmit(params as unknown as PromptSubmitParams);
       case RpcMethods.PROMPT_CANCEL:
         return this.handleCancel();
+      case RpcMethods.PROMPT_APPROVAL_MODE_SET:
+        return this.handleApprovalModeSet(params as { approvalMode?: 'default' | 'auto_edit' | 'yolo' });
       case RpcMethods.CONVERSATION_COMPACT:
         return this.handleCompact(params);
       case RpcMethods.TOOL_LIST:
@@ -668,6 +670,18 @@ export class JsonRpcServer {
     this.pendingApprovals.delete(params.requestId);
     pending.resolve(params.approved);
     return { resolved: true };
+  }
+
+  private handleApprovalModeSet(params: { approvalMode?: 'default' | 'auto_edit' | 'yolo' }): { approvalMode: string } {
+    this.autoApproveTools = params.approvalMode === 'yolo';
+    if (this.autoApproveTools) {
+      for (const [requestId, pending] of this.pendingApprovals) {
+        clearTimeout(pending.timeout);
+        this.pendingApprovals.delete(requestId);
+        pending.resolve(true);
+      }
+    }
+    return { approvalMode: params.approvalMode ?? 'default' };
   }
 
   private requestToolApproval(call: import('@dyna/contracts').ToolCall, definition: import('@dyna/contracts').ToolDefinition): Promise<boolean> {

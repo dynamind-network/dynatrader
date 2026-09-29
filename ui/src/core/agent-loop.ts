@@ -41,6 +41,7 @@ export { AgentState };
 const RPC = {
   PROMPT_SUBMIT: 'prompt.submit',
   PROMPT_CANCEL: 'prompt.cancel',
+  PROMPT_APPROVAL_MODE_SET: 'prompt.approval_mode.set',
   CONVERSATION_COMPACT: 'conversation.compact',
   TOOL_LIST: 'tool.list',
   AGENT_DELEGATE: 'agent.delegate',
@@ -144,6 +145,7 @@ export class AgentLoop {
   private _lastToolSignatureRepeatCount = 0;
   private _loopWarningEmitted = false;
   private _childTextBuffers = new Map<string, string>();
+  private _pendingApprovalTools = new Map<string, string>();
 
   // Session checkpoint for crash recovery
   private _checkpoint: SessionCheckpoint | null = null;
@@ -294,12 +296,14 @@ export class AgentLoop {
       };
       const toolName = action;
       const input: Record<string, unknown> = {};
+      this._pendingApprovalTools.set(requestId, toolName);
       this.emit({ type: 'approval_request', toolName, input, reason: summary });
       const decision = this.onApprovalRequired
         ? this.onApprovalRequired(toolName, input, summary)
         : Promise.resolve(false);
       void decision
         .then((approved) => this.client.call(RPC.APPROVAL_RESOLVE, { requestId, approved }))
+        .finally(() => this._pendingApprovalTools.delete(requestId))
         .catch(() =>
           this.client.call(RPC.APPROVAL_RESOLVE, { requestId, approved: false }).catch(() => {})
         );
@@ -547,6 +551,14 @@ export class AgentLoop {
   setExecutionMode(mode: ExecutionMode): void {
     this._executionMode = mode;
     this._approvalMode = mode === 'auto-approve' ? 'yolo' : 'default';
+    if (this._approvalMode === 'yolo') {
+      for (const toolName of this._pendingApprovalTools.values()) {
+        this.emit({ type: 'approval_auto_resolved', toolName });
+      }
+    }
+    this.client.call(RPC.PROMPT_APPROVAL_MODE_SET, { approvalMode: this._approvalMode }).catch((error) => {
+      this.emit({ type: 'error', error: `Could not update tool approval mode: ${error instanceof Error ? error.message : String(error)}` });
+    });
     this.emit({ type: 'mode_changed', mode });
   }
 

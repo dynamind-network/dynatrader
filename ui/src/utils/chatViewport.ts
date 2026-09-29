@@ -60,6 +60,24 @@ export interface DisplayLine {
   messageIndex: number;
 }
 
+const FILE_PREVIEW_LINES = 8;
+
+function getChangedFileLines(artifact: ViewportToolArtifact): { removed: string[]; added: string[]; omitted: boolean } {
+  const before = (artifact.oldText ?? '').split('\n');
+  const after = (artifact.newText ?? '').split('\n');
+  let prefix = 0;
+  while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix]) prefix++;
+  let suffix = 0;
+  while (suffix < before.length - prefix && suffix < after.length - prefix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix++;
+  const oldChanged = before.slice(prefix, before.length - suffix);
+  const newChanged = after.slice(prefix, after.length - suffix);
+  return {
+    removed: oldChanged.slice(0, FILE_PREVIEW_LINES),
+    added: newChanged.slice(0, FILE_PREVIEW_LINES),
+    omitted: oldChanged.length > FILE_PREVIEW_LINES || newChanged.length > FILE_PREVIEW_LINES || artifact.isTruncated === true,
+  };
+}
+
 /** Metrics returned by getChatViewportMetrics */
 export interface ChatViewportMetrics<T extends ViewportMessage = ViewportMessage> {
   totalRows: number;
@@ -213,11 +231,14 @@ function estimateToolArtifactRows(artifact: ViewportToolArtifact, width: number)
 
   switch (artifact.kind) {
     case 'diff': {
-      return 1;
+      const changed = getChangedFileLines(artifact);
+      return changed.removed.length + changed.added.length + (changed.omitted ? 1 : 0);
     }
 
     case 'write': {
-      return 1;
+      const contentRows = (artifact.contents ?? '').split('\n').slice(0, FILE_PREVIEW_LINES).length;
+      const omitted = (artifact.contents ?? '').split('\n').length > FILE_PREVIEW_LINES || artifact.isTruncated === true;
+      return contentRows + (omitted ? 1 : 0);
     }
 
     case 'position-card': {
@@ -423,11 +444,25 @@ export function messagesToDisplayLines(
         pushStyled(`  ⎿ Updated ${msg.toolArtifact.path}  +${added}  −${removed}`, msgIndex, {
           color: 'gray', dim: true,
         });
+        const changed = getChangedFileLines(msg.toolArtifact);
+        for (const line of changed.removed) pushStyled(`    - ${line}`, msgIndex, { color: 'red' });
+        for (const line of changed.added) pushStyled(`    + ${line}`, msgIndex, { color: 'green' });
+        if (changed.omitted) pushStyled('    … more changes omitted from preview', msgIndex, { color: 'gray', dim: true });
       } else if (msg.toolArtifact?.kind === 'write') {
         const lineCount = (msg.toolArtifact.contents ?? '').split('\n').length;
         pushStyled(`  ⎿ Wrote ${msg.toolArtifact.path}  ·  ${lineCount} lines`, msgIndex, {
           color: 'gray', dim: true,
         });
+        const fileLines = (msg.toolArtifact.contents ?? '').split('\n');
+        fileLines.slice(0, FILE_PREVIEW_LINES).forEach((line, index) => {
+          pushStyled(`    ${String(index + 1).padStart(3)} │ ${line}`, msgIndex, {
+            color: msg.toolArtifact?.isNewFile ? 'green' : 'white',
+          });
+        });
+        if (fileLines.length > FILE_PREVIEW_LINES || msg.toolArtifact.isTruncated) {
+          const more = Math.max(0, lineCount - FILE_PREVIEW_LINES);
+          pushStyled(`    … ${more || 'additional'} more lines`, msgIndex, { color: 'gray', dim: true });
+        }
       }
       return;
     }
