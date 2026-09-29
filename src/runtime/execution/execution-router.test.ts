@@ -138,6 +138,25 @@ describe("ExecutionRouterImpl", () => {
     exchangeAdapters.set("binance", ccxtAdapter);
   });
 
+  it("rejects orders at the router boundary when the runtime risk policy fails", async () => {
+    const router = new ExecutionRouterImpl({
+      liveTradingEnabled: false,
+      microLiveEnabled: false,
+      requireApprovalForLive: true,
+      maxMicroLiveOrderValue: 1000,
+      audit,
+      paperEngine,
+      exchangeAdapters,
+      validateOrder: vi.fn().mockResolvedValue("risk cap exceeded"),
+    });
+
+    const result = await router.execute(createOrderIntent({ mode: "paper" as TradeMode }), "paper");
+
+    expect(result.status).toBe("rejected");
+    expect(result.rejectionReason).toBe("risk cap exceeded");
+    expect(paperEngine.placeOrder).not.toHaveBeenCalled();
+  });
+
   // -----------------------------------------------------------------------
   // 1. should reject live trading when disabled in config
   // -----------------------------------------------------------------------

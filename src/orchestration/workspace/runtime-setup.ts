@@ -34,12 +34,14 @@ import { MemoryFabric } from '@dyna/agent-core';
 import { SkillLoader } from '../../agent/skills/skill-loader';
 import { HaltState } from '../../runtime/halt/halt-state';
 import { HaltTradingTool, ResumeTradingTool, TradingHaltStatusTool, CheckCircuitBreakersTool } from '../../agent/tools/risk-tools';
+import { createTradingTools, type TradingRiskLimits } from '../../agent/tools/trading-tools';
 import { CronEngine } from '@dyna/agent-cron';
 import { PluginRuntime } from '../../runtime/plugins/plugin-runtime';
 import { PluginRegistry } from '../../plugins/registry';
 import { bootPluginTree } from '../../plugins/composition';
-import type { ToolProfile } from '../../runtime/tools/tool-profiles';
+import { getProfileTools, type ToolProfile } from '../../runtime/tools/tool-profiles';
 import { requireVisibleResponse } from '../../runtime/visible-response';
+import { ActiveMemoryRecall } from '../../agent/core/active-memory-recall';
 import type { WalletPluginContainer } from '../../plugins/builtin/wallet-plugin';
 
 // Cron tools for self-modifying scheduling
@@ -382,13 +384,73 @@ export async function initializeComponents(
   components.executionRouter = new ExecutionRouterImpl({
     liveTradingEnabled: config.liveTradingEnabled ?? false,
     microLiveEnabled: config.enableMicroLiveMode ?? false,
-    requireApprovalForLive: config.strictMode ?? true,
+    requireApprovalForLive: true,
     maxMicroLiveOrderValue: 1000,
     audit: components.auditTrail,
     paperEngine: components.paperEngine ?? undefined,
     exchangeAdapters: new Map(exchangeRegistry ?? (components.exchange ? [[components.exchange.id, components.exchange]] : [])),
     haltState: createHaltState(workspacePath),
+    validateOrder: async (intent, mode) => {
+      if (!['paper', 'live', 'micro_live'].includes(mode)) return null;
+      const limits = workspace.config?.tradingRisk as TradingRiskLimits | undefined;
+      if (!limits || !(limits.maxPositionPct > 0 && limits.maxPositionPct <= 1)
+        || !(limits.maxDailyLossPct > 0 && limits.maxDailyLossPct <= 1)
+        || !Number.isInteger(limits.maxConcurrentPositions) || limits.maxConcurrentPositions < 1) {
+        return 'Trading is disabled until valid maxPositionPct, maxDailyLossPct, and maxConcurrentPositions are configured in workspace/config.yaml.';
+      }
+      if (!(intent.price && intent.price > 0) || !(intent.stopLoss && intent.stopLoss > 0)) {
+        return 'Every order requires a positive price and stop loss so its risk can be checked.';
+      }
+      const correctStop = intent.side === 'buy' ? intent.stopLoss < intent.price : intent.stopLoss > intent.price;
+      if (!correctStop) return 'Stop loss must be on the loss side of the entry price.';
+      const equity = mode === 'paper'
+        ? components.paperEngine?.getPortfolio().equity
+        : await (async () => {
+            const balances = await components.exchange?.balances();
+            for (const key of ['accountValue', 'equity', 'totalEquity', 'netLiquidation']) {
+              const value = Number(balances?.[key]);
+              if (Number.isFinite(value) && value > 0) return value;
+            }
+            return undefined;
+          })();
+      if (!(equity && equity > 0)) return `Cannot validate ${mode} order risk without an account equity snapshot.`;
+      if (intent.quantity * Math.abs(intent.price - intent.stopLoss) / equity > limits.maxPositionPct) {
+        return 'Order stop risk exceeds configured maxPositionPct.';
+      }
+      if (intent.quantity * intent.price > equity) return 'Order notional exceeds account equity; leveraged orders are disabled.';
+      if (mode === 'paper') {
+        const portfolio = components.paperEngine?.getPortfolio();
+        if (!portfolio) return 'Paper portfolio is unavailable.';
+        if (Math.max(0, -portfolio.dailyPnL / portfolio.equity) >= limits.maxDailyLossPct) return 'Configured daily loss limit has been reached.';
+        const openCount = portfolio.positions.filter((position) => position.quantity > 0).length;
+        const existing = portfolio.positions.some((position) => position.symbol === intent.symbol && position.quantity > 0);
+        if (!existing && intent.side === 'buy' && openCount >= limits.maxConcurrentPositions) return 'Configured maximum concurrent positions has been reached.';
+      }
+      return null;
+    },
   });
+  if (components.exchange && components.paperEngine && components.toolRegistry) {
+    const tradingRisk = workspace.config?.tradingRisk as TradingRiskLimits | undefined;
+    const readLiveEquity = async (): Promise<number | undefined> => {
+      const balances = await components.exchange!.balances();
+      for (const key of ['accountValue', 'equity', 'totalEquity', 'netLiquidation']) {
+        const value = Number(balances[key]);
+        if (Number.isFinite(value) && value > 0) return value;
+      }
+      return undefined;
+    };
+    for (const tradingTool of createTradingTools({
+      exchange: components.exchange,
+      paperEngine: components.paperEngine,
+      executionRouter: components.executionRouter,
+      defaultMode: config.mode === 'live' ? 'live' : config.mode === 'backtest' ? 'backtest' : 'paper',
+      getRiskLimits: () => tradingRisk,
+      getEquity: async (mode) => mode === 'paper'
+        ? components.paperEngine!.getPortfolio().equity
+        : readLiveEquity(),
+    })) components.toolRegistry.register(tradingTool);
+    logger.info(`Registered trading tools; risk limits ${tradingRisk ? 'configured' : 'unset (order proposals disabled)'}`);
+  }
 
   // --- 9b. Skill Loader ---
   logger.debug('Initializing SkillLoader');
@@ -441,7 +503,7 @@ export async function initializeComponents(
   logger.info('DurableTaskModel, DaemonSessionManager, AgentMessaging, ContinualHarness, MemoryFabric initialized');
 
   // --- 11. Agent Core (wires everything together) ---
-  initializeAgentCore(components, workspacePath, config, workspace, logger);
+  await initializeAgentCore(components, workspacePath, config, workspace, logger);
 
   // --- 12. Wire event bus listeners ---
   setupEventBusListeners(components, logger);
@@ -503,7 +565,11 @@ export async function initializeComponents(
     researchAgents: inferredPipelineAgents.research,
     analysisAgents: inferredPipelineAgents.analysis,
     riskAgents: inferredPipelineAgents.risk,
-    marketContextResolver: async () => resolvePipelineMarketContext(components.exchange, logger),
+    marketContextResolver: async () => resolvePipelineMarketContext(
+      components.exchange,
+      logger,
+      workspace.config?.market?.symbols,
+    ),
   });
   registerDefaultPipelineHandlers(components, config, logger, allAgents);
 
@@ -1547,13 +1613,13 @@ async function initializeDreamCycle(
 /**
  * Construct the AgentCore and wire the execution learning observer.
  */
-function initializeAgentCore(
+async function initializeAgentCore(
   components: RuntimeComponents,
   workspacePath: string,
   config: RuntimeConfig,
   workspace: WorkspaceManifest,
   logger: Logger,
-): void {
+): Promise<void> {
   const goalManager = components.stateDb
     ? new GoalManager(components.stateDb)
     : undefined;
@@ -1565,11 +1631,20 @@ function initializeAgentCore(
     throw new Error('AgentCore initialization requires memoryStore, modelRouter, and toolRegistry');
   }
 
+  const mainAgent = await components.agentRegistry?.getDefault().catch(() => undefined);
+  const activeProfiles = mainAgent?.profiles ?? [];
+  const availablePluginProfiles: ToolProfile[] = (['trading', 'risk'] as const).filter((profile) =>
+    getProfileTools(profile).every((name) => toolRegistry.get(name)),
+  );
+
   components.agentCore = new AgentCore({
     memory: memoryStore,
     decisionModels: workspace.config?.decisionModels,
     modelRouter,
     toolRegistry,
+    activeProfiles,
+    availablePluginProfiles,
+    activeMemoryRecall: new ActiveMemoryRecall(memoryStore, components.stateDb),
     defaultMode: resolveAgentDefaultMode(config.mode),
     skillFactory: components.skillFactory ?? undefined,
     crossSessionRecall: components.crossSessionRecall ?? undefined,
@@ -1671,29 +1746,17 @@ async function buildTradingMarketContext(
 async function resolvePipelineMarketContext(
   exchange: ExchangeAdapter | null,
   logger: Logger,
+  configuredSymbols?: string[],
 ): Promise<{ symbol: string; timeframe: string }> {
   if (!exchange) {
     throw new Error('Cannot resolve a pipeline market context without an exchange adapter');
   }
-
-  const fallbackStrategy = await buildFallbackPaperStrategy(exchange, logger).catch((error: unknown) => {
-    logger.warn(`Pipeline market fallback failed: ${error instanceof Error ? error.message : String(error)}`);
-    return null;
-  });
-
-  if (fallbackStrategy) {
-    return {
-      symbol: fallbackStrategy.symbol,
-      timeframe: fallbackStrategy.timeframe ?? '1h',
-    };
+  const symbol = configuredSymbols?.find((item) => typeof item === 'string' && item.trim())?.trim();
+  if (!symbol) throw new Error('No configured market symbol. The market scanner may suggest candidates, but the harness will not choose a market as a trade fallback.');
+  const market = await buildTradingMarketContext(exchange, logger);
+  if (!market.items.some((item) => String(item.symbol).toUpperCase() === symbol.toUpperCase())) {
+    throw new Error(`Configured market ${symbol} is not present in the current exchange catalogue.`);
   }
-
-  const marketContext = await buildTradingMarketContext(exchange, logger);
-  const symbol = String(marketContext.items[0]?.symbol ?? '').trim();
-  if (!symbol) {
-    throw new Error('Unable to resolve a tradable symbol for the pipeline');
-  }
-
   return { symbol, timeframe: '1h' };
 }
 

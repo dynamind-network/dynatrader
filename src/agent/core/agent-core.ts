@@ -14,7 +14,7 @@ import type {
   StrategySource, SkillManifest, AgentTurnContext, OrderIntent,
   ModelRouter, ModelRequest, ToolRegistry, ToolCall, ToolDefinition, ToolHandler,
   AgentState, ConversationMessage, ModelStreamChunk, ChatResponse, ToolResult,
-  TradeMode,
+  TradeMode, ApprovalToken,
 } from "@dyna/contracts";
 import { encoding_for_model } from "tiktoken";
 import * as fs from "node:fs/promises";
@@ -73,6 +73,7 @@ import { ActiveMemoryRecall, type RecallResult } from "./active-memory-recall";
 import { classifyShellCommand } from '../../security/shell-command-policy';
 import { HarnessDecisionController, createDecisionModelProvider } from './decision-models';
 import type { DecisionModelsConfig, DecisionModelProvider, DecisionMetrics } from './decision-models';
+import { attachLiveOrderApproval } from './live-order-approval';
 
 function stableStringify(value: unknown): string {
   if (value === null || value === undefined) return 'null';
@@ -241,6 +242,8 @@ export interface AgentCoreConfig {
    * Like profiles and tool router.
    */
   activeProfiles?: ToolProfile[];
+  /** Plugin profiles whose complete tool sets are registered in this runtime. */
+  availablePluginProfiles?: ToolProfile[];
   /**
    * Active memory recall — pre-reply memory search that injects relevant
     * context BEFORE the main model generates a reply.
@@ -366,18 +369,43 @@ export class AgentCore {
   }> {
     if (!this.config.toolRegistry) return { approved: calls, denied: [] };
     const definitions = new Map(this.config.toolRegistry.list().map((handler) => [handler.definition.name, handler.definition]));
+    const resolvedProfiles = resolveProfiles(this.config.activeProfiles, this.config.availablePluginProfiles);
+    const allowedToolNames = new Set(getToolsForProfiles(resolvedProfiles));
     const approved: ToolCall[] = [];
     const denied: Array<{ call: ToolCall; result: ToolResult }> = [];
     for (const call of calls) {
       const definition = definitions.get(call.tool);
+      if (!allowedToolNames.has(call.tool)) {
+        denied.push({ call, result: { success: false, error: `Tool "${call.tool}" is not enabled by the active workspace profiles.`, durationMs: 0, truncated: false } });
+        continue;
+      }
       const commandRisk = await this.assessShellCommandRisk(call);
       const semanticRiskRequiresApproval = commandRisk?.score != null && commandRisk.score >= 1.5 && (commandRisk.confidence ?? 0) >= 0.65;
-      const normalApprovalRequired = !!this.config.requestToolApproval && !!definition && definition.readOnly !== true &&
+      const autonomousTradingStep = call.tool === 'propose_order' || (call.tool === 'execute_order' && call.args.mode === 'paper');
+      const normalApprovalRequired = !!this.config.requestToolApproval && !!definition && !autonomousTradingStep && definition.readOnly !== true &&
         (definition.riskLevel === 'medium' || definition.riskLevel === 'high' || (definition.sideEffects?.length ?? 0) > 0);
       const requiresApproval = semanticRiskRequiresApproval || normalApprovalRequired;
       if (semanticRiskRequiresApproval && !this.config.requestToolApproval) {
         denied.push({ call, result: { success: false, error: 'Decision model flagged this shell action as high impact, and no approval handler is available. Review and run it manually if intended.', durationMs: 0, truncated: false } });
       } else if (!requiresApproval || await this.config.requestToolApproval!(call, definition!)) {
+        if (call.tool === 'execute_order' && call.args.mode === 'live') {
+          const now = new Date();
+          const token: ApprovalToken = {
+            id: `tui-${call.id ?? call.correlationId ?? Date.now()}`,
+            approvalRequestId: call.id ?? call.correlationId ?? '',
+            approvedBy: 'interactive-user',
+            channel: 'tui',
+            action: `execute_order:${String(call.args.symbol ?? '')}:${String(call.args.side ?? '')}`,
+            artifactType: 'OrderIntent',
+            artifactHash: stableStringify(call.args),
+            createdAt: now,
+            expiresAt: new Date(now.getTime() + 60_000),
+            singleUse: true,
+            used: false,
+            signature: '',
+          };
+          attachLiveOrderApproval(call, token);
+        }
         approved.push(call);
       } else {
         denied.push({ call, result: { success: false, error: 'User denied this tool call.', durationMs: 0, truncated: false } });
@@ -902,10 +930,8 @@ Explore the repository and design an implementation plan. You are strictly read-
     if (!allowTools || !this.config.toolRegistry) return [];
 
     // Resolve active profiles (core profiles always included)
-    const profiles = resolveProfiles(this.config.activeProfiles);
-    const allowedToolNames = this.config.activeProfiles?.length
-      ? new Set(getToolsForProfiles(profiles))
-      : undefined;
+    const profiles = resolveProfiles(this.config.activeProfiles, this.config.availablePluginProfiles);
+    const allowedToolNames = new Set(getToolsForProfiles(profiles));
 
     // Get all registered tools, then filter by profile + policy
     const definitions = this.config.toolRegistry.list()
@@ -2808,6 +2834,31 @@ Explore the repository and design an implementation plan. You are strictly read-
     executionMode: "backtest" | "paper" | "micro_live" | "live";
   }): Promise<void> {
     const trade = params.trade;
+
+    await this.config.memory.put({
+      scope: 'trade_outcomes',
+      kind: trade.realizedPnL === undefined ? 'trade_execution' : 'trade_outcome',
+      payload: {
+        venue: params.intent.venue,
+        symbol: trade.symbol,
+        side: trade.side,
+        quantity: trade.quantity,
+        entryPrice: trade.price,
+        stopLoss: params.intent.stopLoss,
+        takeProfit: params.intent.takeProfit,
+        thesis: params.intent.thesis,
+        invalidation: params.intent.invalidation,
+        mode: params.executionMode,
+        status: trade.status,
+        realizedPnL: trade.realizedPnL,
+        riskAtStop: params.intent.stopLoss && trade.price > 0
+          ? trade.quantity * Math.abs(trade.price - params.intent.stopLoss)
+          : undefined,
+        evidence: params.intent.marketEvidence,
+        recordedAt: trade.timestamp.toISOString(),
+      },
+      ts: trade.timestamp,
+    });
 
     await this.memoryWriter.writeObservation({
       content: [

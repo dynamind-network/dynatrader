@@ -63,6 +63,8 @@ export interface ExecutionRouterConfig {
   walletManager?: WalletManager;
   /** Persistent kill-switch state; when halted, all matching executions are rejected */
   haltState?: HaltState;
+  /** Runtime-level trading policy checked for every execution path. */
+  validateOrder?: (intent: OrderIntent, mode: ExecutionMode) => Promise<string | null> | string | null;
 }
 
 export interface ExecutionEvent {
@@ -127,6 +129,11 @@ export class ExecutionRouterImpl {
         `HALTED: ${halts.map((h) => `${h.scope === "global" ? "global" : h.scope.symbol} — ${h.reason} (via ${h.source})`).join("; ")}`,
         executionMode,
       );
+    }
+
+    if (this.config.validateOrder) {
+      const policyError = await this.config.validateOrder(intent, executionMode);
+      if (policyError) return this.recordRejection(intent, policyError, executionMode);
     }
 
     // 2. Dispatch based on execution mode

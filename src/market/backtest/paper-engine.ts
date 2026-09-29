@@ -161,6 +161,18 @@ export class PaperEngine {
     this.resetState();
   }
 
+  /** Register a fresh venue snapshot for paper execution without resetting portfolio history. */
+  async refreshPaperMarketData(symbol: string, data: OHLCVData[], venue = this.adapter.id): Promise<void> {
+    if (data.length === 0) throw new Error(`No market data provided for ${symbol}`);
+    const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
+    const feed: MarketDataFeed = { symbol, venue, data: sorted, currentIndex: sorted.length };
+    this.marketFeeds.set(symbol, feed);
+    const latest = sorted[sorted.length - 1]!;
+    this.currentTime = new Date(latest.timestamp);
+    await this.updatePortfolio(symbol, latest);
+    this.snapshotPortfolio(this.currentTime);
+  }
+
   /**
    * Process a single time step for a symbol feed.
    */

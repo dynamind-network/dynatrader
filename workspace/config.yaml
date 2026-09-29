@@ -11,6 +11,13 @@ runtime:
   liveTradingEnabled: false
   enableShadowMode: false
   enableMicroLiveMode: false
+# Agent-selected trades execute autonomously only in paper mode and only when
+# all caps below are configured. Values are fractions of equity (0.01 = 1%).
+# Live orders always require one-shot interactive approval.
+tradingRisk:
+  # maxPositionPct: 0.01
+  # maxDailyLossPct: 0.03
+  # maxConcurrentPositions: 3
 exchange:
   id: hyperliquid
   sandbox: false

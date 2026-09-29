@@ -64,7 +64,7 @@ export type ToolProfile = CoreProfile | PluginProfile | 'full';
 // ---------------------------------------------------------------------------
 
 const CORE_TOOLS: Record<CoreProfile, string[]> = {
-  base: ['read', 'write', 'edit', 'glob', 'grep', 'web_fetch', 'web_search'],
+  base: ['read', 'write', 'edit', 'glob', 'grep', 'exec', 'task_output', 'task_list', 'task_stop', 'web_fetch', 'web_search'],
   memory: ['memory_search', 'memory_write'],
   multi_agent: ['spawn_subagent', 'sessions_list', 'sessions_history', 'session_search', 'session_status'],
   messaging: ['telegram_send', 'inbox_deliver'],
@@ -73,7 +73,7 @@ const CORE_TOOLS: Record<CoreProfile, string[]> = {
 };
 
 const PLUGIN_TOOLS: Record<PluginProfile, string[]> = {
-  trading: ['market_data', 'exec'],
+  trading: ['market_data', 'indicators', 'scan_market', 'size_position', 'backtest', 'propose_order', 'execute_order'],
   risk: ['halt_trading', 'resume_trading', 'trading_halt_status', 'check_circuit_breakers'],
 };
 

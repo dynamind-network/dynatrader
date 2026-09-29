@@ -105,6 +105,17 @@ export interface OrderIntent {
   limitPrice?: number;
   strategyId: string;
   mode: TradeMode;
+  stopLoss?: number;
+  takeProfit?: number;
+  thesis?: string;
+  invalidation?: string;
+  marketEvidence?: {
+    venue: string;
+    timeframe: string;
+    fetchedAt: string;
+    asOf: string;
+    stalenessMs: number;
+  };
 }
 
 // Risk decision

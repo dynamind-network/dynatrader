@@ -76,6 +76,11 @@ export interface DynaConfig {
     maxTurns?: number;
   };
   decisionModels?: DecisionModelsConfig;
+  tradingRisk?: {
+    maxPositionPct?: number;
+    maxDailyLossPct?: number;
+    maxConcurrentPositions?: number;
+  };
   market?: {
     symbols?: string[];
   };
@@ -212,6 +217,11 @@ const ZodConfigSchema = z.object({
       completion: z.boolean().optional(),
       commandRisk: z.boolean().optional(),
     }).partial().optional(),
+  }).partial().optional(),
+  tradingRisk: z.object({
+    maxPositionPct: z.number().positive().max(1).optional(),
+    maxDailyLossPct: z.number().positive().max(1).optional(),
+    maxConcurrentPositions: z.number().int().positive().max(100).optional(),
   }).partial().optional(),
   market: z.object({
     symbols: z.array(z.string()).optional(),
@@ -490,6 +500,7 @@ function mergeWithDefaults(raw: Record<string, unknown>): DynaConfig {
         : defaults.terminal?.maxTurns,
     },
     decisionModels: (validated['decisionModels'] as DecisionModelsConfig) ?? defaults.decisionModels,
+    tradingRisk: validated['tradingRisk'] as DynaConfig['tradingRisk'],
     market: {
       symbols: Array.isArray((validated['market'] as Record<string, unknown>)?.['symbols'])
         ? ((validated['market'] as Record<string, unknown>)['symbols'] as string[])

@@ -152,19 +152,20 @@ export class ActiveMemoryRecall {
 
     // 1. Search MemoryStore (event-based memories)
     try {
-      const memoryResults = await this.memory.search({
-        scope: "agent_memory",
-        text: query,
-        topK: this.config.topK,
-      });
+      const [memoryResults, tradeResults] = await Promise.all([
+        this.memory.search({ scope: "agent_memory", text: query, topK: this.config.topK }),
+        this.memory.search({ scope: "trade_outcomes", text: query, topK: this.config.topK }),
+      ]);
 
-      for (const r of memoryResults) {
-        results.push({
-          id: r.id,
-          content: typeof r.payload === "string" ? r.payload : JSON.stringify(r.payload),
-          score: r.score,
-          scope: "agent_memory",
-        });
+      for (const [scope, scopedResults] of [["agent_memory", memoryResults], ["trade_outcomes", tradeResults]] as const) {
+        for (const r of scopedResults) {
+          results.push({
+            id: r.id,
+            content: typeof r.payload === "string" ? r.payload : JSON.stringify(r.payload),
+            score: r.score,
+            scope,
+          });
+        }
       }
     } catch {
       // MemoryStore search failed, continue with StateDb results

@@ -727,7 +727,10 @@ export class JsonRpcServer {
 
   private requestToolApproval(call: import('@dyna/contracts').ToolCall, definition: import('@dyna/contracts').ToolDefinition): Promise<boolean> {
     if (this.autoApproveTools) {
-      if (call.tool === 'exec' && typeof call.args.command === 'string') {
+      // Live order approvals are always interactive, even in global auto mode.
+      if (call.tool === 'execute_order' && call.args.mode === 'live') {
+        // Fall through to the interactive approval flow below.
+      } else if (call.tool === 'exec' && typeof call.args.command === 'string') {
         const safety = classifyShellCommand(call.args.command);
         if (safety.decision === 'block') return Promise.resolve(false);
         if (safety.decision === 'allow') return Promise.resolve(true);

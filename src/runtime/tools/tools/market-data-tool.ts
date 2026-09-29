@@ -90,9 +90,10 @@ export class MarketDataTool implements ToolHandler {
       return { success: false, error: `No price data for ${symbol}`, durationMs: Date.now() - start, truncated: false };
     }
     const [ts, open, high, low, close] = candles[0]! as unknown as [number, number, number, number, number];
+    const fetchedAt = Date.now();
     return {
       success: true,
-      data: { symbol, price: close, open, high, low, timestamp: new Date(ts).toISOString() },
+      data: { venue: this.exchange.id, source: 'exchange', symbol, timeframe, price: close, open, high, low, timestamp: new Date(ts).toISOString(), asOf: new Date(ts).toISOString(), fetchedAt: new Date(fetchedAt).toISOString(), stalenessMs: Math.max(0, fetchedAt - ts) },
       durationMs: Date.now() - start,
       truncated: false,
     };
@@ -120,11 +121,17 @@ export class MarketDataTool implements ToolHandler {
     }
     const limit = (call.args.limit as number) || 30;
     const candles = await this.exchange.fetchOHLCV({ symbol, timeframe, limit });
+    const fetchedAt = Date.now();
+    const lastTimestamp = candles.at(-1)?.[0];
     return {
       success: true,
       data: {
+        venue: this.exchange.id,
+        source: 'exchange',
         symbol,
         timeframe,
+        fetchedAt: new Date(fetchedAt).toISOString(),
+        ...(typeof lastTimestamp === 'number' ? { asOf: new Date(lastTimestamp).toISOString(), stalenessMs: Math.max(0, fetchedAt - lastTimestamp) } : {}),
         candles: candles.map((c: [number, number, number, number, number, number]) => ({
           timestamp: new Date(c[0]).toISOString(),
           open: c[1],
@@ -155,7 +162,7 @@ export class MarketDataTool implements ToolHandler {
     const markets = await this.exchange.fetchMarkets();
     return {
       success: true,
-      data: markets,
+      data: { venue: this.exchange.id, source: 'exchange', fetchedAt: new Date().toISOString(), markets },
       durationMs: Date.now() - start,
       truncated: false,
     };

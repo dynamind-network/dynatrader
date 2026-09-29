@@ -34,6 +34,14 @@ runtime:
   mode: paper
   strictMode: false
 
+# The agent chooses whether to propose a trade. These caps are the execution
+# boundary for autonomous paper trading. Configure all three to enable orders.
+# Percentages are fractions: 0.01 means 1% of equity.
+tradingRisk:
+  # maxPositionPct: 0.01
+  # maxDailyLossPct: 0.03
+  # maxConcurrentPositions: 3
+
 exchange:
   id: <SET_EXCHANGE>
   sandbox: true

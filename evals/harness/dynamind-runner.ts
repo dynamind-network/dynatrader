@@ -33,7 +33,6 @@ import { GrepTool } from '../../src/runtime/tools/tools/grep-tool';
 import { WebFetchTool } from '../../src/runtime/tools/tools/web-fetch-tool';
 import { MemorySearchTool } from '../../src/runtime/tools/tools/memory-search-tool';
 import { MemoryWriteTool } from '../../src/runtime/tools/tools/memory-write-tool';
-import { MemoryGetTool } from '../../src/runtime/tools/tools/memory-get-tool';
 import { WriteTool } from '../../src/runtime/tools/tools/write-tool';
 import { EditTool } from '../../src/runtime/tools/tools/edit-tool';
 import { ExecTool } from '../../src/runtime/tools/tools/exec-tool';
@@ -392,7 +391,6 @@ function createScopedRegistry(
 
   // Memory profile tools
   registry.register(new MemorySearchTool(memory));
-  registry.register(new MemoryGetTool(memory));
   registry.register(new MemoryWriteTool(memory));
 
   // Multi-agent profile tools
