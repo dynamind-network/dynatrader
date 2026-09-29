@@ -86,7 +86,8 @@ export async function executeBatch(
 ): Promise<BatchExecutionResult> {
   const legacyBatch = (registry as ToolRegistry & { executeBatch?: (calls: ToolCall[]) => Promise<Array<{ call: ToolCall; result: ToolResult }>> }).executeBatch;
   if (legacyBatch) {
-    const results = await legacyBatch(inputs.map(input => input.call));
+    // Registry implementations commonly rely on `this` for their handler map.
+    const results = await legacyBatch.call(registry, inputs.map(input => input.call));
     return {
       results: inputs.map(input => ({
         batchIndex: input.batchIndex,

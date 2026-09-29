@@ -92,7 +92,17 @@ export function getModelDisplayName(modelId: string): string {
   const lmModels = getLMStudioCachedModels();
   const lmModel = lmModels?.find((m) => m.id === modelId);
   if (lmModel) return lmModel.name;
-  return modelId;
+
+  const knownPrefixes: Record<string, string> = {
+    claude: 'Claude',
+    deepseek: 'DeepSeek',
+    gemini: 'Gemini',
+    gpt: 'GPT',
+  };
+  const [prefix, ...parts] = modelId.replace(/-\d{8}$/, '').split(/[-/]/);
+  if (!prefix || !knownPrefixes[prefix.toLowerCase()]) return modelId;
+  const suffix = parts.map((part) => part[0]!.toUpperCase() + part.slice(1));
+  return [knownPrefixes[prefix.toLowerCase()], ...suffix].join(' ');
 }
 
 export function findProviderForModel(modelId: string): string | null {

@@ -97,6 +97,8 @@ export BINANCE_API_KEY=your-api-key
 export BINANCE_SECRET=your-api-secret
 ```
 
+For a single configured CCXT exchange, the generic aliases `EXCHANGE_API_KEY` and `EXCHANGE_SECRET` are also accepted; `EXCHANGE_PASSPHRASE` is supported for venues that require one. Venue-specific variables take precedence. Set `EXCHANGE_ID` when the exchange is not specified in configuration. Generic aliases are not used when multiple exchanges are configured or for native adapters.
+
 See `.env.example` for all available environment variables.
 
 ### Workspace
@@ -128,6 +130,7 @@ The init wizard creates your workspace at `~/.dynatrader/`:
 ```bash
 dynatrader              # Launch TUI
 dynatrader --tui        # Explicit TUI
+dynatrader --no-daemon  # Use the local standalone coding agent runtime
 ```
 
 ### CLI Commands

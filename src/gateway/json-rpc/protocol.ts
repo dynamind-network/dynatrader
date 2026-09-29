@@ -82,6 +82,7 @@ export interface PromptSubmitParams {
   message: string;
   sessionId?: string;
   templateName?: string;
+  approvalMode?: 'default' | 'auto_edit' | 'yolo';
 }
 
 export interface PromptCancelParams {

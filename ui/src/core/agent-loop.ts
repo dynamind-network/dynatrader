@@ -22,8 +22,8 @@ import type {
   RecoveryState,
 } from './types.js';
 import type { EffortLevel } from './providers/catalog.js';
+import { findProviderForModel } from './providers/index.js';
 import { AgentState } from './agent-state.js';
-import type { Plan } from './plan-manager.js';
 import { resolveDynatraderLaunchSpec } from './dynatrader-launcher.js';
 import { SessionCheckpoint } from './session-checkpoint.js';
 
@@ -59,8 +59,6 @@ const RPC = {
   AGENT_STATE: 'agent.state',
   PLAN_ENTER: 'plan.enter',
   PLAN_EXIT: 'plan.exit',
-  PLAN_APPROVE: 'plan.approve',
-  PLAN_REJECT: 'plan.reject',
 } as const;
 
 // DynaTrader RPC event names
@@ -72,9 +70,6 @@ const EVENTS = {
   THINKING: 'thinking',
   ERROR: 'error',
   SESSION_UPDATE: 'session.update',
-  PLAN_MODE_ENTERED: 'plan.mode.entered',
-  PLAN_MODE_EXITED: 'plan.mode.exited',
-  PLAN_STEP_UPDATE: 'plan.step.update',
   AGENT_TASK_UPDATE: 'agent.task.update',
 } as const;
 
@@ -103,11 +98,6 @@ export class AgentLoop {
     input: Record<string, unknown>,
     reason?: string
   ) => Promise<boolean>;
-  private onPlanApprovalRequired?: (plan: Plan) => Promise<boolean>;
-  private _currentPlan: Plan | null = null;
-  private _planningMode = false;
-
-  // Local state
   private _executionMode: ExecutionMode = 'normal';
   private _approvalMode: ApprovalMode = 'default';
   private _state: AgentState = AgentState.IDLE;
@@ -155,7 +145,6 @@ export class AgentLoop {
         input: Record<string, unknown>,
         reason?: string
       ) => Promise<boolean>;
-      onPlanApprovalRequired?: (plan: Plan) => Promise<boolean>;
       rpcClient?: RpcClientLike;
     }
   ) {
@@ -163,12 +152,23 @@ export class AgentLoop {
     this._currentModel = config.model;
     this.onEvent = options?.onEvent;
     this.onApprovalRequired = options?.onApprovalRequired;
-    this.onPlanApprovalRequired = options?.onPlanApprovalRequired;
 
-    // Spawn the DynaTrader runtime SDK. Prefer a repo-local smart entrypoint when
-    // the installed binary is unavailable so dev setups do not fail with ENOENT.
-    const launchSpec = resolveDynatraderLaunchSpec();
-    this.client = options?.rpcClient ?? new JsonRpcClient(launchSpec.command, launchSpec.args);
+    // Prefer a repo-local entrypoint when the installed binary is unavailable.
+    const launchSpec = resolveDynatraderLaunchSpec({
+      noDaemon: process.env.DYNATRADER_NO_DAEMON === 'true',
+    });
+    const providerEnv: NodeJS.ProcessEnv = {};
+    for (const [provider, key] of Object.entries(apiKeys)) {
+      if (!key?.trim()) continue;
+      const envName = provider === 'gemini'
+        ? 'GEMINI_API_KEY'
+        : provider === 'lmstudio'
+          ? 'LM_STUDIO_API_KEY'
+          : `${provider.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_API_KEY`;
+      providerEnv[envName] = key;
+      if (provider === 'google') providerEnv.GEMINI_API_KEY ??= key;
+    }
+    this.client = options?.rpcClient ?? new JsonRpcClient(launchSpec.command, launchSpec.args, providerEnv);
     this.wireEvents();
   }
 
@@ -281,44 +281,6 @@ export class AgentLoop {
       this.emit({ type: 'error', error: message });
     });
 
-    this.client.on(EVENTS.PLAN_MODE_ENTERED, (params) => {
-      const { goal } = (params ?? {}) as { goal?: string };
-      this._planningMode = true;
-      this.emit({ type: 'plan_mode_entered', goal });
-    });
-
-    this.client.on(EVENTS.PLAN_MODE_EXITED, (params) => {
-      const { plan, approved } = (params ?? {}) as { plan?: Plan; approved?: boolean };
-      if (plan) this._currentPlan = this.hydratePlan(plan);
-      this.emit({ type: 'plan_mode_exited', plan: this._currentPlan ?? undefined, approved });
-      if (this._currentPlan && approved === undefined && this.onPlanApprovalRequired) {
-        void this.onPlanApprovalRequired(this._currentPlan).then((ok) =>
-          ok ? this.approveCurrentPlan() : this.rejectCurrentPlan()
-        );
-      }
-      if (approved) this._planningMode = false;
-    });
-
-    this.client.on(EVENTS.PLAN_STEP_UPDATE, (params) => {
-      const { planId, step, status } = params as {
-        planId: string;
-        step: Plan['steps'][number] | string;
-        status?: Plan['steps'][number]['status'];
-      };
-      const normalizedStep: Plan['steps'][number] =
-        typeof step === 'string'
-          ? {
-              id: step,
-              description: step.replace(/_/g, ' '),
-              reasoning: 'Planning lifecycle update from DynaTrader.',
-              status: status ?? 'in_progress',
-            }
-          : step;
-      const existing = this._currentPlan?.steps.find((item) => item.id === normalizedStep.id);
-      if (existing) Object.assign(existing, normalizedStep);
-      this.emit({ type: 'plan_step_update', planId, step: normalizedStep });
-    });
-
     this.client.on(EVENTS.AGENT_TASK_UPDATE, (params) => {
       const { task } = params as {
         task: {
@@ -405,6 +367,7 @@ export class AgentLoop {
           message: userMessage,
           sessionId: context.conversationId,
           reasoningEffort: this._effort !== 'none' ? this._effort : undefined,
+          approvalMode: this._approvalMode,
         })
         .then(async (result) => {
           this._stats.totalDurationMs += Date.now() - startTime;
@@ -488,8 +451,11 @@ export class AgentLoop {
   // -------------------------------------------------------------------------
 
   switchModel(modelId: string): { success: boolean; error?: string } {
+    const providerModelId = modelId.includes('/')
+      ? modelId
+      : `${findProviderForModel(modelId) ?? ''}/${modelId}`;
     this.client
-      .call<{ switched: boolean; newModel: string }>(RPC.MODEL_SWITCH, { modelId })
+      .call<{ switched: boolean; newModel: string }>(RPC.MODEL_SWITCH, { modelId: providerModelId })
       .then((result) => {
         if (result.switched) {
           this._currentModel = result.newModel;
@@ -714,55 +680,8 @@ export class AgentLoop {
     return result.availableTools;
   }
 
-  // -------------------------------------------------------------------------
-  // Planning
-  // -------------------------------------------------------------------------
-
-  getCurrentPlan(): Plan | null {
-    return this._currentPlan;
-  }
-
-  async approveCurrentPlan(): Promise<boolean> {
-    if (!this._currentPlan) return false;
-    const result = await this.client.call<{ approved?: boolean } | boolean>(RPC.PLAN_APPROVE, {
-      planId: this._currentPlan.id,
-    });
-    const approved = typeof result === 'boolean' ? result : result.approved !== false;
-    if (approved) {
-      this._currentPlan.status = 'approved';
-      this._planningMode = false;
-    }
-    return approved;
-  }
-
-  rejectCurrentPlan(reason?: string): Promise<boolean> {
-    if (!this._currentPlan) return Promise.resolve(false);
-    return this.client.call(RPC.PLAN_REJECT, { planId: this._currentPlan.id, reason }).then(() => {
-      if (this._currentPlan) this._currentPlan.status = 'draft';
-      this._planningMode = true;
-      return true;
-    });
-  }
-
-  cancelCurrentPlan(reason?: string): void {
-    void this.rejectCurrentPlan(reason);
-  }
-
   async setPlanningMode(enabled: boolean, goal?: string): Promise<void> {
     await this.client.call(enabled ? RPC.PLAN_ENTER : RPC.PLAN_EXIT, goal ? { goal } : undefined);
-    this._planningMode = enabled;
-  }
-
-  isPlanningMode(): boolean {
-    return this._planningMode;
-  }
-
-  private hydratePlan(plan: Plan): Plan {
-    return {
-      ...plan,
-      createdAt: new Date(plan.createdAt),
-      updatedAt: plan.updatedAt ? new Date(plan.updatedAt) : undefined,
-    };
   }
 
   // -------------------------------------------------------------------------

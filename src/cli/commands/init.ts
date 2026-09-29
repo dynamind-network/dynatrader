@@ -8,21 +8,21 @@
  */
 
 import * as readline from 'readline';
-import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
+import { mkdir, writeFile, readFile, unlink, access } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { bold, cyan, green, red, yellow, dim, printSeparator, printHeader } from '../utils';
 import { getWorkspacePath, ensureWorkspace } from '../../workspace-init';
+import { formatCredentialPresence, missingCredentialEnvNames } from './credentials';
+import yaml from 'js-yaml';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface InitAnswers {
+export interface InitAnswers {
   exchange: string;
   tradingMode: string;
-  apiKey: string;
-  apiSecret: string;
   riskLevel: string;
   modelProvider: string;
   modelName: string;
@@ -45,8 +45,6 @@ interface InitValidationIssue {
 const DEFAULTS: InitAnswers = {
   exchange: '',
   tradingMode: 'paper',
-  apiKey: '',
-  apiSecret: '',
   riskLevel: 'conservative',
   modelProvider: '',
   modelName: '',
@@ -96,7 +94,37 @@ function getNonInteractiveDefaults(): InitAnswers {
   return { ...DEFAULTS };
 }
 
-export function validateInitAnswers(answers: InitAnswers): InitValidationIssue[] {
+export function formatInitCredentialPresence(exchange: string, env: NodeJS.ProcessEnv = process.env, configuredExchangeIds?: readonly string[]): string[] {
+  const exchangeId = configuredExchangeIds?.[0]?.trim() || exchange.trim() || env.EXCHANGE_ID?.trim() || '';
+  const exchangeIds = configuredExchangeIds ?? (exchangeId ? [exchangeId] : []);
+  return formatCredentialPresence(exchangeId, exchangeIds, env);
+}
+
+export async function loadInitExchangeContext(workspacePath: string, answers: InitAnswers, env: NodeJS.ProcessEnv = process.env): Promise<{ exchangeId: string; exchangeIds: string[] }> {
+  const configPath = join(workspacePath, 'config.yaml');
+  let configuredExchangeIds: string[] = [];
+  try {
+    await access(configPath);
+    const parsed: unknown = yaml.load(await readFile(configPath, 'utf-8'));
+    if (parsed !== undefined && parsed !== null && !isConfigMapping(parsed)) throw new Error('Invalid workspace config root');
+    const parsedConfig = parsed as Record<string, unknown> | undefined;
+    for (const section of ['workspace', 'runtime', 'models'] as const) {
+      const value = parsedConfig?.[section];
+      if (value !== undefined && value !== null && !isConfigMapping(value)) throw new Error(`Invalid workspace ${section} config`);
+    }
+    const exchange = parsedConfig?.['exchange'];
+    if (exchange !== undefined && exchange !== null && !isConfigMapping(exchange)) throw new Error('Invalid workspace exchange config');
+    const ids = (exchange as Record<string, unknown> | undefined)?.['ids'];
+    if (ids !== undefined && (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string'))) throw new Error('Invalid workspace exchange.ids');
+    configuredExchangeIds = (ids as string[] | undefined)?.filter((id) => id.trim().length > 0) ?? [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  const exchangeId = configuredExchangeIds[0]?.trim() || answers.exchange.trim() || env.EXCHANGE_ID?.trim() || '';
+  return { exchangeId, exchangeIds: configuredExchangeIds.length ? configuredExchangeIds : (exchangeId ? [exchangeId] : []) };
+}
+
+export function validateInitAnswers(answers: InitAnswers, env: NodeJS.ProcessEnv = process.env, configuredExchangeIds?: readonly string[]): InitValidationIssue[] {
   const issues: InitValidationIssue[] = [];
   const mode = answers.tradingMode.trim().toLowerCase();
   const needsExchangeCredentials = mode === 'live' || mode === 'micro_live';
@@ -118,23 +146,29 @@ export function validateInitAnswers(answers: InitAnswers): InitValidationIssue[]
   }
 
   if (needsExchangeCredentials) {
-    if (!answers.exchange.trim()) {
+    const configuredIds = configuredExchangeIds ?? [];
+    const exchangeId = configuredIds[0]?.trim() || answers.exchange.trim() || env.EXCHANGE_ID?.trim() || '';
+    if (!exchangeId) {
       issues.push({
         level: 'error',
         title: 'Exchange is required for live execution',
         detail: 'Choose the exact exchange before enabling live or micro-live execution.',
       });
-    }
-    if (!answers.apiKey.trim() || !answers.apiSecret.trim()) {
-      issues.push({
-        level: 'error',
-        title: 'Exchange credentials are required for live execution',
-        detail: 'Set both API key and secret before using live or micro-live mode.',
-      });
+    } else {
+      const exchangeIds = configuredExchangeIds ?? [exchangeId];
+      const missing = missingCredentialEnvNames(exchangeId, exchangeIds, mode, env);
+      if (missing.length) {
+        issues.push({
+          level: 'error',
+          title: 'Exchange credentials are required for live execution',
+          detail: `Set required environment variables: ${missing.join(', ')}.`,
+        });
+      }
     }
   }
 
-  if (mode === 'shadow' && !answers.exchange.trim()) {
+  const effectiveExchangeId = configuredExchangeIds?.[0]?.trim() || answers.exchange.trim() || env.EXCHANGE_ID?.trim() || '';
+  if (mode === 'shadow' && !effectiveExchangeId) {
     issues.push({
       level: 'warning',
       title: 'Shadow mode still needs a target exchange',
@@ -196,18 +230,54 @@ function renderInitValidation(issues: InitValidationIssue[]): { hasErrors: boole
 // Config writer
 // ---------------------------------------------------------------------------
 
-async function writeConfigYaml(workspacePath: string, answers: InitAnswers): Promise<void> {
+class LegacyExchangeCredentialsError extends Error {}
+
+function isConfigMapping(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date);
+}
+
+export async function writeConfigYaml(workspacePath: string, answers: InitAnswers): Promise<void> {
   const configPath = join(workspacePath, 'config.yaml');
 
   let existing: Record<string, unknown> = {};
   if (existsSync(configPath)) {
-    try {
-      const content = await readFile(configPath, 'utf-8');
-      const { default: yaml } = await import('js-yaml');
-      existing = yaml.load(content) as Record<string, unknown>;
-    } catch {
-      // Start fresh
+    const content = await readFile(configPath, 'utf-8');
+    const parsed: unknown = yaml.load(content);
+    if (parsed !== undefined && parsed !== null && !isConfigMapping(parsed)) {
+      throw new Error('Invalid workspace config root');
     }
+    const parsedConfig = parsed as Record<string, unknown> | undefined;
+    for (const section of ['workspace', 'runtime', 'models'] as const) {
+      const value = parsedConfig?.[section];
+      if (value !== undefined && value !== null && !isConfigMapping(value)) {
+        throw new Error(`Invalid workspace ${section} config`);
+      }
+    }
+    const exchangeValue = parsedConfig?.['exchange'];
+    if (exchangeValue !== undefined && exchangeValue !== null && !isConfigMapping(exchangeValue)) {
+      throw new Error('Invalid workspace exchange config');
+    }
+    if (parsedConfig && 'exchange' in parsedConfig) {
+      const exchange = (parsedConfig as { exchange?: unknown }).exchange;
+      if (exchange && typeof exchange === 'object') {
+        const legacy = new Set<string>();
+        const visited = new WeakSet<object>();
+        const visit = (value: unknown): void => {
+          if (!value || typeof value !== 'object') return;
+          if (visited.has(value)) return;
+          visited.add(value);
+          for (const [key, child] of Object.entries(value)) {
+            if (['apiKey', 'secret', 'privateKey', 'accessToken', 'sessionToken', 'passphrase'].includes(key)) legacy.add(key);
+            visit(child);
+          }
+        };
+        visit(exchange);
+        if (legacy.size) {
+          throw new LegacyExchangeCredentialsError(`Existing config.yaml contains legacy exchange field(s) ${[...legacy].join(', ')}. Remove these fields manually before rerunning init.`);
+        }
+      }
+    }
+    existing = parsedConfig ?? {};
   }
 
   const config = {
@@ -231,10 +301,11 @@ async function writeConfigYaml(workspacePath: string, answers: InitAnswers): Pro
     },
     exchange: {
       ...((existing['exchange'] as Record<string, unknown>) ?? {}),
-      id: answers.exchange,
+      id: ((existing['exchange'] as Record<string, unknown> | undefined)?.['ids'] as unknown[] | undefined)?.find((id): id is string => typeof id === 'string' && id.trim().length > 0)?.trim()
+        || answers.exchange.trim()
+        || process.env.EXCHANGE_ID?.trim()
+        || '',
       sandbox: answers.tradingMode !== 'live',
-      apiKey: answers.apiKey || '',
-      secret: answers.apiSecret || '',
     },
     models: {
       ...((existing['models'] as Record<string, unknown>) ?? {}),
@@ -255,7 +326,6 @@ async function writeConfigYaml(workspacePath: string, answers: InitAnswers): Pro
     },
   };
 
-  const { default: yaml } = await import('js-yaml');
   await writeFile(configPath, yaml.dump(config, {
     indent: 2,
     lineWidth: 100,
@@ -369,14 +439,7 @@ export async function cmdInit(options: { yes?: boolean }): Promise<void> {
         `  Trading mode (paper/shadow/live) [${DEFAULTS.tradingMode}]: `,
         DEFAULTS.tradingMode,
       );
-      answers.apiKey = await ask(
-        '  API Key (leave empty for paper mode): ',
-        '',
-      );
-      answers.apiSecret = await ask(
-        '  API Secret (leave empty for paper mode): ',
-        '',
-      );
+      console.log();
 
       console.log();
       console.log(bold(cyan('Step 2: Trading Preferences')));
@@ -416,17 +479,21 @@ export async function cmdInit(options: { yes?: boolean }): Promise<void> {
       console.log();
 
       console.log(bold('  Summary:'));
-      console.log(`    Exchange:       ${green(answers.exchange)}`);
+      const exchangeContext = await loadInitExchangeContext(workspacePath, answers);
+      console.log(`    Exchange:       ${green(exchangeContext.exchangeId || '(not selected)')}`);
       console.log(`    Trading Mode:   ${green(answers.tradingMode)}`);
       console.log(`    Risk Level:     ${green(answers.riskLevel)}`);
       console.log(`    Model:          ${green(answers.modelProvider)} / ${green(answers.modelName)}`);
       console.log(`    Telegram:       ${answers.enableTelegram ? green('enabled') : yellow('disabled')}`);
       console.log(`    Discord:        ${answers.enableDiscord ? green('enabled') : yellow('disabled')}`);
       console.log(`    Slack/Signal:   ${yellow('workspace policy / external gateway')}`);
-      console.log(`    API Keys:       ${answers.apiKey ? green('configured') : yellow('not set (paper mode)')}`);
+      if (exchangeContext.exchangeIds.length > 1) {
+        console.log(`    Active exchange IDs: ${exchangeContext.exchangeIds.join(', ')}`);
+      }
+      for (const status of formatInitCredentialPresence(exchangeContext.exchangeId, process.env, exchangeContext.exchangeIds)) console.log(`    ${status}`);
       console.log();
 
-      const issues = validateInitAnswers(answers);
+      const issues = validateInitAnswers(answers, process.env, exchangeContext.exchangeIds);
       const validation = renderInitValidation(issues);
       if (validation.hasErrors) {
         console.log(yellow('  Update the answers above and rerun init.'));
@@ -450,13 +517,15 @@ export async function cmdInit(options: { yes?: boolean }): Promise<void> {
   await writeConfigYaml(workspacePath, answers);
   console.log(`  ${green('[OK]')} config.yaml`);
 
-  await writeIdentityMd(workspacePath, answers);
+  const effectiveContext = await loadInitExchangeContext(workspacePath, answers);
+  await writeIdentityMd(workspacePath, { ...answers, exchange: effectiveContext.exchangeId });
   console.log(`  ${green('[OK]')} IDENTITY.md`);
 
   await writeUserMd(workspacePath, answers);
   console.log(`  ${green('[OK]')} USER.md`);
 
-  const validation = renderInitValidation(validateInitAnswers(answers));
+  const exchangeContext = await loadInitExchangeContext(workspacePath, answers);
+  const validation = renderInitValidation(validateInitAnswers(answers, process.env, exchangeContext.exchangeIds));
   if (validation.hasErrors) {
     console.log();
     console.log(red('Workspace files were written, but launch validation failed.'));
@@ -487,13 +556,7 @@ export async function cmdInit(options: { yes?: boolean }): Promise<void> {
   console.log();
   console.log(bold('Next steps:'));
   console.log(`  1. Edit ${dim(resolve(join(workspacePath, 'USER.md')))} with your personal info`);
-  if (answers.apiKey) {
-    console.log(`  2. Set environment variables for API keys:`);
-    console.log(`     ${dim(`${answers.exchange.toUpperCase()}_API_KEY=your_key`)}`);
-    console.log(`     ${dim(`${answers.exchange.toUpperCase()}_SECRET=your_secret`)}`);
-  } else {
-    console.log(`  2. Configure your preferred markets in USER.md and workspace files.`);
-  }
+  console.log(`  2. Configure your preferred markets in USER.md and workspace files.`);
   if (answers.modelProvider === 'ollama') {
     console.log(`  3. Ensure Ollama is running: ${dim('ollama serve')}`);
   } else if (answers.modelProvider === 'openai') {

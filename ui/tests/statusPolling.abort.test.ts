@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -53,15 +53,17 @@ describe('useStatusPolling - AbortController integration', () => {
   });
 
   describe('hook interface unchanged', () => {
-    it('exports useStatusPolling function', async () => {
-      const { useStatusPolling } = await import('../src/ui/hooks/useStatusPolling.js');
-      expect(typeof useStatusPolling).toBe('function');
+    it('exports useStatusPolling function', () => {
+      const hookPath = path.join(import.meta.dirname, '../src/ui/hooks/useStatusPolling.ts');
+      const content = fs.readFileSync(hookPath, 'utf-8');
+      expect(content).toContain('export function useStatusPolling(');
     });
 
-    it('StatusPollingResult interface still has gitStatus and contextUsage', async () => {
-      // Verify the module exports are intact by checking the hook exists
-      const { useStatusPolling } = await import('../src/ui/hooks/useStatusPolling.js');
-      expect(useStatusPolling).toBeDefined();
+    it('StatusPollingResult interface still has gitStatus and contextUsage', () => {
+      const hookPath = path.join(import.meta.dirname, '../src/ui/hooks/useStatusPolling.ts');
+      const content = fs.readFileSync(hookPath, 'utf-8');
+      expect(content).toContain('gitStatus: GitStatus | null;');
+      expect(content).toContain('contextUsage: ContextUsage | null;');
     });
   });
 

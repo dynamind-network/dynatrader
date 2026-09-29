@@ -8,6 +8,7 @@ import { createAgentLoopEventHandler } from '../services/ToolStateManager.js';
 import { TranscriptScreen } from './screens/TranscriptScreen.js';
 import { useCommandPalette } from './common/CommandPalette.js';
 import { StatusLine } from './common/StatusLine.js';
+import ThinkingAnimation from './common/ThinkingAnimation.js';
 import {
   AgentLoop,
   createProvider,
@@ -25,7 +26,6 @@ import {
   type ExecutionMode,
   type QuestionPrompt,
 } from '../index.js';
-import type { Plan } from '../core/plan-manager.js';
 import {
   ModelStateProvider,
   useModelState,
@@ -38,7 +38,6 @@ import { ErrorBoundary } from './common/ErrorBoundary.js';
 import { ChatViewport } from './common/ChatViewport.js';
 import { ChatStatusBanner } from './common/ChatStatusBanner.js';
 import { SessionPickerModal } from './common/SessionPickerModal.js';
-import ThinkingAnimation from './common/ThinkingAnimation.js';
 import { ModelsScreen } from './screens/ModelsScreen.js';
 import { MCPScreen } from './screens/MCPScreen.js';
 import { useTerminalSize } from '../hooks/useTerminalSize.js';
@@ -66,7 +65,6 @@ import { TimelineSidebar } from './common/TimelineSidebar.js';
 import { NotificationToast } from './common/NotificationToast.js';
 import { getInputPlaceholder } from './utils/chatHelpers.js';
 import { PROVIDERS } from '../index.js';
-import { PlanDisplay } from './plan-display.js';
 import { SPACING } from './design/tokens.js';
 import { getCheckpointManager } from '../core/git-checkpoint.js';
 import { getUndoRedoManager } from '../core/undo-redo.js';
@@ -74,7 +72,6 @@ import { runAutoLint, formatLintResults } from '../core/auto-lint.js';
 import { forkSession } from '../core/session-fork.js';
 import { exportSession } from '../core/session-export.js';
 import { loadCustomCommands } from '../core/custom-commands.js';
-import { startWatcher, stopWatcher, listWatchers, stopAllWatchers } from '../core/watch-manager.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -164,7 +161,7 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
     setExecutionMode,
   } = useModelState();
 
-  // -- Session state (extracted to SessionStateContext) --
+  // Session state (extracted to SessionStateContext)
   const {
     messages,
     setMessages,
@@ -172,11 +169,7 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
     setSessionCreatedAt,
     isSwitchingSession,
     setIsSwitchingSession,
-    pendingPlan,
-    setPendingPlan,
   } = useSessionState();
-
-  const pendingPlanResolverRef = useRef<((approved: boolean) => void) | null>(null);
 
   // -- Split pane state --
   const [splitMode, setSplitMode] = useState(false);
@@ -344,12 +337,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
 
   // Timeline event handler ref (needed before hook call for useAgentBootstrap)
   const handleTimelineEventRef = useRef<(event: AgentEvent) => void>(() => {});
-  const requestPlanApproval = useCallback((plan: Plan) => {
-    setPendingPlan(plan);
-    return new Promise<boolean>((resolve) => {
-      pendingPlanResolverRef.current = resolve;
-    });
-  }, []);
 
   // -- Agent bootstrap --
   const handlers = createAgentLoopEventHandler(toolState);
@@ -370,7 +357,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
     executionMode,
     (event) => handlers.handleEvent(event),
     handlers.handleApprovalRequired,
-    requestPlanApproval,
     (event) => handleTimelineEventRef.current(event),
     resolvedApiKeys
   );
@@ -486,7 +472,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
     activeThinkingMessageIdRef,
     activeThinkingContentRef,
     pendingToolMessageIdsRef,
-    onPlanChange: setPendingPlan,
     handleTimelineEventRef,
   });
 
@@ -625,19 +610,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
       }
     },
     [toolState, agentLoop]
-  );
-
-  useInput(
-    (inputChar, key) => {
-      if (!pendingPlan) return;
-      const approved = inputChar.toLowerCase() === 'y' || key.return;
-      const rejected = inputChar.toLowerCase() === 'n' || key.escape;
-      if (!approved && !rejected) return;
-      pendingPlanResolverRef.current?.(approved);
-      pendingPlanResolverRef.current = null;
-      setPendingPlan(null);
-    },
-    { isActive: Boolean(pendingPlan) }
   );
 
   // -- Handle question selection (number keys 1-9) --
@@ -1259,13 +1231,7 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
         <Box flexDirection="column" ref={footerRef} width={terminalSize.width} flexShrink={0}>
           {activeScreen === 'chat' ? (
             <>
-              {pendingPlan && (
-                <Box marginTop={SPACING.xs} flexDirection="column" width={terminalSize.width}>
-                  <PlanDisplay plan={pendingPlan} />
-                  <Text dimColor>Enter/Y approve and switch to build mode · Esc/N revise</Text>
-                </Box>
-              )}
-              {/* Layer 1: Thinking animation + approval/question prompts */}
+              {/* Layer 1: Thinking animation and approval/question prompts */}
               {/* Height varies: 1 for approval only, 5+ for questions */}
               {pendingQuestion ? (
                 <Box marginTop={SPACING.xs} flexDirection="column" width={terminalSize.width}>
@@ -1281,36 +1247,32 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                   />
                 </Box>
               ) : (
-                <Box marginTop={SPACING.xs} flexDirection="row" alignItems="center" height={1}>
-                  {toolState.state.isProcessing || toolState.state.pendingApprovals.length > 0 ? (
-                    <>
-                      {toolState.state.isProcessing && (
-                        <Box flexGrow={0}>
-                          <ThinkingAnimation activeTools={toolState.state.activeTools} />
-                        </Box>
-                      )}
-                      {toolState.state.pendingApprovals.length > 0 && (
-                        <Box
-                          flexGrow={0}
-                          marginLeft={toolState.state.isProcessing ? SPACING.sm : 0}
-                        >
-                          <ChatStatusBanner
-                            position="top"
-                            terminalWidth={terminalSize.width}
-                            compact={true}
-                            pendingApprovalToolName={toolState.state.pendingApprovals[0]?.toolName}
-                            isProcessing={toolState.state.isProcessing}
-                            queuedMessages={queuedMessages}
-                          />
-                        </Box>
-                      )}
-                    </>
-                  ) : null}
+                <Box marginTop={SPACING.xs} flexDirection="column" width={terminalSize.width}>
+                  {toolState.state.isProcessing && (
+                    <Box height={1} width={terminalSize.width}>
+                      <ThinkingAnimation
+                        activeTools={toolState.state.activeTools}
+                        width={terminalSize.width}
+                      />
+                    </Box>
+                  )}
+                  {toolState.state.pendingApprovals.length > 0 && (
+                    <Box height={1} width={terminalSize.width}>
+                      <ChatStatusBanner
+                        position="top"
+                        terminalWidth={terminalSize.width}
+                        compact={true}
+                        pendingApprovalToolName={toolState.state.pendingApprovals[0]?.toolName}
+                        isProcessing={toolState.state.isProcessing}
+                        queuedMessages={queuedMessages}
+                      />
+                    </Box>
+                  )}
                 </Box>
               )}
 
               {/* Layer 2: Command input line - hidden when question is active */}
-              {!pendingQuestion && !pendingPlan && (
+              {!pendingQuestion && (
                 <Box marginTop={SPACING.xs} flexDirection="column">
                   {/* Double Ctrl+C warning indicator */}
                   {quitShortcutArmed && (
@@ -1332,9 +1294,10 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                     })}
                     agentSuggestions={subagentSuggestions}
                     executionMode={executionMode}
-                    disabled={isCommandPaletteOpen}
+                    disabled={isCommandPaletteOpen || toolState.state.pendingApprovals.length > 0}
                     inputBlockedRef={inputBlockedRef}
                     isProcessing={toolState.state.isProcessing}
+                    hasPendingApproval={toolState.state.pendingApprovals.length > 0}
                   />
                 </Box>
               )}
@@ -1350,7 +1313,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                     currentModel={currentModel ?? undefined}
                     currentEffort={effort}
                     isProcessing={false}
-                    isPlanMode={Boolean(pendingPlan)}
                     workspaceAgentCount={workspaceAgentCount}
                     activeTools={toolState.state.activeTools}
                     gitStatus={gitStatus}
@@ -1362,7 +1324,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                     redoCount={redoCount}
                     queueCount={queuedMessages.length}
                     autoLintErrors={autoLintErrors}
-                    estimatedTurnsRemaining={contextUsage?.estimatedTurnsRemaining}
                   />
                 </Box>
               )}
@@ -1376,7 +1337,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                   currentModel={currentModel ?? undefined}
                   currentEffort={effort}
                   isProcessing={false}
-                  isPlanMode={Boolean(pendingPlan)}
                   workspaceAgentCount={workspaceAgentCount}
                   activeTools={toolState.state.activeTools}
                   gitStatus={gitStatus}
@@ -1388,7 +1348,6 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
                   redoCount={redoCount}
                   queueCount={queuedMessages.length}
                   autoLintErrors={autoLintErrors}
-                  estimatedTurnsRemaining={contextUsage?.estimatedTurnsRemaining}
                 />
               </Box>
               <Box marginTop={0}>

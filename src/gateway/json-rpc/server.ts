@@ -86,6 +86,7 @@ export class JsonRpcServer {
   private output: NodeJS.WriteStream;
   private cancelFlag = false;
   private processing = false;
+  private autoApproveTools = false;
   private stateCleanup: (() => void) | null = null;
   private delegatedTasks = new Map<string, DelegatedTask>();
   private delegatedTaskControllers = new Map<string, AbortController>();
@@ -134,6 +135,11 @@ export class JsonRpcServer {
       this.stateCleanup();
       this.stateCleanup = null;
     }
+    for (const approval of this.pendingApprovals.values()) {
+      clearTimeout(approval.timeout);
+      approval.resolve(false);
+    }
+    this.pendingApprovals.clear();
     this.rl.close();
   }
 
@@ -395,6 +401,7 @@ export class JsonRpcServer {
 
     this.processing = true;
     this.cancelFlag = false;
+    this.autoApproveTools = params.approvalMode === 'yolo';
     const startedAt = Date.now();
 
     try {
@@ -620,6 +627,7 @@ export class JsonRpcServer {
   }
 
   private requestToolApproval(call: import('@dyna/contracts').ToolCall, definition: import('@dyna/contracts').ToolDefinition): Promise<boolean> {
+    if (this.autoApproveTools) return Promise.resolve(true);
     const requestId = `approval_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const summary = `${definition.name}: ${definition.description}`;
     return new Promise<boolean>((resolve) => {

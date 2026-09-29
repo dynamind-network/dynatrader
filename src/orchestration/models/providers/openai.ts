@@ -143,6 +143,7 @@ export class OpenAIProvider implements ModelProvider {
 
     const decoder = new TextDecoder();
     let buffer = '';
+    const pendingToolCalls = new Map<number, { id: string; name: string; arguments: string }>();
 
     try {
       while (true) {
@@ -160,11 +161,38 @@ export class OpenAIProvider implements ModelProvider {
 
           try {
             const parsed = JSON.parse(trimmed.slice(6)) as {
-              choices?: Array<{ delta: { content?: string } }>;
+              choices?: Array<{ delta: {
+                content?: string;
+                tool_calls?: Array<{
+                  index: number;
+                  id?: string;
+                  function?: { name?: string; arguments?: string };
+                }>;
+              }; finish_reason?: string | null }>;
             };
-            const delta = parsed.choices?.[0]?.delta?.content;
+            const choice = parsed.choices?.[0];
+            const delta = choice?.delta?.content;
             if (delta) {
               yield { type: 'content' as const, content: delta };
+            }
+            for (const toolDelta of choice?.delta?.tool_calls ?? []) {
+              const current = pendingToolCalls.get(toolDelta.index) ?? { id: '', name: '', arguments: '' };
+              if (toolDelta.id) current.id = toolDelta.id;
+              if (toolDelta.function?.name) current.name += toolDelta.function.name;
+              if (toolDelta.function?.arguments) current.arguments += toolDelta.function.arguments;
+              pendingToolCalls.set(toolDelta.index, current);
+            }
+            if (choice?.finish_reason) {
+              for (const toolCall of [...pendingToolCalls.values()]) {
+                if (toolCall.id && toolCall.name) {
+                  yield { type: 'tool_call' as const, toolCall: {
+                    id: toolCall.id,
+                    type: 'function' as const,
+                    function: { name: toolCall.name, arguments: toolCall.arguments || '{}' },
+                  } };
+                }
+              }
+              pendingToolCalls.clear();
             }
           } catch {
             // Skip malformed JSON chunks

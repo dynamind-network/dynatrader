@@ -718,38 +718,6 @@ export function registerDefaultCommands(registry: SlashCommandRegistry): void {
     },
   });
 
-  // /p — Portfolio summary
-  registry.register({
-    name: "/p",
-    description: "Show current portfolio summary",
-    usage: "/p",
-    aliases: ["/portfolio"],
-    execute: async (_args, ctx) => {
-      try {
-        const lines = ["=== Portfolio Summary ==="];
-        if (ctx.agent?.paperEngine) {
-          try {
-            const portfolio = ctx.agent.paperEngine.getPortfolio?.();
-            if (portfolio) {
-              lines.push(`  Total Value: $${portfolio.totalValue?.toFixed(2) ?? "N/A"}`);
-              lines.push(`  Cash: $${portfolio.cash?.toFixed(2) ?? "N/A"}`);
-              lines.push(`  Invested: $${portfolio.invested?.toFixed(2) ?? "N/A"}`);
-              lines.push(`  Unrealized PnL: $${portfolio.unrealizedPnl?.toFixed(2) ?? "N/A"}`);
-              lines.push(`  Realized PnL: $${portfolio.realizedPnl?.toFixed(2) ?? "N/A"}`);
-              lines.push(`  Open Positions: ${portfolio.positions?.length ?? 0}`);
-              return { content: lines.join("\n") };
-            }
-          } catch { /* preserve unavailable-data fallback */ }
-        }
-        lines.push("  Portfolio data not available.");
-        lines.push("  (PaperEngine not wired into CommandContext yet)");
-        return { content: lines.join("\n") };
-      } catch (err) {
-        return { content: `Error: ${(err as Error).message}` };
-      }
-    },
-  });
-
   // /positions — Open positions list
   registry.register({
     name: "/positions",

@@ -263,7 +263,7 @@ export async function initializeComponents(
   logger.debug('Initializing StateDb');
   try {
     const stateDbPath = join(workspacePath, 'state.db');
-    components.stateDb = new StateDb(stateDbPath);
+    components.stateDb = new StateDb(workspacePath);
     logger.info(`StateDb initialized at ${stateDbPath}`);
   } catch (error) {
     components.degraded = true;
@@ -519,6 +519,11 @@ export async function initializeComponents(
   logger.info(`Synchronized scheduled issues: created=${issueScheduleSync.created.length}, updated=${issueScheduleSync.updated.length}, removed=${issueScheduleSync.removed.length}`);
   components.cronEngine.start();
   logger.info('CronEngine started (wired to full agent loop)');
+
+  // CronEngine is passed into AgentCore for slash-command execution below.
+  if (components.cronEngine && components.agentCore) {
+    components.agentCore.setCronEngine(components.cronEngine);
+  }
 
   // Heartbeat auto-tick: when DYNA_HEARTBEAT=true,
   // register a forever interval job that runs the heartbeat check.

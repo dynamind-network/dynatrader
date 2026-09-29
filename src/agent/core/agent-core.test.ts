@@ -15,6 +15,7 @@ import type { StrategySource, AgentTurnContext, TradeMode, ModelRouter, ModelReq
 import { CrossSessionRecall } from "./cross-session-recall";
 import { SkillFactory } from "./skill-factory";
 import type { TradeOutcome, MarketConditions } from "./types";
+import { ToolResultCompressor } from "../../context/tool-result-compressor";
 
 function createStrategyTemplateDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "dynatrader-strategy-templates-"));
@@ -329,6 +330,52 @@ describe("Agent Core", () => {
       expect(JSON.stringify(savedTarget)).toContain("LATEST_AUTO_REQUEST");
       expect(JSON.stringify(savedTarget)).not.toContain("AUTO_OLD_");
     });
+
+
+    it("passes the configured cron engine into slash commands", async () => {
+      const cronEngine = { listJobs: vi.fn().mockResolvedValue([]) };
+      const chatAgent = new AgentCore({
+        memory,
+        modelRouter: createMockModelRouter({ systemPrompts: [] }),
+        cronEngine: cronEngine as any,
+      });
+
+      const result = await chatAgent.processSlashCommand("/cron list");
+
+      expect(cronEngine.listJobs).toHaveBeenCalledOnce();
+      expect(result?.content).toContain("No cron jobs scheduled.");
+    });
+
+    it.each([
+      {
+        description: "leverage",
+        riskGate: { maxLeverage: 3 },
+        proposal: "Use 4x leverage",
+        rejection: "REJECTED: Your proposal of 4x leverage exceeds the configured limit of 3x. Resubmit with leverage capped at 3x.",
+      },
+      {
+        description: "position percentage",
+        riskGate: { maxPositionPct: 10 },
+        proposal: "Use 11 percent of the account",
+        rejection: "REJECTED: Your proposed position of 11% exceeds the configured limit of 10%. Resubmit with position capped at 10%.",
+      },
+    ])("rejects an over-limit $description proposal", async ({ riskGate, proposal, rejection }) => {
+      const chatAgent = new AgentCore({
+        memory,
+        modelRouter: createMockModelRouter({ systemPrompts: [] }, 128000, [{
+          content: proposal,
+          toolCalls: [{ id: "should-not-run", type: "function", function: { name: "test", arguments: "{}" } }],
+          model: "test-model", provider: "test-provider", latencyMs: 1,
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+        }]),
+        riskGate,
+      });
+
+      const result = await chatAgent.chat("Propose a trade");
+
+      expect(result.content).toBe(rejection);
+    });
+
     it("does not report discarded synthetic-context compaction as transcript compaction", async () => {
       const engine = {
         updateConfig: vi.fn(),
@@ -565,6 +612,7 @@ describe("Agent Core", () => {
         list: () => [telegramSendTool],
         executeBatch: vi.fn(async (calls: Array<{ tool: string; args: Record<string, unknown>; id?: string }>) => calls.map((call) => ({
           call,
+          durationMs: 1,
           result: {
             success: true,
             data: { deliveredTo: "telegram:123456", status: "sent" },
@@ -602,6 +650,7 @@ describe("Agent Core", () => {
           },
         ]),
         toolRegistry,
+        toolResultCompressor: new ToolResultCompressor(),
       });
 
       const result = await chatAgent.chat("send the update to Telegram", {
@@ -609,6 +658,15 @@ describe("Agent Core", () => {
       });
 
       expect(result.content).toBe("Sent the update.");
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0]).toMatchObject({
+        tool: "telegram_send",
+        args: { message: "status update" },
+        result: {
+          success: true,
+          data: { deliveredTo: "telegram:123456", status: "sent" },
+        },
+      });
       expect(capture.toolCounts[0]).toBeGreaterThan(0);
       expect(toolRegistry.executeBatch).toHaveBeenCalled();
     });

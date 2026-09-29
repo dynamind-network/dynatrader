@@ -81,6 +81,29 @@ describe("JsonRpcServer auth", () => {
   // No auth configured (backward compatibility)
   // -----------------------------------------------------------------------
 
+  it("denies pending tool approvals and clears their timeout when stopped", async () => {
+    vi.useFakeTimers();
+    try {
+      const approval = (server as unknown as {
+        requestToolApproval: (call: never, definition: { name: string; description: string }) => Promise<boolean>;
+      }).requestToolApproval.call(server, {} as never, {
+        name: "test-tool",
+        description: "Test approval cleanup",
+      });
+
+      let decision: boolean | undefined;
+      void approval.then((value) => { decision = value; });
+
+      server.stop();
+      await Promise.resolve();
+
+      expect(decision).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("should process requests without auth when DYNA_AUTH_TOKEN is not set", async () => {
     await sendLine(JSON.stringify({
       jsonrpc: "2.0",

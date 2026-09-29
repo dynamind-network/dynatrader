@@ -10,9 +10,24 @@
  */
 
 import type { ExchangeAdapter, OrderIntent } from "@dyna/contracts";
-import { signUserAction } from "./hyperliquid-signing";
+import type { HyperliquidActionSigner } from "./hyperliquid-signer-provider";
 
 const DEFAULT_REST_URL = "https://api.hyperliquid.xyz";
+const TESTNET_REST_URL = "https://api.hyperliquid-testnet.xyz";
+
+export type HyperliquidNetwork = "mainnet" | "testnet";
+
+function canonicalNetwork(restUrl: string): HyperliquidNetwork | undefined {
+  let hostname: string;
+  try {
+    hostname = new URL(restUrl).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+  if (hostname === "api.hyperliquid.xyz") return "mainnet";
+  if (hostname === "api.hyperliquid-testnet.xyz") return "testnet";
+  return undefined;
+}
 
 /** Hyperliquid asset names: perps are plain ("BTC"), spot uses "PAIR@SPOT". */
 export function toHyperliquidSymbol(symbol: string): string {
@@ -24,13 +39,11 @@ export function toHyperliquidSymbol(symbol: string): string {
 export interface HyperliquidAdapterConfig {
   /** Wallet address (0x...) that owns the account. */
   walletAddress: string;
-  /**
-   * Private key for signing actions. REQUIRED for order placement/cancels.
-   * Omit for read-only usage (markets, OHLCV, balances via clearingshouse state).
-   */
-  privateKey?: string;
-  /** API URL. Defaults to mainnet; use https://api.hyperliquid-testnet.xyz for testnet. */
+  signer?: HyperliquidActionSigner;
+  /** API URL. Defaults to mainnet; testnet endpoints are supported. */
   restUrl?: string;
+  /** Network used for L1 signing; required whenever a signer is supplied. */
+  network?: HyperliquidNetwork;
 }
 
 interface HyperliquidFill {
@@ -47,14 +60,30 @@ interface HyperliquidFill {
 
 export class HyperliquidAdapter implements ExchangeAdapter {
   public readonly id = "hyperliquid";
-  private config: HyperliquidAdapterConfig;
+  private config: Omit<HyperliquidAdapterConfig, "signer">;
+  private signer?: HyperliquidActionSigner;
   private restUrl: string;
+  private signingNetwork?: HyperliquidNetwork;
 
   constructor(config: HyperliquidAdapterConfig) {
-    this.config = config;
-    this.restUrl = (config.restUrl ?? DEFAULT_REST_URL).replace(/\/$/, "");
+    this.config = { walletAddress: config.walletAddress, restUrl: config.restUrl, network: config.network };
+    this.signer = config.signer;
+    this.restUrl = (config.restUrl ?? (config.network === "testnet" ? TESTNET_REST_URL : DEFAULT_REST_URL)).replace(/\/$/, "");
     if (!config.walletAddress) {
       throw new Error("HyperliquidAdapter requires a walletAddress");
+    }
+    if (config.network !== undefined && config.network !== "mainnet" && config.network !== "testnet") {
+      throw new Error("HyperliquidAdapter network must be 'mainnet' or 'testnet'");
+    }
+    if (config.signer) {
+      const endpointNetwork = canonicalNetwork(this.restUrl);
+      if (endpointNetwork && config.network && endpointNetwork !== config.network) {
+        throw new Error(`HyperliquidAdapter network '${config.network}' conflicts with endpoint network '${endpointNetwork}'`);
+      }
+      if (!config.network) {
+        throw new Error("HyperliquidAdapter requires an explicit network for signing");
+      }
+      this.signingNetwork = config.network;
     }
   }
 
@@ -67,12 +96,12 @@ export class HyperliquidAdapter implements ExchangeAdapter {
       futures: true,
       swaps: true,
       OHLCV: true,
-      orders: this.config.privateKey !== undefined,
+      orders: this.signer !== undefined,
       cancelAllOrders: true,
       fetchOpenOrders: true,
       fetchClosedOrders: true,
       fetchMyTrades: true,
-      tradingMode: this.config.privateKey ? "live-capable" : "read-only",
+      tradingMode: this.signer ? "live-capable" : "read-only",
       reduceOnly: true,
       triggerOrders: true,
     };
@@ -169,8 +198,8 @@ export class HyperliquidAdapter implements ExchangeAdapter {
   }
 
   async placeOrder(intent: OrderIntent): Promise<{ orderId: string; raw?: unknown }> {
-    if (!this.config.privateKey) {
-      throw new Error("HyperliquidAdapter.placeOrder requires a privateKey for signing");
+    if (!this.signer) {
+      throw new Error("HyperliquidAdapter.placeOrder requires a signer for signing");
     }
     const isBuy = intent.side === "buy";
     const action: Record<string, unknown> = {
@@ -205,8 +234,8 @@ export class HyperliquidAdapter implements ExchangeAdapter {
   }
 
   async cancelOrder(req: { orderId: string; symbol: string }): Promise<void> {
-    if (!this.config.privateKey) {
-      throw new Error("HyperliquidAdapter.cancelOrder requires a privateKey for signing");
+    if (!this.signer) {
+      throw new Error("HyperliquidAdapter.cancelOrder requires a signer for signing");
     }
     const action = {
       type: "cancel",
@@ -216,8 +245,8 @@ export class HyperliquidAdapter implements ExchangeAdapter {
   }
 
   async cancelAllOrders(symbol?: string): Promise<number> {
-    if (!this.config.privateKey) {
-      throw new Error("HyperliquidAdapter.cancelAllOrders requires a privateKey");
+    if (!this.signer) {
+      throw new Error("HyperliquidAdapter.cancelAllOrders requires a signer");
     }
     const open = (await this.infoRequest({
       type: "frontendOpenOrders",
@@ -276,15 +305,11 @@ export class HyperliquidAdapter implements ExchangeAdapter {
    * ./hyperliquid-signing using viem.
    */
   private async exchangeAction(action: Record<string, unknown>): Promise<unknown> {
-    if (!this.config.privateKey) {
-      throw new Error("Cannot sign exchange action without privateKey");
+    if (!this.signer) {
+      throw new Error("Cannot sign exchange action without signer");
     }
     const nonce = Date.now();
-    const { signature } = await signUserAction(
-      action,
-      nonce,
-      this.config.privateKey as `0x${string}`,
-    );
+    const signature = await this.signer.signAction(action, nonce);
     const payload = { action, nonce, signature };
     const resp = await fetch(`${this.restUrl}/exchange`, {
       method: "POST",

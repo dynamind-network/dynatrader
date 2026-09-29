@@ -2,7 +2,6 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { ExecutionMode } from '../../index.js';
 import type { EffortLevel } from '../../core/providers/catalog.js';
-import ThinkingAnimation from './ThinkingAnimation.js';
 import { getModelDisplayName } from '../../core/providers.js';
 import type { GitStatus } from '../../services/GitService.js';
 import type { ContextUsage } from '../../services/ContextUsageService.js';
@@ -43,8 +42,6 @@ interface StatusLineProps {
   vimMode?: string;
   /** Auto-lint status */
   autoLintErrors?: number;
-  /** Estimated turns remaining */
-  estimatedTurnsRemaining?: number;
 }
 
 interface BuildStatusLineOptions {
@@ -114,7 +111,6 @@ export function statusLinePropsEqual(prev: StatusLineProps, next: StatusLineProp
     prev.queueCount === next.queueCount &&
     prev.vimMode === next.vimMode &&
     prev.autoLintErrors === next.autoLintErrors &&
-    prev.estimatedTurnsRemaining === next.estimatedTurnsRemaining &&
     arraysEqual(prev.activeTools, next.activeTools) &&
     prev.gitStatus === next.gitStatus &&
     prev.contextUsage === next.contextUsage &&
@@ -160,9 +156,7 @@ function StatusLineComponent(props: StatusLineProps) {
     executionMode,
     currentModel,
     currentEffort,
-    isProcessing,
     workspaceAgentCount,
-    activeTools,
     gitStatus,
     contextUsage,
     tokenBudgetUsed,
@@ -177,7 +171,6 @@ function StatusLineComponent(props: StatusLineProps) {
     queueCount,
     vimMode,
     autoLintErrors,
-    estimatedTurnsRemaining,
   } = props;
   const { width } = useTerminalSize();
   const rawGitIndicator = formatGitIndicator(gitStatus ?? null);
@@ -186,7 +179,7 @@ function StatusLineComponent(props: StatusLineProps) {
       ? `${rawGitIndicator.slice(0, 19)}...`
       : rawGitIndicator;
   const modelName = currentModel ? getModelDisplayName(currentModel) : 'no model configured';
-  const compact = width < 100;
+  const compact = width < 170;
 
   const hasTokenBudget =
     tokenBudgetUsed != null && tokenBudgetTotal != null && tokenBudgetTotal > 0;
@@ -202,15 +195,27 @@ function StatusLineComponent(props: StatusLineProps) {
       ? `${turnNumber}/${totalTurns}`
       : null;
 
+  // Keep the footer to one terminal row at normal console widths. The chat
+  // pane already owns a separate row for the thinking indicator.
+  if (compact) {
+    const fixedWidth = 22 + (turnDisplay ? turnDisplay.length + 3 : 0) + (contextUsage ? 13 : 0) + ((queueCount ?? 0) > 0 ? 11 : 0);
+    const compactModel = modelName.length > Math.max(10, width - fixedWidth)
+      ? `${modelName.slice(0, Math.max(7, width - fixedWidth - 3))}...`
+      : modelName;
+    return (
+      <Box flexDirection="row" flexWrap="nowrap" width={Math.max(20, width)}>
+        <ExecutionModeBadge mode={executionMode} />
+        <Sep />
+        <Text color={currentModel ? COLORS.accent : COLORS.muted} wrap="truncate">{compactModel}</Text>
+        {turnDisplay && <><Sep /><Text color={COLORS.accent}>{turnDisplay}</Text></>}
+        {contextUsage && <><Sep /><ContextProgressBar usage={contextUsage} width={8} /></>}
+        {(queueCount ?? 0) > 0 && <><Sep /><Text color={COLORS.warning}>q:{queueCount}</Text></>}
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="row" width={Math.max(20, width)}>
-      {/* Thinking animation - only takes space when active */}
-      {isProcessing && (
-        <Box marginRight={1} flexShrink={0}>
-          <ThinkingAnimation activeTools={activeTools} />
-        </Box>
-      )}
-
       <Box flexDirection="row" flexWrap="nowrap" flexShrink={1}>
         {/* Execution mode badge */}
         <ExecutionModeBadge mode={executionMode} />
@@ -292,14 +297,6 @@ function StatusLineComponent(props: StatusLineProps) {
           <>
             <Sep />
             <Text color={COLORS.error}>lint:{autoLintErrors}</Text>
-          </>
-        )}
-
-        {/* Estimated turns remaining */}
-        {typeof estimatedTurnsRemaining === 'number' && estimatedTurnsRemaining > 0 && !compact && (
-          <>
-            <Sep />
-            <Text color={COLORS.muted}>~{estimatedTurnsRemaining} turns</Text>
           </>
         )}
 

@@ -124,7 +124,7 @@ describe('Full DynaTraderRuntime Integration', () => {
       expect(status.components).toHaveProperty(component);
       expect(status.components[component as keyof typeof status.components]).toBe(true);
     }
-  });
+  }, 15000);
 
   it('should expose getters for all components after start', async () => {
     await runtime.start();

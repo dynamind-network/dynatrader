@@ -82,7 +82,7 @@ export class ExecutionRouterImpl {
   private config: ExecutionRouterConfig;
   private executions: Map<string, ExecutionResult> = new Map();
   /** Tracks which engine handled each order for proper cancellation routing */
-  private orderEngines: Map<string, "paper" | "exchange"> = new Map();
+  private orderEngines: Map<string, { kind: "paper" } | { kind: "exchange"; venue: string }> = new Map();
   private executionObserver: ExecutionRouterConfig["onExecution"] | null;
 
   constructor(config: ExecutionRouterConfig) {
@@ -185,8 +185,7 @@ export class ExecutionRouterImpl {
     // Check which engine handled this order
     const engine = this.orderEngines.get(orderId);
 
-    if (engine === "paper") {
-      // Paper-engine orders
+    if (engine?.kind === "paper") {
       if (!this.config.paperEngine) {
         throw new Error(`Paper engine not configured, cannot cancel order ${orderId}`);
       }
@@ -194,21 +193,13 @@ export class ExecutionRouterImpl {
       return;
     }
 
-    if (engine === "exchange") {
-      // Exchange orders - find the right adapter by venue
-      if (!this.config.exchangeAdapters || this.config.exchangeAdapters.size === 0) {
-        throw new Error(`No exchange adapters configured, cannot cancel order ${orderId}`);
+    if (engine?.kind === "exchange") {
+      const adapter = this.config.exchangeAdapters?.get(engine.venue);
+      if (!adapter) {
+        throw new Error(`No exchange adapter configured for venue ${engine.venue}, cannot cancel order ${orderId}`);
       }
-      // Try to find the correct adapter by iterating all
-      for (const adapter of this.config.exchangeAdapters.values()) {
-        try {
-          await adapter.cancelOrder({ orderId, symbol });
-          return;
-        } catch {
-          // Try next adapter
-        }
-      }
-      throw new Error(`Could not cancel exchange order ${orderId} on symbol ${symbol}`);
+      await adapter.cancelOrder({ orderId, symbol });
+      return;
     }
 
     // Unknown order - try all engines as fallback
@@ -264,7 +255,7 @@ export class ExecutionRouterImpl {
         ...(trade.reason ? { rejectionReason: trade.reason } : {}),
         timestamp: trade.timestamp,
       });
-      this.orderEngines.set(trade.id, "paper");
+      this.orderEngines.set(trade.id, { kind: "paper" });
       await this.notifyExecution({
         intent,
         trade,
@@ -302,7 +293,7 @@ export class ExecutionRouterImpl {
         ...(trade.reason ? { rejectionReason: trade.reason } : {}),
         timestamp: trade.timestamp,
       });
-      this.orderEngines.set(trade.id, "paper");
+      this.orderEngines.set(trade.id, { kind: "paper" });
       await this.notifyExecution({
         intent,
         trade,
@@ -457,7 +448,7 @@ export class ExecutionRouterImpl {
           // retain the submitted result and let the caller reconcile later.
         }
       }
-      this.orderEngines.set(result.orderId, "exchange");
+      this.orderEngines.set(result.orderId, { kind: "exchange", venue: intent.venue });
       await this.notifyExecution({
         intent,
         trade: {

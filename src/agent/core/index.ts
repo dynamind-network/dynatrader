@@ -48,7 +48,7 @@ export * from "./skill-workshop";
 
 // Re-export key types
 export type { AgentCoreConfig, AgentIteration, AgentTurnResult } from "./agent-core";
-export { AgentStateMachine } from "./agent-core";
+export { AgentStateMachine } from "./agent-state-machine";
 export type { ContextCompressionConfig, ContextState, CompactionConfig } from "./context-engine";
 export type { BudgetConfig, BudgetAdjustment } from "./iteration-budget";
 export type { PromptTemplate } from "./prompt-builder";

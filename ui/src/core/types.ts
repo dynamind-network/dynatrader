@@ -215,9 +215,6 @@ export type AgentEvent =
   | { type: 'error'; error: string }
   | { type: 'done'; finalResponse: string }
   | { type: 'plan_interrupted'; reason: 'esc_pressed' | 'user_cancel' }
-  | { type: 'plan_mode_entered'; goal?: string }
-  | { type: 'plan_mode_exited'; plan?: import('./plan-manager.js').Plan; approved?: boolean }
-  | { type: 'plan_step_update'; planId: string; step: import('./plan-manager.js').PlanStep }
   | { type: 'mode_changed'; mode: ExecutionMode };
 
 export interface DynamindConfig {

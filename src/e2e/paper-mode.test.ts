@@ -7,10 +7,64 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { DynaTraderRuntime } from '../orchestration/workspace/index';
+import { TradingPipeline } from '../orchestration/workspace/trading-pipeline';
 import type { RuntimeConfig } from '../orchestration/workspace/types';
 import { resolve } from 'path';
 
 const WORKSPACE = resolve(__dirname, '../../workspace');
+
+describe('Deterministic paper-mode trading pipeline', () => {
+  it('produces a BUY decision for BTC/USDT from research, analysis, and risk outputs', async () => {
+    const pipeline = new TradingPipeline({
+      workspacePath: 'test-workspace',
+      mode: 'paper',
+      marketContextResolver: async () => ({ symbol: 'BTC/USDT', timeframe: '1h' }),
+    });
+
+    pipeline.on('research-agent', async () => ({
+      type: 'research',
+      symbol: 'BTC/USDT',
+      timeframe: '1h',
+      hypotheses: [{ type: 'trend', direction: 'bullish', confidence: 0.8 }],
+      confidence: 0.8,
+      analysis: 'Deterministic bullish test signal',
+    }));
+    pipeline.on('market-analyst', async () => ({
+      type: 'technical_analysis',
+      symbol: 'BTC/USDT',
+      indicators: {},
+      signals: [{ type: 'BUY', confidence: 0.9 }],
+      support: [],
+      resistance: [],
+    }));
+    pipeline.on('risk-manager', async () => ({
+      type: 'risk_assessment',
+      riskScore: 0.1,
+      riskLevel: 'low',
+      maxPositionSize: 0.1,
+      stopLoss: 0,
+      takeProfit: 0,
+      factors: [],
+      recommendation: 'APPROVED',
+    }));
+
+    const result = await pipeline.execute();
+
+    expect(result.symbol).toBe('BTC/USDT');
+    expect(result.timeframe).toBe('1h');
+    expect(result.research.agentOutputs['research-agent']).toMatchObject({ confidence: 0.8 });
+    expect(result.analysis.agentOutputs['market-analyst']).toMatchObject({
+      signals: [{ type: 'BUY', confidence: 0.9 }],
+    });
+    expect(result.risk.agentOutputs['risk-manager']).toMatchObject({
+      recommendation: 'APPROVED',
+      riskScore: 0.1,
+    });
+    expect(result.decision.action).toBe('BUY');
+    expect(result.decision.confidence).toBe(0.87);
+    expect(result.totalExecutionTimeMs).toBeGreaterThanOrEqual(0);
+  });
+});
 
 describe('Paper Mode E2E with LM Studio', () => {
   let runtime: DynaTraderRuntime;
@@ -143,21 +197,6 @@ describe('Paper Mode E2E with LM Studio', () => {
     }
 
     expect(result.totalTime).toBeGreaterThan(0);
-  }, 120000);
-
-  it('should run pipeline for BTC/USDT', async () => {
-    const pipeline = runtime.getPipeline();
-
-    console.log('\n=== Running pipeline for BTC/USDT ===');
-
-    try {
-      const result = await pipeline.execute();
-      console.log(`Pipeline completed: ${result.totalExecutionTimeMs}ms`);
-      console.log(`Decision: ${result.decision.action} (${result.decision.confidence})`);
-    } catch (err) {
-      // Pipeline may fail if workspace has no agents -- that's OK
-      console.log(`Pipeline: ${(err as Error).message}`);
-    }
   }, 120000);
 
   it('should execute order intents through runtime', async () => {

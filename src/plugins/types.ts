@@ -109,6 +109,7 @@ export interface MarketDataProvider {
   getPrice(symbol: string): Promise<number>;
   getOHLCV(symbol: string, timeframe: string, limit?: number): Promise<Candle[]>;
   getOrderBook(symbol: string): Promise<OrderBook>;
+  /** Returns rolling 24-hour traded value in the market's quote currency. */
   get24hVolume(symbol: string): Promise<number>;
 }
 

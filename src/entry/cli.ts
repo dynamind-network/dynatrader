@@ -38,6 +38,7 @@ const args = {
   tui: false,
   cli: false,
   stdio: false,
+  noDaemon: false,
   dev: false,
   help: false,
   version: false,
@@ -58,6 +59,7 @@ for (let i = 0; i < argv.length; i++) {
   if (arg === '--tui') args.tui = true;
   else if (arg === '--cli') args.cli = true;
   else if (arg === '--stdio') args.stdio = true;
+  else if (arg === '--no-daemon') args.noDaemon = true;
   else if (arg === '--dev') args.dev = true;
   else if (arg === '-h' || arg === '--help') args.help = true;
   else if (arg === '-v' || arg === '--version') args.version = true;
@@ -107,6 +109,7 @@ INTERFACE FLAGS
   --tui          Launch terminal UI (default)
   --cli          Classic CLI mode
   --stdio        JSON-RPC gateway (stdin/stdout)
+  --no-daemon    Use the local standalone coding agent runtime
   --dev          Development mode
 
 OPTIONS
@@ -156,8 +159,9 @@ ENVIRONMENT
 // ── Resolve terminal entry ──────────────────────────────────────────────────
 
 function resolveTerminalEntry(): string | null {
-  // In the flat structure, terminal is at ../ui/
+  // Prefer the UI staged inside dist for packed-package consumers.
   const candidates = [
+    resolve(__dirname, '../ui/cli.js'),
     resolve(__dirname, '../../ui/dist/cli.js'),
     resolve(__dirname, '../../ui/src/cli.ts'),
     // Fallback: old nested structure
@@ -243,6 +247,7 @@ async function main(): Promise<void> {
   const env: NodeJS.ProcessEnv = {};
   if (args.model) env['DYNATRADER_MODEL'] = args.model;
   if (args.session) env['DYNATRADER_SESSION'] = args.session;
+  if (args.noDaemon) env['DYNATRADER_NO_DAEMON'] = 'true';
   if (args.oneshot) env['DYNATRADER_ONESHOT'] = 'true';
   if (args.prompt) env['DYNATRADER_PROMPT'] = args.prompt;
   if (args.dev) env['DYNATRADER_DEV'] = 'true';

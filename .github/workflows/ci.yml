@@ -21,6 +21,7 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      - run: bun run typecheck:ui
 
   lint:
     name: Lint
@@ -42,7 +43,8 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - run: bun run build:release
+      - run: bun run release:package-smoke
 
   test:
     name: Test
@@ -53,7 +55,8 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run test
+      - run: node node_modules/vitest/vitest.mjs run --reporter=dot
+      - run: cd ui && bun run test
 
   build-ui:
     name: Build UI

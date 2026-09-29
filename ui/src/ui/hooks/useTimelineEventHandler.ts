@@ -1,6 +1,5 @@
 import { startTransition, useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { Plan } from '../../core/plan-manager.js';
 import type { AgentEvent } from '../../core/types.js';
 import type { Message, ToolArtifact } from '../types.js';
 import {
@@ -27,28 +26,6 @@ interface TimelineHandlerOpts {
   activeThinkingContentRef: React.MutableRefObject<string | null>;
   /** Ref mapping toolName -> pending message IDs. */
   pendingToolMessageIdsRef: React.MutableRefObject<Map<string, string[]>>;
-  /** Keep the live plan view in sync with plan lifecycle events. */
-  onPlanChange?: Dispatch<SetStateAction<Plan | null>>;
-}
-
-export function formatPlanTimelineMessage(
-  event:
-    | Extract<AgentEvent, { type: 'plan_mode_entered' }>
-    | Extract<AgentEvent, { type: 'plan_mode_exited' }>
-    | Extract<AgentEvent, { type: 'plan_step_update' }>
-): string {
-  switch (event.type) {
-    case 'plan_mode_entered':
-      return event.goal ? `Creating a read-only plan: ${event.goal}` : 'Read-only planning started.';
-    case 'plan_mode_exited':
-      return event.approved
-        ? 'Plan approved. Switching to build mode.'
-        : event.plan
-          ? `Plan ready for review: ${event.plan.title}`
-          : 'Read-only planning finished.';
-    case 'plan_step_update':
-      return `Plan step update [${event.step.status}]: ${event.step.description}`;
-  }
 }
 
 /**
@@ -70,7 +47,6 @@ export function useTimelineEventHandler(
     activeThinkingMessageIdRef,
     activeThinkingContentRef,
     pendingToolMessageIdsRef,
-    onPlanChange,
   } = options;
 
   const handleTimelineEvent = useCallback(
@@ -151,46 +127,6 @@ export function useTimelineEventHandler(
           }
           case 'text': {
             appendChatMessage({ role: 'system', content: event.content, timestamp: new Date() });
-            return;
-          }
-          case 'plan_mode_entered': {
-            onPlanChange?.(null);
-            appendChatMessage({
-              role: 'system',
-              content: formatPlanTimelineMessage(event),
-              timestamp: new Date(),
-              commandOutput: true,
-            });
-            return;
-          }
-          case 'plan_mode_exited': {
-            onPlanChange?.(event.approved ? null : (event.plan ?? null));
-            appendChatMessage({
-              role: 'system',
-              content: formatPlanTimelineMessage(event),
-              timestamp: new Date(),
-              commandOutput: true,
-            });
-            return;
-          }
-          case 'plan_step_update': {
-            onPlanChange?.((current) =>
-              current
-                ? {
-                    ...current,
-                    steps: current.steps.map((step) =>
-                      step.id === event.step.id ? { ...step, ...event.step } : step
-                    ),
-                    updatedAt: new Date(),
-                  }
-                : current
-            );
-            appendChatMessage({
-              role: 'system',
-              content: formatPlanTimelineMessage(event),
-              timestamp: new Date(),
-              commandOutput: true,
-            });
             return;
           }
           case 'partial': {

@@ -15,10 +15,12 @@ import {
 import { PROVIDERS } from '../core/providers.js';
 
 /**
- * Ensure settings.json has restrictive permissions (0o600 — owner read/write only).
- * Prevents other users/processes from reading plaintext secrets.
+ * Restrict sensitive files with POSIX permissions where those semantics exist.
+ * Windows uses ACLs; Node's chmod cannot make a file owner-only there.
  */
-async function hardenSettingsFilePermissions(filePath: string): Promise<void> {
+async function hardenSensitiveFilePermissions(filePath: string): Promise<void> {
+  if (process.platform === 'win32') return;
+
   try {
     const stat = await fs.stat(filePath);
     // Only change if permissions are not already restrictive
@@ -72,7 +74,10 @@ async function getEncryptionKey(): Promise<Buffer | null> {
     return Buffer.from(envKey.slice(0, 32), 'utf-8');
   }
   try {
-    return await fs.readFile(keyPath);
+    await hardenSensitiveFilePermissions(keyPath);
+    const key = await fs.readFile(keyPath);
+    await checkSensitiveFilePermissions(keyPath);
+    return key;
   } catch {
     // No key file exists — encryption is disabled
     return null;
@@ -171,21 +176,38 @@ async function encryptSensitiveFields(
   }
 }
 
-/**
- * Check settings file permissions and warn if too permissive.
- * Other processes running under the same user could read plaintext secrets.
- */
-async function checkSettingsFilePermissions(filePath: string): Promise<void> {
-  try {
-    const stat = await fs.stat(filePath);
-    const mode = stat.mode & 0o777;
-    if (mode !== 0o600) {
+const windowsAclWarningsShown = new Set<string>();
+
+function reportSensitiveFilePermissions(filePath: string, fileMode: number): void {
+  if (process.platform === 'win32') {
+    if (!windowsAclWarningsShown.has(filePath)) {
+      windowsAclWarningsShown.add(filePath);
       console.warn(
-        `[security] WARNING: ${filePath} has permissions ${mode.toString(8)} ` +
-          `(expected 600). Other processes may read your private keys. ` +
-          `Run: chmod 600 "${filePath}"`,
+        `[security] Windows ACLs for sensitive files are not verified. ` +
+          `Ensure access to ${filePath} and its parent directory is restricted to trusted users.`,
       );
     }
+    return;
+  }
+
+  const mode = fileMode & 0o777;
+  if (mode !== 0o600) {
+    console.warn(
+      `[security] WARNING: ${filePath} has permissions ${mode.toString(8)} ` +
+        `(expected 600). Other processes may read your private keys. ` +
+        `Run: chmod 600 "${filePath}"`,
+    );
+  }
+}
+
+/**
+ * Check sensitive file permissions on platforms with POSIX mode semantics.
+ * Windows ACLs are reported as unverified because Node's mode bits cannot inspect them.
+ */
+async function checkSensitiveFilePermissions(filePath: string): Promise<void> {
+  try {
+    const stat = await fs.stat(filePath);
+    reportSensitiveFilePermissions(filePath, stat.mode);
   } catch {
     // File may not exist yet
   }
@@ -329,7 +351,7 @@ async function readSettingsFile(filePath: string): Promise<Partial<AppSettings>>
     }
 
     // CRITICAL: Check file permissions on load to warn if secrets are exposed
-    await checkSettingsFilePermissions(filePath);
+    await checkSensitiveFilePermissions(filePath);
     const parsed = parseJson<unknown>(content);
     if (parsed === undefined) {
       throw new Error(`Invalid JSON in ${filePath}`);
@@ -379,17 +401,10 @@ function readSettingsFileSync(filePath: string): Partial<AppSettings> {
       return {};
     }
 
-    // CRITICAL: Check file permissions on load (sync version)
+    // Check file permissions on load (sync version)
     try {
       const stat = syncFs.statSync(filePath);
-      const mode = stat.mode & 0o777;
-      if (mode !== 0o600) {
-        console.warn(
-          `[security] WARNING: ${filePath} has permissions ${mode.toString(8)} ` +
-            `(expected 600). Other processes may read your private keys. ` +
-            `Run: chmod 600 "${filePath}"`,
-        );
-      }
+      reportSensitiveFilePermissions(filePath, stat.mode);
     } catch {
       // File may not exist yet
     }
@@ -432,8 +447,8 @@ export async function loadSettings(projectDir?: string): Promise<AppSettings> {
   }
 
   // CRITICAL: Harden permissions on settings files that may contain private keys
-  await hardenSettingsFilePermissions(getUserSettingsPath());
-  await hardenSettingsFilePermissions(getWorkspaceSettingsPath(workspaceDir));
+  await hardenSensitiveFilePermissions(getUserSettingsPath());
+  await hardenSensitiveFilePermissions(getWorkspaceSettingsPath(workspaceDir));
 
   let settings = structuredClone(defaultSettings);
   for (const layer of [
@@ -572,7 +587,7 @@ export async function updatePluginSetting(
   await fs.mkdir(path.dirname(settingsPath), { recursive: true });
   // CRITICAL: Write with restrictive permissions atomically to prevent TOCTOU race
   await fs.writeFile(settingsPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: 'utf-8', mode: 0o600 });
-  await hardenSettingsFilePermissions(settingsPath);
+  await hardenSensitiveFilePermissions(settingsPath);
   settingsCache.delete(workspaceDir);
 }
 
@@ -595,15 +610,15 @@ export async function saveSettings(
   await fs.mkdir(path.dirname(settingsPath), { recursive: true });
   // CRITICAL: Write with restrictive permissions atomically to prevent TOCTOU race
   await fs.writeFile(settingsPath, `${JSON.stringify(toSave, null, 2)}\n`, { encoding: 'utf-8', mode: 0o600 });
-  await hardenSettingsFilePermissions(settingsPath);
+  await hardenSensitiveFilePermissions(settingsPath);
   settingsCache.delete(workspaceDir);
 }
 
 /**
  * CRITICAL: Initialize encryption for settings at rest.
  * Generates a random AES-256 key and stores it at ~/.dynamind/.settings-key
- * with 0o600 permissions. This function is idempotent — if a key already
- * exists, it does nothing and returns false.
+ * with restrictive permissions where POSIX mode bits are supported. On Windows,
+ * access is governed by ACLs, which Node does not verify.
  *
  * Returns true if a new key was created, false if one already exists.
  */
@@ -611,14 +626,15 @@ export async function initializeSettingsEncryption(): Promise<boolean> {
   const keyPath = getEncryptionKeyFilePath();
   try {
     await fs.access(keyPath);
+    await checkSensitiveFilePermissions(keyPath);
     return false; // Key already exists
   } catch {
     // Key doesn't exist — create one
     const key = crypto.randomBytes(32);
     await fs.mkdir(path.dirname(keyPath), { recursive: true });
     await fs.writeFile(keyPath, key, { mode: 0o600 });
-    // CRITICAL: Set 0o600 permissions on the key file
-    await fs.chmod(keyPath, 0o600);
+    await hardenSensitiveFilePermissions(keyPath);
+    await checkSensitiveFilePermissions(keyPath);
     return true;
   }
 }

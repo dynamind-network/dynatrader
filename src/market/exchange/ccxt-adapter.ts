@@ -13,6 +13,7 @@ export interface CCXTAdapterConfig {
   exchangeId: string;
   apiKey?: string;
   secret?: string;
+  passphrase?: string;
   sandbox?: boolean;
   options?: Partial<Exchange>;
 }
@@ -66,6 +67,7 @@ export class CCXTAdapter implements ExchangeAdapter {
     // Apply configuration
     if (config.apiKey) this.exchange.apiKey = config.apiKey;
     if (config.secret) this.exchange.secret = config.secret;
+    if (config.passphrase) this.exchange.password = config.passphrase;
     if (config.sandbox) this.exchange.setSandboxMode(true);
     if (config.options) {
       Object.assign(this.exchange, config.options);
@@ -187,6 +189,45 @@ export class CCXTAdapter implements ExchangeAdapter {
       });
     } catch (error) {
       throw new Error(`Failed to fetch OHLCV for ${req.symbol}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Fetch an order book with normalized bid/ask levels.
+   */
+  async fetchOrderBook(symbol: string, limit?: number): Promise<{ bids: Array<[number, number]>; asks: Array<[number, number]>; timestamp: number }> {
+    try {
+      const orderBook = await this.exchange.fetchOrderBook(symbol, limit);
+      const normalizeLevels = (levels: typeof orderBook.bids): Array<[number, number]> => {
+        const normalized: Array<[number, number]> = [];
+        for (const [price, amount] of levels) {
+          if (typeof price !== "number" || !Number.isFinite(price) || typeof amount !== "number" || !Number.isFinite(amount)) continue;
+          normalized.push([price, amount]);
+        }
+        return normalized;
+      };
+      return {
+        bids: normalizeLevels(orderBook.bids),
+        asks: normalizeLevels(orderBook.asks),
+        timestamp: orderBook.timestamp ?? Date.now(),
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch order book for ${symbol}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Fetch rolling 24-hour traded value in the market's quote currency.
+   */
+  async fetch24hQuoteVolume(symbol: string): Promise<number> {
+    try {
+      const ticker = await this.exchange.fetchTicker(symbol);
+      if (typeof ticker.quoteVolume !== "number" || !Number.isFinite(ticker.quoteVolume)) {
+        throw new Error(`24h quote volume unavailable for ${symbol}`);
+      }
+      return ticker.quoteVolume;
+    } catch (error) {
+      throw new Error(`Failed to fetch 24h quote volume for ${symbol}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

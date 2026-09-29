@@ -37,7 +37,7 @@ runtime:
 exchange:
   id: <SET_EXCHANGE>
   sandbox: true
-  # API keys loaded from env: <EXCHANGE_API_KEY>, <EXCHANGE_API_SECRET>
+  # API keys loaded from env: <EXCHANGE_API_KEY>, <EXCHANGE_SECRET>, <EXCHANGE_PASSPHRASE>
 
 models:
   provider: <SET_PROVIDER>

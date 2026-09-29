@@ -3,7 +3,6 @@ import type { CatalogModel, EffortLevel } from '../../core/providers/catalog.js'
 import { listCatalogModels } from '../../core/providers/catalog.js';
 import type { ExecutionMode } from '../../core/types.js';
 import type { Message } from '../types.js';
-import type { Plan } from '../../core/plan-manager.js';
 
 // ---------------------------------------------------------------------------
 // Model State
@@ -86,8 +85,6 @@ interface SessionStateContextType {
   setSessionCreatedAt: React.Dispatch<React.SetStateAction<string>>;
   isSwitchingSession: boolean;
   setIsSwitchingSession: React.Dispatch<React.SetStateAction<boolean>>;
-  pendingPlan: Plan | null;
-  setPendingPlan: React.Dispatch<React.SetStateAction<Plan | null>>;
 }
 
 const SessionStateContext = createContext<SessionStateContextType | null>(null);
@@ -100,7 +97,6 @@ export function SessionStateProvider({ children }: SessionStateProviderProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessionCreatedAt, setSessionCreatedAt] = useState(() => new Date().toISOString());
   const [isSwitchingSession, setIsSwitchingSession] = useState(false);
-  const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
 
   const value: SessionStateContextType = {
     messages,
@@ -109,8 +105,6 @@ export function SessionStateProvider({ children }: SessionStateProviderProps) {
     setSessionCreatedAt,
     isSwitchingSession,
     setIsSwitchingSession,
-    pendingPlan,
-    setPendingPlan,
   };
 
   return <SessionStateContext.Provider value={value}>{children}</SessionStateContext.Provider>;

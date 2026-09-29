@@ -4,50 +4,64 @@ import { AlpacaAdapter } from './alpaca-adapter';
 import { IBKRAdapter } from './ibkr-adapter';
 import { LongbridgeAdapter } from './longbridge-adapter';
 import { HyperliquidAdapter } from './hyperliquid-adapter';
+import { createHyperliquidActionSigner } from './hyperliquid-signer-provider';
+import type { HyperliquidNetwork } from './hyperliquid-adapter';
+import { resolveCredentialValues } from './credential-env';
 
 export interface ExchangeFactoryConfig {
   mode?: string;
   exchangeId?: string;
+  exchangeIds?: readonly string[];
   adapterName?: string;
   auth?: Record<string, unknown>;
+  network?: import('./hyperliquid-adapter').HyperliquidNetwork;
 }
 
 /** Build the configured exchange adapter without inventing a venue. */
 export function createExchangeAdapter(config: ExchangeFactoryConfig): ExchangeAdapter | null {
   const requestedId = config.exchangeId?.trim() || config.adapterName?.trim();
-  const exchangeId = requestedId || (config.mode === 'paper' || config.mode === 'backtest' ? 'binance' : '');
+  const exchangeId = requestedId || process.env.EXCHANGE_ID?.trim() || (config.mode === 'paper' || config.mode === 'backtest' ? 'binance' : '');
   if (!exchangeId) return null;
 
   const auth = config.auth ?? {};
   const isPaper = config.mode === 'paper' || config.mode === 'backtest';
-  const apiKey = (auth.apiKey as string | undefined) ?? process.env[`${exchangeId.toUpperCase()}_API_KEY`];
-  const secret = (auth.secret as string | undefined) ?? process.env[`${exchangeId.toUpperCase()}_SECRET`];
+  const creds = resolveCredentialValues(exchangeId, config.exchangeIds ?? [exchangeId]);
+  const nonblank = (value: unknown): string | undefined => typeof value === 'string' && value.trim() ? value : undefined;
+  const authFirst = (authValue: unknown, envValue: string | undefined) => nonblank(authValue) ?? envValue;
+  const envFirst = (authValue: unknown, envValue: string | undefined) => envValue ?? nonblank(authValue);
+  const apiKey = authFirst(auth.apiKey, creds.apiKey);
+  const secret = authFirst(auth.secret, creds.secret);
+  const passphrase = authFirst(auth.passphrase, creds.passphrase);
 
   switch (exchangeId.toLowerCase()) {
     case 'alpaca':
       return new AlpacaAdapter({
-        apiKey: process.env.ALPACA_API_KEY ?? (auth.apiKey as string | undefined),
-        secretKey: process.env.ALPACA_SECRET_KEY ?? (auth.secret as string | undefined),
+        apiKey: envFirst(auth.apiKey, creds.apiKey),
+        secretKey: envFirst(auth.secret, creds.secret),
         paper: isPaper,
       });
     case 'ibkr':
       return new IBKRAdapter({
-        accountId: process.env.IBKR_ACCOUNT_ID ?? (auth.accountId as string | undefined),
-        baseUrl: process.env.IBKR_BASE_URL,
-        sessionToken: process.env.IBKR_SESSION_TOKEN,
+        accountId: nonblank(creds.accountId) ?? nonblank(auth.accountId),
+        baseUrl: creds.baseUrl,
+        sessionToken: creds.sessionToken,
       });
     case 'longbridge':
       return new LongbridgeAdapter({
-        accessToken: process.env.LONGBRIDGE_ACCESS_TOKEN ?? process.env.LONGBRIDGE_TOKEN,
-        baseUrl: process.env.LONGBRIDGE_HTTP_URL,
+        accessToken: authFirst(auth.accessToken, creds.accessToken),
+        baseUrl: creds.baseUrl,
       });
-    case 'hyperliquid':
+    case 'hyperliquid': {
+      const network = (config.network ?? auth.network ?? creds.network) as HyperliquidNetwork | undefined;
+      const privateKey = authFirst(auth.privateKey, creds.privateKey);
       return new HyperliquidAdapter({
-        walletAddress: (auth.walletAddress as string | undefined) ?? process.env.HYPERLIQUID_WALLET_ADDRESS ?? process.env.HYPERLIQUID_PUBLIC_KEY ?? '',
-        privateKey: (auth.privateKey as string | undefined) ?? process.env.HYPERLIQUID_PRIVATE_KEY,
-        restUrl: process.env.HYPERLIQUID_REST_URL,
+        walletAddress: authFirst(auth.walletAddress, creds.walletAddress) ?? '',
+        signer: privateKey ? createHyperliquidActionSigner(privateKey as `0x${string}`, network === 'testnet' ? 'b' : 'a') : undefined,
+        restUrl: creds.restUrl,
+        network,
       });
+    }
     default:
-      return new CCXTAdapter({ exchangeId, apiKey, secret, sandbox: isPaper });
+      return new CCXTAdapter({ exchangeId, apiKey, secret, passphrase, sandbox: isPaper });
   }
 }

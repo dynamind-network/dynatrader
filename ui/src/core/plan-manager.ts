@@ -71,7 +71,6 @@ export class PlanManager {
 
   async enterPlanMode(goal?: string): Promise<Plan | null> {
     this.planningMode = true;
-    this.emit({ type: 'plan_mode_entered', goal });
     if (!goal) return this.currentPlan;
     return this.createPlan(
       {
@@ -87,7 +86,6 @@ export class PlanManager {
       this.currentPlan.status = 'proposed';
       await this.persist(this.currentPlan);
     }
-    this.emit({ type: 'plan_mode_exited', plan: this.currentPlan ?? undefined });
     return this.currentPlan;
   }
 
@@ -128,7 +126,6 @@ export class PlanManager {
     this.currentPlan.updatedAt = new Date();
     this.planningMode = false;
     await this.persist(this.currentPlan);
-    this.emit({ type: 'plan_mode_exited', plan: this.currentPlan, approved: true });
     return true;
   }
 
@@ -142,13 +139,14 @@ export class PlanManager {
     return true;
   }
 
-  cancelPlan(reason?: string): void {
+  async cancelPlan(reason?: string): Promise<void> {
     if (!this.currentPlan) return;
-    this.currentPlan.status = 'cancelled';
-    void this.persist(this.currentPlan);
-    this.emit({ type: 'plan_interrupted', reason: reason ? 'user_cancel' : 'esc_pressed' });
+    const plan = this.currentPlan;
+    plan.status = 'cancelled';
     this.currentPlan = null;
     this.planningMode = false;
+    this.emit({ type: 'plan_interrupted', reason: reason ? 'user_cancel' : 'esc_pressed' });
+    await this.persist(plan);
   }
 
   async *executePlan(): AsyncGenerator<PlanStep, void, unknown> {
@@ -201,7 +199,6 @@ export class PlanManager {
     );
     this.currentPlan.updatedAt = new Date();
     await this.persist(this.currentPlan);
-    this.emit({ type: 'plan_step_update', planId: this.currentPlan.id, step });
   }
 
   getPlanHistory(): Plan[] {

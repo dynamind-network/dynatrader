@@ -120,6 +120,9 @@ export interface ExchangeAdapter {
   capabilities(): Promise<Record<string, unknown>>;
   fetchMarkets(): Promise<Record<string, unknown>>;
   fetchOHLCV(req: { symbol: string; timeframe: string; since?: number; limit?: number }): Promise<Array<[number, number, number, number, number, number]>>;
+  fetchOrderBook?(symbol: string, limit?: number): Promise<{ bids: Array<[number, number]>; asks: Array<[number, number]>; timestamp?: number | null }>;
+  /** Returns rolling 24-hour traded value in the market's quote currency. */
+  fetch24hQuoteVolume?(symbol: string): Promise<number>;
   balances(): Promise<Record<string, unknown>>;
   placeOrder(intent: OrderIntent): Promise<{ orderId: string; raw?: unknown }>;
   fetchOrder?(orderId: string, symbol: string): Promise<{ status?: string; filled?: number; average?: number; fee?: number; raw?: unknown }>;

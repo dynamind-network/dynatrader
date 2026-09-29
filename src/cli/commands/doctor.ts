@@ -15,6 +15,7 @@ import yaml from 'js-yaml';
 import { bold, cyan, green, red, yellow, dim, printSeparator, printHeader } from '../utils';
 import { getWorkspacePath } from '../../workspace-init';
 import { buildGatewayRuntimeStatus } from '../../gateway/runtime-gateway';
+import { formatCredentialPresence, missingCredentialEnvNames } from './credentials';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -249,57 +250,79 @@ async function checkModels(): Promise<SectionResult> {
 // Exchange checks
 // ---------------------------------------------------------------------------
 
-function checkExchange(workspacePath: string): SectionResult {
+export function checkExchange(workspacePath: string): SectionResult {
   const checks: CheckResult[] = [];
 
   const configPath = join(workspacePath, 'config.yaml');
   let exchangeId = '';
-  let apiKey = '';
-  let secret = '';
   let mode = 'paper';
+  let exchangeIds: string[] = [];
+  let configDiagnostic: string | undefined;
 
   if (existsSync(configPath)) {
     try {
       const content = readFileSync(configPath, 'utf-8');
-      const config = yaml.load(content) as Record<string, unknown>;
+      const loaded = yaml.load(content);
+      if (!loaded || typeof loaded !== 'object' || Array.isArray(loaded) || loaded instanceof Date) throw new Error('config must be a YAML object');
+      const config = loaded as Record<string, unknown>;
+      if (config['exchange'] !== undefined && config['exchange'] !== null && (typeof config['exchange'] !== 'object' || Array.isArray(config['exchange']))) throw new Error('exchange must be an object');
+      if (config['runtime'] !== undefined && config['runtime'] !== null && (typeof config['runtime'] !== 'object' || Array.isArray(config['runtime']))) throw new Error('runtime must be an object');
+      if (config['workspace'] !== undefined && config['workspace'] !== null && (typeof config['workspace'] !== 'object' || Array.isArray(config['workspace']))) throw new Error('workspace must be an object');
       const exchange = config['exchange'] as Record<string, unknown> | undefined;
       const runtime = config['runtime'] as Record<string, unknown> | undefined;
 
       if (exchange) {
-        exchangeId = (exchange['id'] as string) || '';
-        apiKey = (exchange['apiKey'] as string) || '';
-        secret = (exchange['secret'] as string) || '';
+        const ids = Array.isArray(exchange['ids']) ? exchange['ids'].filter((id): id is string => typeof id === 'string' && !!id.trim()) : [];
+        exchangeIds = ids.length ? ids : (typeof exchange['id'] === 'string' && exchange['id'].trim() ? [exchange['id'].trim()] : []);
+        exchangeId = exchangeIds[0] ?? '';
       }
       if (runtime) {
         mode = (runtime['mode'] as string) || (config['workspace'] as Record<string, unknown>)?.['mode'] as string || 'paper';
       } else if (config['workspace']) {
         mode = ((config['workspace'] as Record<string, unknown>)?.['mode'] as string) || 'paper';
       }
-    } catch {
-      // Use defaults
+    } catch (error) {
+      configDiagnostic = `Invalid config.yaml: ${error instanceof Error ? error.message : 'malformed YAML'}`;
     }
   }
 
-  // Also check environment variables
-  const envApiKey = process.env[`${exchangeId.toUpperCase()}_API_KEY`];
-  const envSecret = process.env[`${exchangeId.toUpperCase()}_SECRET`];
-  const hasApiKey = !!(apiKey || envApiKey);
-  const hasSecret = !!(secret || envSecret);
+  if (configDiagnostic) checks.push(check('exchange config', false, configDiagnostic));
+
+  if (configDiagnostic) {
+    checks.push(check('API keys configured', false, 'invalid config.yaml; credentials cannot be verified'));
+    return { name: 'exchange', ok: false, checks };
+  }
+
+  if (!exchangeId) {
+    const fallbackId = process.env.EXCHANGE_ID?.trim();
+    if (fallbackId) {
+      exchangeId = fallbackId;
+      exchangeIds = [fallbackId];
+    }
+  }
+  const missing = missingCredentialEnvNames(exchangeId, exchangeIds, mode);
+  const hasCredentials = !!exchangeId && missing.length === 0;
   const configuredExchangeLabel = exchangeId || 'configured exchange';
 
-  if (mode === 'paper' || mode === 'backtest') {
+  if (!['live', 'micro_live'].includes(mode.trim().toLowerCase())) {
     checks.push(check(
       'API keys configured',
-      true, // Not required for paper mode
-      `paper mode (${configuredExchangeLabel}) - keys optional`,
+      true,
+      `${configuredExchangeLabel} keys optional for ${mode} mode`,
+    ));
+  } else if (!exchangeId) {
+    checks.push(check(
+      'API keys configured',
+      false,
+      'EXCHANGE_ID is required to identify the venue and its required credentials for live mode',
     ));
   } else {
     checks.push(check(
       'API keys configured',
-      hasApiKey && hasSecret,
-      hasApiKey && hasSecret
-        ? `${configuredExchangeLabel} keys found`
-        : `${configuredExchangeLabel} keys missing (required for ${mode} mode)`,
+      hasCredentials,
+      hasCredentials
+        ? `${configuredExchangeLabel} keys found (${formatCredentialPresence(exchangeId, exchangeIds).join(', ')})`
+        : `${configuredExchangeLabel} keys missing: ${missing.join(', ')} (required for ${mode} mode; ${formatCredentialPresence(exchangeId, exchangeIds).join(', ')})`,
     ));
   }
 
@@ -479,7 +502,7 @@ async function checkSessions(workspacePath: string, fix: boolean): Promise<Secti
 // Fix helpers
 // ---------------------------------------------------------------------------
 
-async function fixConfigStructure(workspacePath: string, existing: Record<string, unknown>): Promise<void> {
+export async function fixConfigStructure(workspacePath: string, existing: Record<string, unknown>): Promise<void> {
   const configPath = join(workspacePath, 'config.yaml');
 
   const config: Record<string, unknown> = {
@@ -503,8 +526,6 @@ async function fixConfigStructure(workspacePath: string, existing: Record<string
     exchange: {
       id: '',
       sandbox: true,
-      apiKey: '',
-      secret: '',
       ...((existing['exchange'] as Record<string, unknown>) ?? {}),
     },
     models: {

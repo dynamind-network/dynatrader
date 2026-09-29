@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PlanManager } from '../src/core/plan-manager.js';
@@ -110,12 +110,13 @@ describe('PlanManager', () => {
       []
     );
 
-    manager.cancelPlan('changed my mind');
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await manager.cancelPlan('changed my mind');
 
     expect(manager.getCurrentPlan()).toBeNull();
     expect(manager.isPlanningMode()).toBe(false);
     expect(manager.getPlanHistory()[0].status).toBe('cancelled');
+    const persisted = readFileSync(manager.getPlanHistory()[0].filePath!, 'utf8');
+    expect(persisted).toContain('"status": "cancelled"');
   });
 
   it('throws when executing without an approved plan', async () => {

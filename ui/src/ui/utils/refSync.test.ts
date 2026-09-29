@@ -188,7 +188,7 @@ describe('useRefSync core behavior', () => {
     expect(getValue2()).toBe(100);
   });
 
-  it('ref-sync pattern prevents stale closure in event handlers', () => {
+  it('ref-sync pattern prevents stale closure in event handlers', async () => {
     // Simulate the StatusLine pattern:
     // const settingsRef = useRef(settings);
     // settingsRef.current = settings;
@@ -203,16 +203,16 @@ describe('useRefSync core behavior', () => {
       return settings.theme;
     };
 
-    expect(doUpdate()).resolves.toBe('dark');
+    await expect(doUpdate()).resolves.toBe('dark');
 
     // Simulate settings change
     settingsRef.current = { theme: 'light' };
 
     // Same doUpdate reference, but reads latest settings
-    expect(doUpdate()).resolves.toBe('light');
+    await expect(doUpdate()).resolves.toBe('light');
   });
 
-  it('ref-sync pattern works with AbortController integration', () => {
+  it('ref-sync pattern works with AbortController integration', async () => {
     // Combined pattern: ref-sync + AbortController
     const messagesRef: { current: string[] } = { current: ['msg1'] };
     const abortControllerRef: { current: AbortController | null } = { current: null };
@@ -230,13 +230,13 @@ describe('useRefSync core behavior', () => {
 
     // Initial call
     const result1 = doUpdate();
-    expect(result1).resolves.toEqual(['msg1']);
+    await expect(result1).resolves.toEqual(['msg1']);
 
     // Update messages
     messagesRef.current = ['msg1', 'msg2'];
 
     // Second call - should get updated messages
     const result2 = doUpdate();
-    expect(result2).resolves.toEqual(['msg1', 'msg2']);
+    await expect(result2).resolves.toEqual(['msg1', 'msg2']);
   });
 });

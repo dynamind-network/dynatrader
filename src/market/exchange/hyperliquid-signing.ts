@@ -11,8 +11,9 @@
  * https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/signing
  */
 
+import { encode } from "@msgpack/msgpack";
 import { privateKeyToAccount } from "viem/accounts";
-import { keccak256, toHex } from "viem";
+import { keccak256, concatHex, toHex } from "viem";
 
 export interface HlSignature {
   r: string;
@@ -20,85 +21,56 @@ export interface HlSignature {
   v: number;
 }
 
-const EXCHANGE_DOMAIN = {
+export interface HyperliquidSigningOptions {
+  source?: "a" | "b";
+  vaultAddress?: `0x${string}`;
+  expiresAfter?: number;
+}
+
+const DOMAIN = {
   name: "Exchange",
   version: "1",
   chainId: 1337,
+  verifyingContract: "0x0000000000000000000000000000000000000000",
 } as const;
 
-/**
- * Deterministically hash an action payload the way Hyperliquid expects:
- * stable JSON key ordering -> keccak256. Hyperliquid's canonical form for most
- * actions is msgpack; for the subset DynaTrader issues (order/cancel with flat
- * structures) a sorted-key JSON encoding produces the same digest the API
- * validates when posted alongside the signature.
- */
-export function hashAction(action: Record<string, unknown>, nonce: number): `0x${string}` {
-  const canonical = stableStringify({ ...action, nonce });
-  return keccak256(toHex(canonical));
+export function hashAction(
+  action: Record<string, unknown>,
+  nonce: number,
+  options: Pick<HyperliquidSigningOptions, "vaultAddress" | "expiresAfter"> = {},
+): `0x${string}` {
+  if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error("nonce must be a non-negative safe integer");
+  const nonceBytes = uint64(nonce);
+  const vaultMarker = options.vaultAddress ? concatHex(["0x01", options.vaultAddress]) : "0x00";
+  const expiry = options.expiresAfter === undefined ? "0x" : concatHex(["0x00", uint64(options.expiresAfter)]);
+  return keccak256(concatHex([toHex(encode(action)), nonceBytes, vaultMarker, expiry]));
 }
 
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(",")}]`;
-  }
-  if (value !== null && typeof value === "object") {
-    const keys = Object.keys(value as Record<string, unknown>).sort();
-    return `{${keys
-      .map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
-/**
- * Sign a user action for the Hyperliquid exchange endpoint.
- * Returns the r/s/v triple the /exchange endpoint expects.
- */
 export async function signUserAction(
   action: Record<string, unknown>,
   nonce: number,
   privateKey: `0x${string}`,
+  options: HyperliquidSigningOptions = {},
 ): Promise<{ signature: HlSignature; actionHash: `0x${string}` }> {
-  const account = privateKeyToAccount(privateKey);
-  const actionHash = hashAction(action, nonce);
-
-  // Hyperliquid signs the action hash directly as the EIP-712 primary value.
-  // viem's signTypedData requires structured types, so we sign the hash using
-  // the exchange domain digest construction manually:
-  const domainSeparator = keccak256(
-    toHex(
-      // abi.encode of the domain: keccak256("EIP712Domain(string name,string version,uint256 chainId)") + encodings
-      encodeDomainSeparator(EXCHANGE_DOMAIN),
-    ),
-  );
-
-  // digest = keccak256("\x19\x01" + domainSeparator + actionHash)
-  const digest = keccak256(
-    toHex(`\x19\x01${domainSeparator.slice(2)}${actionHash.slice(2)}`),
-  );
-
-  // viem returns a promise resolving to 65-byte sig: r(32) + s(32) + v(1)
-  const sigHex = (await account.sign({ hash: digest as `0x${string}` })).replace(/^0x/, "");
-  const signature: HlSignature = {
-    r: `0x${sigHex.slice(0, 64)}`,
-    s: `0x${sigHex.slice(64, 128)}`,
-    v: parseInt(sigHex.slice(128, 130), 16),
+  const source = options.source ?? "a";
+  const actionHash = hashAction(action, nonce, options);
+  const signatureHex = await privateKeyToAccount(privateKey).signTypedData({
+    domain: DOMAIN,
+    types: { Agent: [{ name: "source", type: "string" }, { name: "connectionId", type: "bytes32" }] },
+    primaryType: "Agent",
+    message: { source, connectionId: actionHash },
+  });
+  return {
+    actionHash,
+    signature: {
+      r: `0x${signatureHex.slice(2, 66).replace(/^0+/, "")}`,
+      s: `0x${signatureHex.slice(66, 130)}`,
+      v: parseInt(signatureHex.slice(130, 132), 16),
+    },
   };
-  return { signature, actionHash };
 }
 
-/** Manual abi.encode equivalent for the fixed-shape Exchange domain. */
-function encodeDomainSeparator(domain: { name: string; version: string; chainId: number }): `0x${string}` {
-  const typeHash = keccak256(toHex("EIP712Domain(string name,string version,uint256 chainId)"));
-  const nameHash = keccak256(toHex(domain.name));
-  const versionHash = keccak256(toHex(domain.version));
-  // uint256 chainId big-endian 32 bytes
-  const chainIdHex = domain.chainId.toString(16).padStart(64, "0");
-  const encoded =
-    typeHash.slice(2) +
-    nameHash.slice(2) +
-    versionHash.slice(2) +
-    chainIdHex;
-  return (`0x` + encoded) as `0x${string}`;
+function uint64(value: number): `0x${string}` {
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error("value must be a non-negative safe integer");
+  return `0x${BigInt(value).toString(16).padStart(16, "0")}`;
 }

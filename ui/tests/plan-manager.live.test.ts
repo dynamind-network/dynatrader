@@ -24,7 +24,7 @@ describe('live PlanManager', () => {
     await manager.updateStep(plan.steps[0].id, 'completed', 'inspected');
     const loaded = await new PlanManager({ workingDirectory: cwd }).load(plan.filePath!);
     expect(loaded.steps[0].status).toBe('completed');
-    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'plan_step_update' }));
+    expect(onEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'plan_step_update' }));
   });
 
   it('keeps planning on rejection and leaves it after approval', async () => {

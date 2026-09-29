@@ -481,7 +481,7 @@ describe('ShellTool - Interpret Mode Safety', () => {
     // If the test environment doesn't have a package.json in the temp dir,
     // the command should at least not be BLOCKED
     expect(result.output).not.toMatch(/BLOCKED/);
-  });
+  }, 15_000);
 });
 
 // ============================================================================

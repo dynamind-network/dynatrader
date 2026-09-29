@@ -1,10 +1,6 @@
 import type { SlashCommand, CommandContext } from './command-registry.js';
 import { getCommandRegistry } from './command-registry.js';
 import {
-  listWorkspaceStrategyTemplatesSync,
-  resolveWorkspaceBacktestEngine,
-} from '../tools/strategy-catalog.js';
-import {
   findProviderForModel,
   getModelDisplayName,
   parseEffortLevel,
@@ -36,7 +32,6 @@ export function registerBuiltinCommands(): void {
   registry.register(createDisconnectCommand());
   registry.register(createExitCommand());
   registry.register(createSkillCommand());
-  registry.register(createStrategiesCommand());
   registry.register(createPositionCommand());
   registry.register(createPlanCommand());
   registry.register(createGoalCommand());
@@ -46,7 +41,6 @@ export function registerBuiltinCommands(): void {
   registry.register(createForkCommand());
   registry.register(createBtwCommand());
   registry.register(createExportCommand());
-  registry.register(createWatchCommand());
 }
 
 function createPlanCommand(): SlashCommand {
@@ -585,40 +579,6 @@ function createSkillCommand(): SlashCommand {
   };
 }
 
-function createStrategiesCommand(): SlashCommand {
-  return {
-    name: 'strategies',
-    description: 'List workspace strategy aliases',
-    category: 'agent',
-    handler: async () => {
-      const templates = listWorkspaceStrategyTemplatesSync();
-      const lines = ['Configured Strategy Aliases:', ''];
-
-      if (templates.length === 0) {
-        lines.push('No strategy templates found in .dynamind/strategy-templates.');
-        lines.push(
-          'Add JSON templates there and map aliases in .dynamind/config.json under strategyEngines.'
-        );
-        return lines.join('\n');
-      }
-
-      for (const template of templates) {
-        const alias =
-          resolveWorkspaceBacktestEngine(template.id) ??
-          resolveWorkspaceBacktestEngine(template.name) ??
-          template.backtestEngine;
-        lines.push(`- ${template.name} (${template.id})${alias ? ` -> ${alias}` : ''}`);
-      }
-
-      lines.push('');
-      lines.push(
-        'Strategy aliases come from .dynamind/config.json and template backtest settings.'
-      );
-      return lines.join('\n');
-    },
-  };
-}
-
 function createPositionCommand(): SlashCommand {
   return {
     name: 'position',
@@ -829,20 +789,6 @@ function createExportCommand(): SlashCommand {
       }
       const result = await context.onExportSession(format);
       return result.message;
-    },
-  };
-}
-
-function createWatchCommand(): SlashCommand {
-  return {
-    name: 'watch',
-    description: 'Watch files and run command on changes',
-    category: 'system',
-    argumentHint: '[list|stop|clear|<command>]',
-    handler: async (args, context) => {
-      if (!context.onWatch) return 'Watch mode is unavailable.';
-      const result = await context.onWatch(args.trim());
-      return result;
     },
   };
 }

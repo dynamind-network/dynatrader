@@ -157,21 +157,19 @@ export class CommandService {
           if (!agentLoop) throw new Error('Agent not initialized. Please configure API keys.');
 
           this.options.onProcessingChange(true);
-          let planModeStarted = false;
+          let planningStarted = false;
           try {
             await agentLoop.setPlanningMode(true, goal);
-            planModeStarted = true;
+            planningStarted = true;
             await agentLoop.run(goal, {
               workingDirectory: this.options.cwd,
               conversationId: this.options.getConversationId(),
               isSubagent: false,
             });
             await agentLoop.setPlanningMode(false);
-            planModeStarted = false;
+            planningStarted = false;
           } catch (error) {
-            if (planModeStarted) {
-              await agentLoop.setPlanningMode(false).catch(() => {});
-            }
+            if (planningStarted) await agentLoop.setPlanningMode(false).catch(() => {});
             throw error;
           } finally {
             this.options.onProcessingChange(false);
@@ -234,33 +232,6 @@ export class CommandService {
             format,
             this.options.cwd
           );
-        },
-        onWatch: async (args: string) => {
-          const { startWatcher, stopWatcher, listWatchers, stopAllWatchers } = await import('../core/watch-manager.js');
-          const parts = args.split(/\s+/);
-          const action = parts[0]?.toLowerCase();
-
-          if (action === 'list') {
-            const watchers = listWatchers(this.options.cwd);
-            if (watchers.length === 0) return 'No active watchers.';
-            return watchers.map((w) => `${w.id} [${w.active ? 'active' : 'stopped'}] ${w.command}`).join('\n');
-          }
-
-          if (action === 'stop') {
-            const id = parts[1];
-            if (!id) return 'Usage: /watch stop <id>';
-            return stopWatcher(this.options.cwd, id) ? `Stopped watcher ${id}` : `Watcher ${id} not found`;
-          }
-
-          if (action === 'clear') {
-            stopAllWatchers(this.options.cwd);
-            return 'All watchers stopped.';
-          }
-
-          // Start a new watcher: /watch <command>
-          if (!args.trim()) return 'Usage: /watch <command>';
-          const watcher = startWatcher(this.options.cwd, '**/*', args.trim());
-          return `Started watcher ${watcher.id}: ${watcher.command}`;
         },
       };
 

@@ -14,12 +14,14 @@ import type {
   StrategySource, SkillManifest, AgentTurnContext, OrderIntent,
   ModelRouter, ModelRequest, ToolRegistry, ToolCall, ToolDefinition, ToolHandler,
   AgentState, ConversationMessage, ModelStreamChunk, ChatResponse, ToolResult,
-  ExecutionMode, TradeMode,
+  TradeMode,
 } from "@dyna/contracts";
 import { encoding_for_model } from "tiktoken";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { ContextEngine } from "./context-engine";
+import { AgentStateMachine } from "./agent-state-machine";
+export { AgentStateMachine } from "./agent-state-machine";
 import type { ContextState, ContextCompressionConfig } from "./context-engine";
 import { promptAssembly } from "../../context/prompt-assembly";
 import { BudgetTracker } from "../../context/budget-tracker";
@@ -28,7 +30,7 @@ import { IterationBudget } from "./iteration-budget";
 import { PromptBuilder } from "./prompt-builder";
 import { MemoryStoreImpl } from "@dyna/memory-core";
 import type { TradeRecord } from "@dyna/backtest";
-import type { TradeOutcome, MarketConditions, StrategyAdjustment } from "./types";
+import type { TradeOutcome, StrategyAdjustment } from "./types";
 import { MemoryWriter } from "./memory-writer";
 import type { PerformanceSummary } from "./memory-writer";
 import { CrossSessionRecall } from "./cross-session-recall";
@@ -93,44 +95,6 @@ IMPORTANT RULES:
 - If you have a direct answer, give it. Don't prefix with "Based on my analysis..." or "After reviewing...".
 - Use tools when needed, respond with the result. Skip the commentary.
 `;
-
-// ---------------------------------------------------------------------------
-// Valid state transitions
-// ---------------------------------------------------------------------------
-const VALID_TRANSITIONS: Record<AgentState, AgentState[]> = {
-  idle: ["starting", "error"],
-  starting: ["running", "error"],
-  running: ["tool_executing", "compacting", "stopping", "error"],
-  tool_executing: ["running", "stopping", "error"],
-  compacting: ["running", "stopping", "error"],
-  stopping: ["idle"],
-  error: ["idle", "starting"],
-};
-
-// ---------------------------------------------------------------------------
-// AgentStateMachine
-// ---------------------------------------------------------------------------
-export class AgentStateMachine {
-  private state: AgentState = "idle";
-  private listeners: Array<(state: AgentState, prev: AgentState) => void> = [];
-
-  getState(): AgentState { return this.state; }
-
-  transition(newState: AgentState): void {
-    const allowed = VALID_TRANSITIONS[this.state];
-    if (!allowed || !allowed.includes(newState)) {
-      throw new Error(`Invalid state transition: ${this.state} -> ${newState}. Allowed: ${allowed?.join(", ") ?? "none"}`);
-    }
-    const prev = this.state;
-    this.state = newState;
-    for (const listener of this.listeners) listener(newState, prev);
-  }
-
-  onStateChange(listener: (state: AgentState, prev: AgentState) => void): () => void {
-    this.listeners.push(listener);
-    return () => { const idx = this.listeners.indexOf(listener); if (idx >= 0) this.listeners.splice(idx, 1); };
-  }
-}
 
 import { ConversationManager, type ConversationConfig } from "./conversation-manager";
 export type { ConversationConfig } from "./conversation-manager";
@@ -258,6 +222,7 @@ interface ChatOptions {
   triggerDreamCycle?: boolean;
   allowTools?: boolean;
   maxTokens?: number;
+  signal?: AbortSignal;
 }
 
 // ---------------------------------------------------------------------------
@@ -309,6 +274,7 @@ export class AgentCore {
   private toolResultCompressor: import('../../context/tool-result-compressor').ToolResultCompressor | null;
   private cronEngine: import('../cron/cron-engine').CronEngine | null;
   private toolPolicies = new Map<string, { allowed?: Set<string>; disallowed: Set<string> }>();
+  private planningSessions = new Map<string, { goal?: string; enteredAt: Date }>();
   private toolStartTimes: Map<string, number> = new Map();
   private personaCache = new Map<string, string>();
   private cancelRequested = false;
@@ -484,7 +450,7 @@ export class AgentCore {
     this.config.toolRegistry.register({
       definition: {
         name: "delegate_task",
-        description: "Delegate a concrete, independent sub-task to a sub-agent and return its result.",
+        description: "Delegate a concrete, independent sub-task to a child agent with its own fresh conversation and workspace tools, then return its result. Specify agent for a configured specialist, or omit it to use the workspace's default agent as a coding worker.",
         category: "session",
         inputSchema: { task: "string", agent: "string?", context: "object?" },
         outputSchema: { result: "object" },
@@ -840,8 +806,7 @@ Explore the repository and design an implementation plan. You are strictly read-
   }
 
   private buildToolDefinitions(sessionId?: string, allowTools = true): ToolDefinition[] {
-    if (!allowTools) return [];
-    if (!this.config.toolRegistry) return [];
+    if (!allowTools || !this.config.toolRegistry) return [];
 
     // Resolve active profiles (core profiles always included)
     const profiles = resolveProfiles(this.config.activeProfiles);
@@ -910,6 +875,7 @@ Explore the repository and design an implementation plan. You are strictly read-
     tools: ToolDefinition[],
     maxTokens?: number,
     sessionId?: string,
+    signal?: AbortSignal,
   ): Promise<{ content: string; reasoningContent?: string; toolCallResults: NonNullable<ChatResponse["toolCalls"]>; usage: ChatResponse["usage"] }> {
     const toolCallResults: NonNullable<ChatResponse["toolCalls"]> = [];
     const usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
@@ -921,6 +887,7 @@ Explore the repository and design an implementation plan. You are strictly read-
     for (let turn = -1; turn < (this.config.maxToolTurns ?? 12); turn++) {
       this.syncModelContextWindow();
       if (this.cancelRequested) break;
+      if (signal?.aborted) throw signal.reason ?? new DOMException("Agent request cancelled", "AbortError");
       if (!this.budget.canStartIteration()) break;
       this.graduatedLoopDetector.resetForStep();
       // Drain mid-turn steering messages
@@ -936,6 +903,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         messages, tools: tools.length > 0 ? tools : undefined,
         maxTokens: this.resolveChatMaxTokens(promptFootprintTokens, maxTokens),
         temperature: 0.3,
+        signal,
       };
 
       let response;
@@ -1005,6 +973,13 @@ Explore the repository and design an implementation plan. You are strictly read-
       if (this.config.riskGate && response.content) {
         const rg = this.config.riskGate;
         const text = response.content;
+        const rejectRiskProposal = (rejection: string) => {
+          if (this.steeringInbox) {
+            this.steeringInbox.deliver({ content: rejection, source: 'system', priority: 'high' });
+          }
+          response.toolCalls = undefined;
+          content = rejection;
+        };
 
         // Leverage check: reject proposals exceeding max leverage
         if (rg.maxLeverage != null) {
@@ -1013,11 +988,7 @@ Explore the repository and design an implementation plan. You are strictly read-
             const proposed = parseInt(levMatch[1]);
             if (proposed > rg.maxLeverage) {
               const rejection = `REJECTED: Your proposal of ${proposed}x leverage exceeds the configured limit of ${rg.maxLeverage}x. Resubmit with leverage capped at ${rg.maxLeverage}x.`;
-              if (this.steeringInbox) {
-                this.steeringInbox.deliver({ content: rejection, source: 'system', priority: 'high' });
-              }
-              response.toolCalls = undefined;
-              content = rejection;
+              rejectRiskProposal(rejection);
               break;
             }
           }
@@ -1030,11 +1001,7 @@ Explore the repository and design an implementation plan. You are strictly read-
             const proposed = parseFloat(sizeMatch[1]);
             if (proposed > rg.maxPositionPct) {
               const rejection = `REJECTED: Your proposed position of ${proposed}% exceeds the configured limit of ${rg.maxPositionPct}%. Resubmit with position capped at ${rg.maxPositionPct}%.`;
-              if (this.steeringInbox) {
-                this.steeringInbox.deliver({ content: rejection, source: 'system', priority: 'high' });
-              }
-              response.toolCalls = undefined;
-              content = rejection;
+              rejectRiskProposal(rejection);
               break;
             }
           }
@@ -1130,7 +1097,9 @@ Explore the repository and design an implementation plan. You are strictly read-
       const batchResult = await executeBatch(batchInputs, this.config.toolRegistry!, {
         sessionId: sessionId ?? "default",
         stepIndex: turn,
-        signal: AbortSignal.timeout(this.config.budgetConfig?.maxTimeMs ?? 300_000),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(this.config.budgetConfig?.maxTimeMs ?? 300_000)])
+          : AbortSignal.timeout(this.config.budgetConfig?.maxTimeMs ?? 300_000),
         tracker: this.graduatedLoopDetector,
         maxWaveSize: this.maxWaveSize,
       });
@@ -1166,8 +1135,9 @@ Explore the repository and design an implementation plan. You are strictly read-
         for (const msg of toolMessages) {
           messages.push(msg);
         }
-        // Also store in cache for tool result retrieval
+        // Preserve the original executions for responses and post-turn accounting.
         for (const r of validResults) {
+          toolCallResults.push({ tool: r.tool, args: r.args, result: r.result, durationMs: r.durationMs ?? 0 });
           if (r.id) {
             this.toolResultCache.set(r.id, { tool: r.tool, args: r.args, result: r.result });
             this.evictOldest(this.toolResultCache, 100);
@@ -1505,6 +1475,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         this.buildToolDefinitions(options?.sessionId, options?.allowTools ?? true),
         options?.maxTokens,
         sessionKey,
+        options?.signal,
       );
       this.recordGoalUsage(options?.sessionId, usage, toolCallResults.length);
 
@@ -1633,6 +1604,7 @@ Explore the repository and design an implementation plan. You are strictly read-
       return chatResponse;
     } catch (error) {
       this.safeTransition("error");
+      this.safeTransition("idle");
       return {
         content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
         state: "error", usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
@@ -1735,6 +1707,8 @@ Explore the repository and design an implementation plan. You are strictly read-
         const tools = self.buildToolDefinitions(options?.sessionId, options?.allowTools ?? true);
         const modelRouter = self.config.modelRouter;
         if (!modelRouter) {
+          self.safeTransition("error");
+          self.safeTransition("idle");
           yield { type: "error" as const, error: "Model router not configured." };
           return;
         }
@@ -1742,6 +1716,8 @@ Explore the repository and design an implementation plan. You are strictly read-
         // Stream through tool loop (max 4 turns)
         for (let turn = -1; turn < (self.config.maxToolTurns ?? 12); turn++) {
           if (self.cancelRequested) {
+            self.safeTransition("stopping");
+            self.safeTransition("idle");
             yield { type: "content" as const, content: "(Cancelled)" };
             yield { type: "done" as const };
             return;
@@ -1749,10 +1725,11 @@ Explore the repository and design an implementation plan. You are strictly read-
         if (!self.budget.canStartIteration()) break;
 
         const promptFootprintTokens = self.estimateRequestTokens(messages);
-        const request: ModelRequest = {
+          const request: ModelRequest = {
           messages, tools: tools.length > 0 ? tools : undefined,
             maxTokens: self.resolveChatMaxTokens(promptFootprintTokens, options?.maxTokens),
             temperature: 0.3,
+            signal: options?.signal,
         };
 
         const analysisTaskName = self.resolveRoutingTaskName('analysis');
@@ -1768,6 +1745,8 @@ Explore the repository and design an implementation plan. You are strictly read-
               // Pre-LLM-call hooks
               const preLlmResult = await self.hooksManager.run('pre-llm-call', { messages, tools });
               if (!preLlmResult.continue) {
+                self.safeTransition("stopping");
+                self.safeTransition("idle");
                 yield { type: "content" as const, content: "(LLM call blocked by hook)" };
                 yield { type: "done" as const };
                 return;
@@ -1783,6 +1762,8 @@ Explore the repository and design an implementation plan. You are strictly read-
                   finalUsage = chunk.usage;
                   goalTokens += chunk.usage?.totalTokens ?? 0;
                 } else if (chunk.type === "error") {
+                  self.safeTransition("error");
+                  self.safeTransition("idle");
                   yield chunk;
                   return;
       }
@@ -1795,6 +1776,8 @@ Explore the repository and design an implementation plan. You are strictly read-
               // On-error hooks
               await self.hooksManager.run('on-error', { error: error instanceof Error ? error.message : "Unknown error" });
               if (action.action === 'fatal') {
+                self.safeTransition("error");
+                self.safeTransition("idle");
                 yield { type: "error" as const, error: `Recovery exhausted: ${action.description}` };
                 return;
               }
@@ -1851,6 +1834,8 @@ Explore the repository and design an implementation plan. You are strictly read-
 
           // If no content and no tool calls, done
           if (!contentBuffer.trim() && toolCalls.length === 0) {
+            self.safeTransition("error");
+            self.safeTransition("idle");
             yield { type: "error" as const, error: "Model returned no visible output." };
             return;
           }
@@ -1911,7 +1896,9 @@ Explore the repository and design an implementation plan. You are strictly read-
             {
               sessionId: sessionKey,
               stepIndex: turn,
-              signal: AbortSignal.timeout(self.config.budgetConfig?.maxTimeMs ?? 300_000),
+              signal: options?.signal
+                ? AbortSignal.any([options.signal, AbortSignal.timeout(self.config.budgetConfig?.maxTimeMs ?? 300_000)])
+                : AbortSignal.timeout(self.config.budgetConfig?.maxTimeMs ?? 300_000),
               tracker: self.graduatedLoopDetector,
               maxWaveSize: self.maxWaveSize,
             }
@@ -1983,6 +1970,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         yield { type: "done" as const };
       } catch (error) {
         self.safeTransition("error");
+        self.safeTransition("idle");
         yield { type: "error" as const, error: error instanceof Error ? error.message : "Unknown error" };
       }
     })();
@@ -2367,112 +2355,6 @@ Explore the repository and design an implementation plan. You are strictly read-
     this.iterations = [];
     this.budget.reset();
     this.conversation.clear();
-  }
-
-  private buildExecutionTradeOutcome(
-    strategy: SkillManifest,
-    trade: TradeRecord,
-    executionMode: ExecutionMode,
-  ): TradeOutcome | null {
-    if (trade.quantity <= 0 || trade.price <= 0) {
-      return null;
-    }
-
-    const realizedPnl = trade.realizedPnL ?? 0;
-    const pnl = realizedPnl - trade.fees;
-    const entryPrice = trade.price - realizedPnl / trade.quantity;
-    const pnlPercent = entryPrice > 0
-      ? (pnl / (entryPrice * trade.quantity)) * 100
-      : 0;
-
-    return {
-      tradeId: trade.id,
-      symbol: trade.symbol,
-      side: trade.side,
-      entryPrice: entryPrice > 0 ? entryPrice : trade.price,
-      exitPrice: trade.price,
-      quantity: trade.quantity,
-      pnl,
-      pnlPercent,
-      holdingTimeMs: this.estimatePaperHoldingTime(strategy, executionMode),
-      strategy,
-      marketConditions: this.inferPaperMarketConditions(strategy),
-      timestamp: trade.timestamp.getTime(),
-    };
-  }
-
-  private estimatePaperHoldingTime(strategy: SkillManifest, executionMode: "backtest" | "paper" | "micro_live" | "live" | "shadow"): number {
-    const timeframe = typeof strategy.timeframe === "string" ? strategy.timeframe.trim().toLowerCase() : "";
-    const parsed = timeframe.match(/^(\d+)([mhdw])$/);
-    if (!parsed) {
-      return executionMode === "backtest" ? 4 * 60 * 60 * 1000 : 60 * 60 * 1000;
-    }
-
-    const value = Number.parseInt(parsed[1]!, 10);
-    switch (parsed[2]) {
-      case "m":
-        return value * 60 * 1000;
-      case "h":
-        return value * 60 * 60 * 1000;
-      case "d":
-        return value * 24 * 60 * 60 * 1000;
-      case "w":
-        return value * 7 * 24 * 60 * 60 * 1000;
-      default:
-        return 60 * 60 * 1000;
-    }
-  }
-
-  private inferPaperMarketConditions(strategy: SkillManifest): MarketConditions {
-    const entry = (strategy.entry ?? {}) as Record<string, unknown>;
-    const regime = this.asMarketRegime(
-      entry.regime,
-      entry.preferredRegime,
-      entry.marketRegime,
-    );
-    const trend = this.asMarketTrend(
-      entry.trend,
-      entry.preferTrend,
-      entry.direction,
-    );
-    const volume = this.asVolumeLevel(entry.volume, entry.volumeLevel);
-    const volatility = typeof entry.volatility === "number" && Number.isFinite(entry.volatility)
-      ? entry.volatility
-      : 0.02;
-
-    return {
-      regime,
-      trend,
-      volume,
-      volatility,
-    };
-  }
-
-  private asMarketRegime(...values: Array<unknown>): MarketConditions["regime"] {
-    for (const value of values) {
-      if (value === "trending" || value === "ranging" || value === "volatile" || value === "calm") {
-        return value;
-      }
-    }
-    return "trending";
-  }
-
-  private asMarketTrend(...values: Array<unknown>): MarketConditions["trend"] {
-    for (const value of values) {
-      if (value === "bullish" || value === "bearish" || value === "neutral") {
-        return value;
-      }
-    }
-    return "neutral";
-  }
-
-  private asVolumeLevel(...values: Array<unknown>): MarketConditions["volume"] {
-    for (const value of values) {
-      if (value === "high" || value === "normal" || value === "low") {
-        return value;
-      }
-    }
-    return "normal";
   }
 
 }

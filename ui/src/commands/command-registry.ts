@@ -68,7 +68,6 @@ export interface CommandContext {
   onForkSession?: (newTitle?: string) => Promise<{ success: boolean; message: string }>;
   onBtw?: (question: string) => Promise<string>;
   onExportSession?: (format: 'markdown' | 'json') => Promise<{ success: boolean; message: string }>;
-  onWatch?: (args: string) => Promise<string>;
 }
 
 export type CommandResult = string | { content: string; artifact: ToolArtifact };

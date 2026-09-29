@@ -18,6 +18,8 @@ export interface DynatraderLaunchOptions {
    * for tests; by default it anchors discovery to the installed Terminal.
    */
   moduleDir?: string;
+  /** Bypass a configured external runtime and launch the local standalone agent. */
+  noDaemon?: boolean;
 }
 
 function walkUp(startDir: string): string[] {
@@ -59,7 +61,7 @@ export function resolveDynatraderLaunchSpec(
   const initCwd = env.INIT_CWD?.trim();
 
   const configuredEntry = env.DYNATRADER_ENTRY?.trim();
-  if (configuredEntry) {
+  if (!options.noDaemon && env.DYNATRADER_NO_DAEMON !== 'true' && configuredEntry) {
     const entryPath = path.isAbsolute(configuredEntry)
       ? configuredEntry
       : path.resolve(cwd, configuredEntry);

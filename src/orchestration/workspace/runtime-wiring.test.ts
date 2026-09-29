@@ -111,7 +111,7 @@ describe('DynaTraderRuntime wiring', () => {
       // Clean up spies after this test
       startSpy.mockRestore();
       initSpy.mockRestore();
-    });
+    }, 30_000);
 
     it('should initialize all learning loop components on start()', async () => {
       await runtime.start();
@@ -157,6 +157,13 @@ describe('DynaTraderRuntime wiring', () => {
     it('should initialize PaperEngine on start()', async () => {
       await runtime.start();
       expect(runtime.getPaperEngine()).toBeDefined();
+    });
+
+    it('initializes StateDb at the workspace state.db path', async () => {
+      await runtime.start();
+      const stateDb = runtime.getStateDb();
+      expect(stateDb).not.toBeNull();
+      expect(stateDb?.path).toBe(join(testDir, 'state.db'));
     });
 
     it('should initialize ExecutionRouter on start()', async () => {

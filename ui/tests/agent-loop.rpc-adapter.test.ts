@@ -83,24 +83,6 @@ describe('AgentLoop JSON-RPC adapter', () => {
     );
   });
 
-  it('normalizes lifecycle plan steps from DynaTrader', () => {
-    const client = new FakeRpcClient();
-    const onEvent = vi.fn();
-    makeLoop(client, onEvent);
-
-    client.emit('plan.step.update', {
-      planId: 'plan-1',
-      step: 'exploration',
-      status: 'in_progress',
-    });
-
-    expect(onEvent).toHaveBeenCalledWith({
-      type: 'plan_step_update',
-      planId: 'plan-1',
-      step: expect.objectContaining({ id: 'exploration', status: 'in_progress' }),
-    });
-  });
-
   it('delegates subagent work to the DynaTrader runtime', async () => {
     const client = new FakeRpcClient();
     const loop = makeLoop(client);

@@ -6,6 +6,13 @@ function createMarketDataProvider(exchange: ExchangeAdapter): MarketDataProvider
   return {
     async fetchUniverse() {
       const markets = await exchange.fetchMarkets();
+      const listedMarkets = markets['markets'];
+      if (Array.isArray(listedMarkets)) {
+        return listedMarkets.flatMap((market: unknown) => {
+          if (typeof market !== 'object' || market === null || !('symbol' in market)) return [];
+          return typeof market.symbol === 'string' ? [market.symbol] : [];
+        });
+      }
       return Object.keys(markets);
     },
     async getPrice(symbol) {
@@ -17,8 +24,15 @@ function createMarketDataProvider(exchange: ExchangeAdapter): MarketDataProvider
     async getOHLCV(symbol, timeframe, limit = 120) {
       return (await exchange.fetchOHLCV({ symbol, timeframe, limit })).map(([timestamp, open, high, low, close, volume]) => ({ timestamp, open, high, low, close, volume }));
     },
-    async getOrderBook() { return { bids: [], asks: [], timestamp: Date.now() }; },
-    async get24hVolume() { return 0; },
+    async getOrderBook(symbol) {
+      if (!exchange.fetchOrderBook) throw new Error(`Order book data is not supported by ${exchange.id}`);
+      const orderBook = await exchange.fetchOrderBook(symbol);
+      return { ...orderBook, timestamp: orderBook.timestamp ?? Date.now() };
+    },
+    async get24hVolume(symbol) {
+      if (!exchange.fetch24hQuoteVolume) throw new Error(`24h quote volume is not supported by ${exchange.id}`);
+      return exchange.fetch24hQuoteVolume(symbol);
+    },
   };
 }
 
@@ -37,8 +51,10 @@ export function createExchangePlugin(config: Record<string, unknown>): DynaPlugi
     const adapter = createExchangeAdapter({
       mode: config.mode as string | undefined,
       exchangeId,
+      exchangeIds,
       adapterName: config.adapterName as string | undefined,
       auth,
+      network: config.network as import('../../market/exchange/hyperliquid-adapter').HyperliquidNetwork | undefined,
     });
     if (adapter) adapters.set(adapter.id, adapter);
   }

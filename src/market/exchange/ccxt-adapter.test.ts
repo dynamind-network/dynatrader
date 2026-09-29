@@ -75,6 +75,11 @@ describe("CCXTAdapter", () => {
     it("should apply sandbox mode when configured", () => {
       expect(adapter).toBeInstanceOf(CCXTAdapter);
     });
+
+    it("forwards passphrase to CCXT password", () => {
+      const withPassphrase = new CCXTAdapter({ exchangeId: "binance", passphrase: "test-passphrase" });
+      expect((withPassphrase as unknown as { exchange: { password?: string } }).exchange.password).toBe("test-passphrase");
+    });
   });
 
   describe("Capabilities", () => {
@@ -139,6 +144,51 @@ describe("CCXTAdapter", () => {
       // Adapter uses limits.amount.min / limits.price.min from the raw market
       expect(limits.amount!.min).toBe(0.001);
       expect(limits.price!.min).toBe(0.01);
+    });
+  });
+
+  describe("Market depth and volume", () => {
+    it("fetches an order book with the requested depth", async () => {
+      const orderBook = { bids: [[100, 2]], asks: [[101, 3]], timestamp: 1234 };
+      const fetchOrderBook = vi.fn().mockResolvedValue(orderBook);
+      currentMockExchange = createMockExchange({ fetchOrderBook });
+      adapter = new CCXTAdapter(config);
+
+      await expect(adapter.fetchOrderBook("BTC/USDT", 10)).resolves.toEqual(orderBook);
+      expect(fetchOrderBook).toHaveBeenCalledWith("BTC/USDT", 10);
+    });
+
+    it("drops incomplete order-book levels", async () => {
+      currentMockExchange = createMockExchange({
+        fetchOrderBook: vi.fn().mockResolvedValue({
+          bids: [[100, 2], [undefined, 1]],
+          asks: [[101, 3], [102, undefined]],
+          timestamp: 1234,
+        }),
+      });
+      adapter = new CCXTAdapter(config);
+
+      await expect(adapter.fetchOrderBook("BTC/USDT")).resolves.toEqual({
+        bids: [[100, 2]],
+        asks: [[101, 3]],
+        timestamp: 1234,
+      });
+    });
+
+    it("returns quote-currency 24-hour volume from the ticker", async () => {
+      const fetchTicker = vi.fn().mockResolvedValue({ baseVolume: 2, quoteVolume: 4321 });
+      currentMockExchange = createMockExchange({ fetchTicker });
+      adapter = new CCXTAdapter(config);
+
+      await expect(adapter.fetch24hQuoteVolume("BTC/USDT")).resolves.toBe(4321);
+      expect(fetchTicker).toHaveBeenCalledWith("BTC/USDT");
+    });
+
+    it("rejects unavailable quote volume instead of fabricating zero", async () => {
+      currentMockExchange = createMockExchange({ fetchTicker: vi.fn().mockResolvedValue({ quoteVolume: null }) });
+      adapter = new CCXTAdapter(config);
+
+      await expect(adapter.fetch24hQuoteVolume("BTC/USDT")).rejects.toThrow("24h quote volume unavailable");
     });
   });
 

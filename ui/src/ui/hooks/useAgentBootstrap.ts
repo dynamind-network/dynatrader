@@ -7,7 +7,6 @@ import {
   type Message as CoreMessage,
   type ExecutionMode,
 } from '../../index.js';
-import type { Plan } from '../../core/plan-manager.js';
 import { getErrorMessage } from '../../utils/index.js';
 import { resolveWorkspaceAgentDirectories } from '../../config/workspace-context.js';
 
@@ -39,7 +38,6 @@ export function useAgentBootstrap(
     input: Record<string, unknown>,
     reason?: string
   ) => Promise<boolean>,
-  onPlanApprovalRequired: (plan: Plan) => Promise<boolean>,
   onTimelineEvent: (event: AgentEvent) => void,
   resolvedApiKeys: Record<string, string>
 ): AgentBootstrapResult {
@@ -49,19 +47,11 @@ export function useAgentBootstrap(
     Array<{ name: string; description: string }>
   >([]);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
-
-  // Use refs to avoid stale closures in the bootstrap callback
-  const configRef = useRef(config);
   const currentModelRef = useRef(currentModel);
   const executionModeRef = useRef(executionMode);
   const onEventRef = useRef(onEvent);
   const onApprovalRequiredRef = useRef(onApprovalRequired);
-  const onPlanApprovalRequiredRef = useRef(onPlanApprovalRequired);
   const onTimelineEventRef = useRef(onTimelineEvent);
-
-  useEffect(() => {
-    configRef.current = config;
-  }, [config]);
 
   useEffect(() => {
     currentModelRef.current = currentModel;
@@ -74,10 +64,6 @@ export function useAgentBootstrap(
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
-
-  useEffect(() => {
-    onPlanApprovalRequiredRef.current = onPlanApprovalRequired;
-  }, [onPlanApprovalRequired]);
 
   useEffect(() => {
     onApprovalRequiredRef.current = onApprovalRequired;
@@ -121,7 +107,7 @@ export function useAgentBootstrap(
         startTransition(() => {
           setIsBootstrapping(true);
         });
-        const workspaceAgents = resolveWorkspaceAgentDirectories(configRef.current.cwd);
+        const workspaceAgents = resolveWorkspaceAgentDirectories(config.cwd);
         const registry = new SubagentRegistry({
           projectDirs: workspaceAgents.project,
           globalDirs: workspaceAgents.global,
@@ -187,9 +173,9 @@ Type /help for all commands.`,
           keys,
           {
             model: selectedModel,
-            systemPrompt: configRef.current.systemPrompt,
+            systemPrompt: config.systemPrompt,
             maxTokens: 4096,
-            maxTurns: configRef.current.maxTurns,
+            maxTurns: config.maxTurns,
             tools: [],
           },
           undefined,
@@ -199,14 +185,18 @@ Type /help for all commands.`,
               onTimelineEventRef.current(event);
             },
             onApprovalRequired: onApprovalRequiredRef.current,
-            onPlanApprovalRequired: (plan) => onPlanApprovalRequiredRef.current(plan),
-          }
+          },
         );
 
         await loop.configureToolPolicy(
-          configRef.current.allowedTools,
-          configRef.current.disallowedTools
+          config.allowedTools,
+          config.disallowedTools,
         );
+
+        // The stdio runtime owns its own model router. Select this model there
+        // before exposing the loop to the input handler, especially on first
+        // bootstrap when there was no existing loop to switch.
+        loop.switchModel(selectedModel);
 
         for (const message of conversationToHydrate ?? []) {
           loop.addMessage(message);

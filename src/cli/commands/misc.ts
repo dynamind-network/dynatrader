@@ -13,6 +13,7 @@ import { platform } from 'os';
 import { ContextCompactionEngine } from '../../context/context-compaction-engine';
 import packageJson from '../../../package.json';
 
+
 export async function cmdSetup(): Promise<void> {
   printHeader('DynaTrader Workspace Setup');
   console.log();
@@ -35,7 +36,7 @@ export async function cmdSetup(): Promise<void> {
   console.log(`  Sandbox:   ${config.exchange.sandbox}`);
   console.log();
   console.log(dim('  API keys are configured via environment variables:'));
-  console.log(dim('    EXCHANGE_API_KEY, EXCHANGE_API_SECRET'));
+  console.log(dim('    EXCHANGE_API_KEY, EXCHANGE_SECRET, EXCHANGE_PASSPHRASE (or venue-specific variables)'));
   console.log();
 
   console.log(bold('Model Provider:'));
@@ -171,13 +172,11 @@ export async function cmdConfig(
       printSeparator();
 
       console.log(bold('  Environment:'));
-      const envKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'LM_STUDIO_BASE_URL', 'DYNA_WORKSPACE', 'DYNA_MODE', 'EXCHANGE_ID', 'EXCHANGE_API_KEY', 'EXCHANGE_API_SECRET'];
+      const envKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'LM_STUDIO_BASE_URL', 'DYNA_WORKSPACE', 'DYNA_MODE', 'EXCHANGE_ID', 'EXCHANGE_API_KEY', 'EXCHANGE_SECRET', 'EXCHANGE_PASSPHRASE'];
       for (const key of envKeys) {
         const val = process.env[key];
         if (val) {
-          const display = key.includes('KEY') || key.includes('SECRET')
-            ? `****${val.slice(-4)}`
-            : val;
+          const display = key.includes('KEY') || key.includes('SECRET') || key.includes('TOKEN') || key.includes('PASSPHRASE') ? '[set]' : val;
           console.log(`    ${key}=${dim(display)}`);
         }
       }
@@ -212,7 +211,7 @@ export async function cmdConfig(
       const envVal = process.env[key];
       if (envVal !== undefined) {
         const sensitive = key.includes('KEY') || key.includes('SECRET') || key.includes('PASSWORD');
-        const display = sensitive ? `****${envVal.slice(-4)}` : envVal;
+        const display = sensitive || key.includes('TOKEN') || key.includes('PASSPHRASE') ? '[set]' : envVal;
         console.log(`${key}=${display} ${dim('(from environment)')}`);
         return;
       }

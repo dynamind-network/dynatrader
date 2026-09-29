@@ -1,9 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearSettingsCache,
+  initializeSettingsEncryption,
   loadSettings,
   loadPluginSettingsSync,
   updatePluginSetting,
@@ -31,6 +32,38 @@ afterEach(() => {
 });
 
 describe("loadSettings", () => {
+  it("reports unverified Windows ACLs for each sensitive file instead of POSIX chmod advice", async () => {
+    if (process.platform !== "win32") return;
+
+    const homeDir = await makeTempDir("dynamind-home-");
+    const workspaceDir = await makeTempDir("dynamind-workspace-");
+    process.env.HOME = homeDir;
+    process.env.USERPROFILE = homeDir;
+
+    await fs.mkdir(path.join(homeDir, ".dynamind"), { recursive: true });
+    await fs.mkdir(path.join(workspaceDir, ".dynamind"), { recursive: true });
+    await fs.writeFile(path.join(homeDir, ".dynamind", "settings.json"), "{}");
+    await fs.writeFile(path.join(workspaceDir, ".dynamind", "settings.json"), "{}");
+
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let messages = "";
+    try {
+      await initializeSettingsEncryption();
+      await loadSettings(workspaceDir);
+      loadPluginSettingsSync(workspaceDir);
+      messages = warning.mock.calls.map(([message]) => String(message)).join("\n");
+    } finally {
+      warning.mockRestore();
+    }
+
+    expect(messages).toContain("Windows ACL");
+    expect(messages).toContain(path.join(homeDir, ".dynamind", "settings.json"));
+    expect(messages).toContain(path.join(workspaceDir, ".dynamind", "settings.json"));
+    expect(messages).toContain(".settings-key");
+    expect(messages).not.toContain("expected 600");
+    expect(messages).not.toContain("chmod 600");
+  });
+
   it("deep-merges user and workspace settings without dropping defaults", async () => {
     const homeDir = await makeTempDir("dynamind-home-");
     const workspaceDir = await makeTempDir("dynamind-workspace-");

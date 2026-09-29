@@ -37,8 +37,11 @@ export class JsonRpcClient {
   private transportFailure: Error | null = null;
   private stderrTail = '';
 
-  constructor(command: string, args: string[]) {
-    this.process = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+  constructor(command: string, args: string[], env?: NodeJS.ProcessEnv) {
+    this.process = spawn(command, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      ...(env ? { env: { ...process.env, ...env } } : {}),
+    });
     this.pending = new Map();
     this.eventHandlers = new Map();
     this.rl = readline.createInterface({ input: this.process.stdout! });

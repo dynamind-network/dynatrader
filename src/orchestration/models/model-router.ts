@@ -29,6 +29,7 @@ const MODEL_CONTEXT_WINDOWS: Array<{ pattern: RegExp; tokens: number }> = [
   { pattern: /gemini-2\.5-(flash|pro)/i, tokens: 1_000_000 },
   { pattern: /gemini-1\.5-(flash|pro)/i, tokens: 2_000_000 },
   { pattern: /deepseek-(chat|r1)/i, tokens: 128_000 },
+  { pattern: /deepseek-v4/i, tokens: 1_000_000 },
   { pattern: /llama-3(?:\.\d+)?(?:-instruct)?(?:-8b|-70b)?/i, tokens: 8_192 },
 ];
 

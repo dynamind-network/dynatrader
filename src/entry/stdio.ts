@@ -32,7 +32,7 @@ import { format } from 'node:util';
 import { requireVisibleResponse } from '../runtime/visible-response';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
 
 const showThinking = process.env['DYNA_SHOW_THINKING']?.toLowerCase() !== 'false';
 
@@ -101,7 +101,14 @@ async function main(): Promise<void> {
   if (!existsSync(memoryDir)) {
     mkdirSync(memoryDir, { recursive: true });
   }
-  const sqliteBackend = new SqliteMemoryStore(join(memoryDir, 'state.db'));
+  const statePath = join(memoryDir, 'state.db');
+  // Older Windows installs kept SQLite's files inside a state.db directory.
+  // Preserve and reopen that database instead of asking SQLite to open the
+  // directory itself as a database file.
+  const dbPath = existsSync(statePath) && statSync(statePath).isDirectory()
+    ? join(statePath, 'state.db')
+    : statePath;
+  const sqliteBackend = new SqliteMemoryStore(dbPath);
   const memory = new MemoryStoreImpl(sqliteBackend);
 
   // 2. Create model router with auto-detected providers
@@ -137,38 +144,44 @@ async function main(): Promise<void> {
     workspacePrompt,
   });
   agent.setDelegateTask(async (request) => {
-    const agentName = request.agent?.trim();
-    if (!agentName) {
-      throw new Error('Delegation requires an explicit agent name in stdio mode.');
-    }
+    const requestedAgent = request.agent?.trim();
+    const manifest = requestedAgent
+      ? await agentRegistry.get(requestedAgent)
+      : await agentRegistry.getDefault().catch(() => undefined);
+    const agentName = manifest?.name ?? requestedAgent ?? 'coding-worker';
+    const workerInstructions = manifest?.instructions?.trim() || workspacePrompt ||
+      'You are a careful coding worker. Inspect the workspace, make the requested change with the available tools, and report what changed and how it was verified.';
 
-    const manifest = await agentRegistry.get(agentName);
-    if (!manifest.instructions?.trim()) {
-      throw new Error(`Agent ${agentName} has no workspace instructions configured.`);
+    // Give each delegated worker a fresh conversation and the parent's tools,
+    // while preventing recursive delegation from multiplying unboundedly.
+    const childToolRegistry = toolRegistry.restrict({ deny: ['delegate_task', 'skill_manage'] });
+    const child = new AgentCore({
+      memory,
+      modelRouter,
+      toolRegistry: childToolRegistry,
+      workspacePath,
+      workspacePrompt: workerInstructions,
+      maxToolTurns: 24,
+      budgetConfig: {
+        maxIterations: 24,
+        maxTimeMs: 600_000,
+        maxMemoryUsage: 128 * 1024 * 1024,
+        maxApiCalls: 100,
+      },
+    });
+    const task = request.context
+      ? `${request.task}\n\nContext:\n${JSON.stringify(request.context)}`
+      : request.task;
+    const response = await child.chat(task, { allowTools: true, signal: request.signal });
+    if (response.state !== 'idle' || !requireVisibleResponse(response.content, response.reasoningContent, `Delegation to ${agentName}`, showThinking)) {
+      throw new Error(response.content || `Child agent ${agentName} returned no visible result.`);
     }
-
-    const response = await modelRouter.call({
-      messages: [
-        {
-          role: 'system',
-          content: manifest.instructions.trim(),
-        },
-        {
-          role: 'user',
-          content: request.context
-            ? `${request.task}\n\nContext:\n${JSON.stringify(request.context)}`
-            : request.task,
-        },
-      ],
-      maxTokens: 3000,
-      temperature: 0.2,
-      signal: request.signal,
-    }, 'research');
     return {
       agent: agentName,
-      content: requireVisibleResponse(response.content, response.reasoningContent, `Delegation to ${agentName}`, showThinking),
+      content: response.content,
       reasoningContent: response.reasoningContent,
       usage: response.usage,
+      toolCalls: response.toolCalls?.map((call) => ({ tool: call.tool, success: call.result?.success })),
     };
   });
 

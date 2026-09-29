@@ -39,6 +39,7 @@ Options:
   -p, --prompt        Prompt to send to the AI
   -s, --session       Session ID to resume
   --connect           Connect to a provider (e.g., deepseek, openai)
+  --no-daemon         Use the local standalone coding agent runtime
   --no-tui            Run in non-interactive CLI mode (outputs response to stdout)
 
 Available models:
@@ -69,6 +70,11 @@ for (let i = 0; i < args.length; i++) {
   // --no-tui
   if (arg === '--no-tui') {
     noTui = true;
+    continue;
+  }
+
+  if (arg === '--no-daemon') {
+    process.env.DYNATRADER_NO_DAEMON = 'true';
     continue;
   }
 

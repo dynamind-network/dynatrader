@@ -50,10 +50,10 @@ export function ToolStateProvider({ children }: ToolStateProviderProps) {
 
   // --- actions (unchanged business logic) ---
 
-  const startProcessing = useCallback(() => {
+  const startProcessing = useCallback((isProcessing = true) => {
     setState((prev) => ({
       ...prev,
-      isProcessing: true,
+      isProcessing,
       lastToolChange: Date.now(),
     }));
   }, []);
