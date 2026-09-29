@@ -6,6 +6,7 @@ import { BaseTool, ToolKind } from './base-tool.js';
 import type { ToolExecutionContext, ToolResult } from '../core/types.js';
 import { PathSecurity } from './path-security.js';
 import { getErrorMessage } from '../utils/index.js';
+import { classifyShellCommand } from './shell-command-policy.js';
 
 const FILE_OPS = new Set([
   'rm',
@@ -418,6 +419,10 @@ export class ShellTool extends BaseTool {
         );
       }
     }
+
+    const safety = classifyShellCommand(command);
+    if (safety.decision === 'block') return this.error(`BLOCKED: ${safety.reason}`);
+    if (interpret && safety.decision === 'approval') return this.error(`BLOCKED: interpreted command requires approval. ${safety.reason}`);
 
     let workingDir: string;
     try {

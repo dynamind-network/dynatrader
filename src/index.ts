@@ -113,6 +113,8 @@ export type { ToolRegistryConfig } from './runtime/tools/tool-registry';
 
 // Re-export key tool types from contracts
 export type { ToolDefinition, ToolHandler, ToolCall, ToolResult, ToolCategory } from '@dyna/contracts';
+export { classifyShellCommand } from './security/shell-command-policy.js';
+export type { ShellCommandDecision } from './security/shell-command-policy.js';
 
 // =============================================================================
 // Plugin System (capability seams)

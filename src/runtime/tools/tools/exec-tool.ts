@@ -4,6 +4,7 @@ import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import type { ToolCall, ToolResult, ToolHandler, ToolDefinition } from '@dyna/contracts';
+import { classifyShellCommand } from '../../../security/shell-command-policy.js';
 
 type TaskState = 'running' | 'completed' | 'failed' | 'cancelled';
 interface BackgroundTask {
@@ -114,6 +115,8 @@ export class ExecTool implements ToolHandler {
     const started = Date.now();
     const command = call.args.command;
     if (typeof command !== 'string' || !command.trim()) return this.fail('Command must be a non-empty string', started);
+    const safety = classifyShellCommand(command);
+    if (safety.decision === 'block') return this.fail(`Blocked: ${safety.reason}`, started);
     if (context?.signal?.aborted) return this.fail('Command cancelled before start.', started);
     try {
       const cwd = this.resolveWorkdir(call.args.workdir as string | undefined);

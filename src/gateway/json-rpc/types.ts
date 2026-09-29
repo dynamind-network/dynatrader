@@ -77,6 +77,7 @@ export interface ApprovalRequestEvent {
   requestId: string;
   action: string;
   summary: string;
+  input?: Record<string, unknown>;
   riskLevel: string;
   sessionId: string;
 }

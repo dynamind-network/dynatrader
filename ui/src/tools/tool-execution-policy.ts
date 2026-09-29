@@ -5,6 +5,7 @@ import type {
   RiskAssessment,
 } from "../core/types.js";
 import { BaseTool } from "./base-tool.js";
+import { classifyShellCommand } from './shell-command-policy.js';
 
 const PROTECTED_FILE_PATTERNS = [
   /\.env(\.|$)/,
@@ -172,6 +173,12 @@ export class ToolExecutionPolicy {
     approvalMode: ApprovalMode,
   ): Promise<ToolApprovalDecision> {
     const riskAssessment = assessRisk(tool, input);
+    if (tool.name === 'shell' && typeof input.command === 'string') {
+      const shellDecision = classifyShellCommand(input.command);
+      if (shellDecision.decision === 'block') return { requiresApproval: false, reason: `Command blocked by safety policy: ${shellDecision.reason}`, riskLevel: 'high' };
+      if (shellDecision.decision === 'approval') return { requiresApproval: true, reason: shellDecision.reason, riskLevel: 'high' };
+      if (approvalMode === 'yolo') return { requiresApproval: false, reason: null, riskLevel: riskAssessment.level };
+    }
 
     if (approvalMode === "yolo") {
       // CRITICAL: Even in YOLO mode, require approval for external state mutations

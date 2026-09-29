@@ -18,6 +18,7 @@ import * as readline from "node:readline";
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { timingSafeEqual, randomUUID } from "node:crypto";
+import { classifyShellCommand } from "../../security/shell-command-policy";
 import type { AgentCore } from "../../agent/core/agent-core";
 import type { ModelRouterImpl } from "../../orchestration/models/model-router";
 import type {
@@ -685,7 +686,15 @@ export class JsonRpcServer {
   }
 
   private requestToolApproval(call: import('@dyna/contracts').ToolCall, definition: import('@dyna/contracts').ToolDefinition): Promise<boolean> {
-    if (this.autoApproveTools) return Promise.resolve(true);
+    if (this.autoApproveTools) {
+      if (call.tool === 'exec' && typeof call.args.command === 'string') {
+        const safety = classifyShellCommand(call.args.command);
+        if (safety.decision === 'block') return Promise.resolve(false);
+        if (safety.decision === 'allow') return Promise.resolve(true);
+      } else {
+        return Promise.resolve(true);
+      }
+    }
     const requestId = `approval_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const summary = `${definition.name}: ${definition.description}`;
     return new Promise<boolean>((resolve) => {
@@ -699,6 +708,7 @@ export class JsonRpcServer {
         requestId,
         action: definition.name,
         summary,
+        input: call.args,
         riskLevel: definition.riskLevel ?? 'medium',
         sessionId: this.agent.getActiveSession()?.id ?? 'default',
       });
