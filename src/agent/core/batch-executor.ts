@@ -165,7 +165,7 @@ export async function executeBatch(
 
     let result: ToolResult;
     try {
-      result = await registry.execute(input.call);
+      result = await registry.execute(input.call, { signal: ctx.signal });
     } catch (err) {
       result = {
         success: false,

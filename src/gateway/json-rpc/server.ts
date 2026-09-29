@@ -107,6 +107,9 @@ export class JsonRpcServer {
     });
 
     this.agent.setToolApprovalHandler((call, definition) => this.requestToolApproval(call, definition));
+    this.agent.setDelegateEventHandler((agent, taskId, chunk) => {
+      this.emitEvent({ type: RpcEvents.AGENT_ACTIVITY, agent, taskId, chunk });
+    });
     this.wireAgentEvents();
   }
 
@@ -372,10 +375,12 @@ export class JsonRpcServer {
     sessionId?: string,
   ): Promise<PromptSubmitResult | null> {
     try {
+      const taskId = `direct_${Date.now()}_${randomUUID().slice(0, 8)}`;
       const result = await this.agent.delegate({
         agent: agentName,
         task,
         sessionId,
+        onEvent: (agent, chunk) => this.emitEvent({ type: RpcEvents.AGENT_ACTIVITY, agent, taskId, chunk }),
       });
       return {
         content: (result as { result?: string })?.result ?? `@${agentName} completed.`,
@@ -428,6 +433,10 @@ export class JsonRpcServer {
       let finalState = "idle";
       let durationMs = 0;
       let compacted = false;
+      let streamError = "";
+      let completedToolCalls = 0;
+      let successfulToolCalls = 0;
+      let failedToolCalls = 0;
 
       for await (const chunk of stream) {
         if (this.cancelFlag) break;
@@ -443,20 +452,33 @@ export class JsonRpcServer {
             });
             break;
 
-          case "tool_call":
+          case "tool_call": {
             // Emit tool.start event
+            let toolArgs: Record<string, unknown> = {};
+            try {
+              const parsedArgs: unknown = JSON.parse(chunk.toolCall!.function.arguments || '{}');
+              if (parsedArgs && typeof parsedArgs === 'object' && !Array.isArray(parsedArgs)) {
+                toolArgs = parsedArgs as Record<string, unknown>;
+              }
+            } catch {
+              toolArgs = { _invalidArguments: true };
+            }
             this.emitEvent({
               type: RpcEvents.TOOL_START,
               toolCallId: chunk.toolCall!.id,
               toolName: chunk.toolCall!.function.name,
-              args: JSON.parse(chunk.toolCall!.function.arguments),
+              args: toolArgs,
               sessionId: params.sessionId ?? "default",
             });
             break;
+          }
 
           case "tool_result":
             // Emit tool.complete event
             if (chunk.toolResult) {
+              completedToolCalls += 1;
+              if (chunk.toolResult.result.success) successfulToolCalls += 1;
+              else failedToolCalls += 1;
               this.emitEvent({
                 type: RpcEvents.TOOL_COMPLETE,
                 toolCallId: chunk.toolResult.toolCallId,
@@ -476,11 +498,7 @@ export class JsonRpcServer {
             break;
 
           case "error":
-            this.emitEvent({
-              type: RpcEvents.ERROR,
-              message: chunk.error ?? "Unknown stream error",
-              sessionId: params.sessionId ?? "default",
-            });
+            streamError = chunk.error ?? "Unknown stream error";
             break;
         }
       }
@@ -489,7 +507,29 @@ export class JsonRpcServer {
       durationMs = Date.now() - startedAt;
 
       if (!finalContent.trim()) {
-        throw new Error("Prompt produced no visible output.");
+        if (completedToolCalls > 0) {
+          const outcome = failedToolCalls > 0
+            ? `${successfulToolCalls} succeeded, ${failedToolCalls} failed`
+            : `${successfulToolCalls} succeeded`;
+          finalContent = `Tool run finished (${outcome}). See the tool entries above for results.${streamError ? ` Follow-up response stopped: ${streamError}` : ''}`;
+          finalState = "idle";
+        } else {
+          finalContent = streamError
+            ? `The model response could not be completed: ${streamError}`
+            : "The model stream and its retry returned no text or tool calls. Check the provider response in the runtime log.";
+          finalState = "error";
+        }
+        this.emitEvent({
+          type: RpcEvents.MESSAGE_DELTA,
+          content: finalContent,
+          sessionId: params.sessionId ?? "default",
+        });
+      } else if (streamError) {
+        this.emitEvent({
+          type: RpcEvents.ERROR,
+          message: streamError,
+          sessionId: params.sessionId ?? "default",
+        });
       }
 
       return {
@@ -555,7 +595,11 @@ export class JsonRpcServer {
     this.delegatedTaskControllers.set(task.taskId, controller);
     void this.persistDelegatedTask(task);
     this.emitEvent({ type: RpcEvents.AGENT_TASK_UPDATE, task });
-    void this.agent.delegate({ ...params, signal: controller.signal }).then(
+    void this.agent.delegate({
+      ...params,
+      signal: controller.signal,
+      onEvent: (agent, chunk) => this.emitEvent({ type: RpcEvents.AGENT_ACTIVITY, agent, taskId: task.taskId, chunk }),
+    }).then(
       (result) => {
         if (task.status === 'cancelled') return;
         task.status = 'completed';

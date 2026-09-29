@@ -123,11 +123,19 @@ export class EditTool implements ToolHandler {
         ? content.split(oldString).join(newString)
         : content.replace(oldString, newString);
 
+      const oldPreview = content.split('\n').slice(0, 300).join('\n').slice(0, 12_000);
+      const newPreview = newContent.split('\n').slice(0, 300).join('\n').slice(0, 12_000);
+
       await fs.writeFile(resolved, newContent, 'utf-8');
 
       return {
         success: true,
         data: { replacements: occurrences, filePath: resolved },
+        artifacts: {
+          kind: 'diff', path: resolved,
+          oldText: oldPreview, newText: newPreview,
+          isTruncated: oldPreview.length < content.length || newPreview.length < newContent.length,
+        },
         durationMs: Date.now() - start,
         truncated: false,
       };

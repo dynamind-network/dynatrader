@@ -60,12 +60,16 @@ export class WriteTool implements ToolHandler {
       // Create parent directory if it doesn't exist
       await fs.mkdir(path.dirname(resolved), { recursive: true });
 
+      let oldContent: string | undefined;
+      try { oldContent = await fs.readFile(resolved, 'utf-8'); } catch { /* new file */ }
+
       if (mode === 'binary') {
         const buffer = Buffer.from(content, 'base64');
         await fs.writeFile(resolved, buffer);
         return {
           success: true,
           data: { path: resolved, bytesWritten: buffer.length },
+          artifacts: { kind: 'write', path: resolved, contents: `[binary file: ${buffer.length} bytes]`, isNewFile: oldContent === undefined },
           durationMs: Date.now() - start,
           truncated: false,
         };
@@ -74,10 +78,18 @@ export class WriteTool implements ToolHandler {
       await fs.writeFile(resolved, content, 'utf-8');
       const encoder = new TextEncoder();
       const bytesWritten = encoder.encode(content).length;
+      const preview = content.split('\n').slice(0, 300).join('\n').slice(0, 12_000);
+      const previewTruncated = preview.length < content.length;
 
       return {
         success: true,
         data: { path: resolved, bytesWritten },
+        artifacts: {
+          kind: 'write', path: resolved,
+          contents: preview,
+          isNewFile: oldContent === undefined,
+          isTruncated: previewTruncated,
+        },
         durationMs: Date.now() - start,
         truncated: false,
       };

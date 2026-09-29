@@ -167,6 +167,7 @@ export interface ToolCall {
 export interface ToolResult {
   success: boolean;
   data?: unknown;
+  artifacts?: Record<string, unknown>;
   error?: string;
   stdout?: string;
   stderr?: string;
@@ -176,7 +177,7 @@ export interface ToolResult {
 
 export interface ToolHandler {
   definition: ToolDefinition;
-  execute(call: ToolCall): Promise<ToolResult>;
+  execute(call: ToolCall, context?: { signal?: AbortSignal }): Promise<ToolResult>;
 }
 
 export interface ToolRegistry {
@@ -184,7 +185,7 @@ export interface ToolRegistry {
   unregister(name: string): boolean;
   get(tool: string): ToolHandler | undefined;
   list(category?: ToolCategory): ToolHandler[];
-  execute(call: ToolCall): Promise<ToolResult>;
+  execute(call: ToolCall, context?: { signal?: AbortSignal }): Promise<ToolResult>;
   /** Execute multiple tool calls. Parallel-safe tools run concurrently; others run sequentially. */
   executeBatch(calls: ToolCall[]): Promise<Array<{ call: ToolCall; result: ToolResult }>>;
   /** Clear cached results. If toolName provided, clears only that tool's cache. */

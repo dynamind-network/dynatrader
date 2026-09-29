@@ -15,7 +15,7 @@ export {
   isPluginProfile,
 } from './tool-profiles';
 export type { ToolProfile, CoreProfile, PluginProfile, PluginToolDeclaration } from './tool-profiles';
-export { ExecTool } from './tools/exec-tool';
+export { ExecTool, ShellTaskManager, TaskOutputTool, TaskListTool, TaskStopTool } from './tools/exec-tool';
 export type { ExecToolConfig } from './tools/exec-tool';
 export { ReadTool } from './tools/read-tool';
 export { GlobTool } from './tools/glob-tool';

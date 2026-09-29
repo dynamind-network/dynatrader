@@ -8,12 +8,21 @@ export interface ReadToolConfig {
   maxFileSize?: number;
 }
 
+const DEFAULT_READ_PAGE_CHARS = 8 * 1024;
+const MAX_READ_FILE_SIZE = 64 * 1024 * 1024;
+
 export class ReadTool implements ToolHandler {
   readonly definition: ToolDefinition = {
     name: 'read',
-    description: 'Read files from the filesystem',
+    description: 'Read workspace files. Large files return an 8K-character page; continue with the returned offset. maxSize controls the file-size allowance, not the page length.',
     category: 'file',
-    inputSchema: { path: 'string', mode: 'string?', maxSize: 'number?' },
+    inputSchema: {
+      path: 'string',
+      mode: 'string?',
+      maxSize: 'number?',
+      offset: 'number?',
+      limit: 'number?',
+    },
     outputSchema: { content: 'string', mode: 'string' },
     permissionsRequired: ['tool.read'],
     sideEffects: [],
@@ -29,7 +38,7 @@ export class ReadTool implements ToolHandler {
   constructor(config?: ReadToolConfig) {
     this.allowedDirectories = config?.allowedDirectories ?? [process.cwd()];
     this.workspaceRoot = config?.workspaceRoot ?? this.allowedDirectories[0] ?? process.cwd();
-    this.maxFileSize = config?.maxFileSize ?? 1024 * 1024; // 1MB default
+    this.maxFileSize = config?.maxFileSize ?? 8 * 1024 * 1024; // 8MB default
   }
 
   async execute(call: ToolCall): Promise<ToolResult> {
@@ -46,7 +55,23 @@ export class ReadTool implements ToolHandler {
       }
 
       const mode = (call.args.mode as string | undefined) ?? 'text';
-      const maxSize = (call.args.maxSize as number | undefined) ?? this.maxFileSize;
+      const requestedMaxSize = call.args.maxSize as number | undefined;
+      // A small model-supplied value (for example 200) must not shrink the
+      // configured read allowance and reject ordinary source files.
+      const maxSize = Math.max(
+        Math.min(MAX_READ_FILE_SIZE, this.maxFileSize),
+        typeof requestedMaxSize === 'number' && Number.isFinite(requestedMaxSize)
+          ? Math.min(MAX_READ_FILE_SIZE, requestedMaxSize)
+          : Math.min(MAX_READ_FILE_SIZE, this.maxFileSize),
+      );
+      const requestedOffset = call.args.offset as number | undefined;
+      const offset = typeof requestedOffset === 'number' && Number.isFinite(requestedOffset)
+        ? Math.max(0, Math.floor(requestedOffset))
+        : 0;
+      const requestedLimit = call.args.limit as number | undefined;
+      const limit = typeof requestedLimit === 'number' && Number.isFinite(requestedLimit)
+        ? Math.min(DEFAULT_READ_PAGE_CHARS, Math.max(1, Math.floor(requestedLimit)))
+        : DEFAULT_READ_PAGE_CHARS;
 
       const resolved = path.isAbsolute(filePath)
         ? path.normalize(filePath)
@@ -93,10 +118,15 @@ export class ReadTool implements ToolHandler {
         };
       }
 
-      const content = await fs.readFile(resolved, 'utf-8');
+      const fullContent = await fs.readFile(resolved, 'utf-8');
+      const content = fullContent.slice(offset, offset + limit);
+      const nextOffset = offset + content.length;
+      const pageInfo = nextOffset < fullContent.length
+        ? `\n\n[Read characters ${offset}-${nextOffset} of ${fullContent.length}. Continue with offset=${nextOffset}.]`
+        : `\n\n[Read characters ${offset}-${nextOffset} of ${fullContent.length}. End of file.]`;
       return {
         success: true,
-        data: { content, mode: 'text' },
+        data: { content: content + pageInfo, mode: 'text', offset, nextOffset, totalChars: fullContent.length },
         durationMs: Date.now() - start,
         truncated: false,
       };

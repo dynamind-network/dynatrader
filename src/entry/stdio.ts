@@ -22,7 +22,7 @@
 import { MemoryStoreImpl } from '@dyna/memory-core';
 import { SqliteMemoryStore } from '@dyna/memory-sqlite';
 import { ModelRouterImpl, OpenAIProvider, AnthropicProvider, OllamaProvider, LMStudioProvider, OpenRouterProvider, DeepSeekProvider, GoogleProvider } from '@dyna/model-router';
-import { ToolRegistryImpl, ReadTool, GlobTool, GrepTool, WriteTool, EditTool, ExecTool, WebFetchTool, WebSearchTool } from '@dyna/tools-runtime';
+import { ToolRegistryImpl, ReadTool, GlobTool, GrepTool, WriteTool, EditTool, ExecTool, TaskOutputTool, TaskListTool, TaskStopTool, WebFetchTool, WebSearchTool } from '@dyna/tools-runtime';
 import { AgentCore } from '../agent/core/agent-core';
 import { JsonRpcServer } from '../gateway/json-rpc/server';
 import { loadWorkspaceAgentPrompt } from '../runtime/workspace-agent-prompt';
@@ -118,8 +118,11 @@ async function main(): Promise<void> {
   registerModelProviders(modelRouter);
 
   // 4. Create tool registry (minimal set for stdio mode)
-  const toolRegistry = new ToolRegistryImpl();
   const workspacePath = process.cwd();
+  const toolRegistry = new ToolRegistryImpl({
+    defaultMaxOutputLength: 64 * 1024,
+    outputArtifactDirectory: join(workspacePath, '.dynatrader', 'tool-results'),
+  });
   const runCardManager = new RunCardManager(workspacePath);
   const workspacePrompt = await loadWorkspaceAgentPrompt(workspacePath);
   const agentRegistry = new AgentRegistry(workspacePath);
@@ -129,7 +132,11 @@ async function main(): Promise<void> {
   toolRegistry.register(new GrepTool([workspacePath], workspacePath));
   toolRegistry.register(new WriteTool({ allowedDirectories: [workspacePath], workspaceRoot: workspacePath }));
   toolRegistry.register(new EditTool({ allowedDirectories: [workspacePath], workspaceRoot: workspacePath }));
-  toolRegistry.register(new ExecTool({ defaultCwd: workspacePath }));
+  const execTool = new ExecTool({ defaultCwd: workspacePath, workspaceRoot: workspacePath });
+  toolRegistry.register(execTool);
+  toolRegistry.register(new TaskOutputTool(execTool.taskManager));
+  toolRegistry.register(new TaskListTool(execTool.taskManager));
+  toolRegistry.register(new TaskStopTool(execTool.taskManager));
   toolRegistry.register(new WebFetchTool());
   toolRegistry.register(new WebSearchTool({ braveApiKey: process.env.BRAVE_API_KEY, tavilyApiKey: process.env.TAVILY_API_KEY, searxngBaseUrl: process.env.SEARXNG_BASE_URL }));
 
@@ -161,27 +168,31 @@ async function main(): Promise<void> {
       toolRegistry: childToolRegistry,
       workspacePath,
       workspacePrompt: workerInstructions,
-      maxToolTurns: 24,
       budgetConfig: {
-        maxIterations: 24,
-        maxTimeMs: 600_000,
-        maxMemoryUsage: 128 * 1024 * 1024,
-        maxApiCalls: 100,
+        maxIterations: 1000,
+        maxTimeMs: 30 * 60_000,
+        maxMemoryUsage: 2 * 1024 * 1024 * 1024,
+        maxApiCalls: 1000,
       },
     });
     const task = request.context
       ? `${request.task}\n\nContext:\n${JSON.stringify(request.context)}`
       : request.task;
-    const response = await child.chat(task, { allowTools: true, signal: request.signal });
-    if (response.state !== 'idle' || !requireVisibleResponse(response.content, response.reasoningContent, `Delegation to ${agentName}`, showThinking)) {
-      throw new Error(response.content || `Child agent ${agentName} returned no visible result.`);
+    const stream = await child.chatStream(task, { allowTools: true, signal: request.signal });
+    let childText = '';
+    let childFailed = '';
+    for await (const chunk of stream) {
+      request.onEvent?.(agentName, chunk);
+      if (chunk.type === 'content') childText += chunk.content ?? '';
+      if (chunk.type === 'error') childFailed = chunk.error ?? 'Child agent failed.';
+    }
+    if (childFailed) throw new Error(childFailed);
+    if (!requireVisibleResponse(childText, undefined, `Delegation to ${agentName}`, showThinking)) {
+      throw new Error(`Child agent ${agentName} returned no visible result.`);
     }
     return {
       agent: agentName,
-      content: response.content,
-      reasoningContent: response.reasoningContent,
-      usage: response.usage,
-      toolCalls: response.toolCalls?.map((call) => ({ tool: call.tool, success: call.result?.success })),
+      content: childText,
     };
   });
 

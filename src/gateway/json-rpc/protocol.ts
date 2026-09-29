@@ -235,6 +235,7 @@ export const RpcEvents = {
   /** A session was created, deleted, or switched. */
   SESSION_UPDATE: "session.update",
   AGENT_TASK_UPDATE: "agent.task.update",
+  AGENT_ACTIVITY: "agent.activity",
 } as const;
 
 export type RpcEventName = (typeof RpcEvents)[keyof typeof RpcEvents];

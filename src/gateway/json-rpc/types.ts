@@ -103,6 +103,7 @@ export interface SessionUpdateEvent {
 export interface PlanModeEvent { type: "plan.mode.entered" | "plan.mode.exited"; sessionId: string; planId?: string; path?: string; status: string }
 export interface PlanStepUpdateEvent { type: "plan.step.update"; sessionId: string; planId?: string; step: string; status: string }
 export interface AgentTaskUpdateEvent { type: "agent.task.update"; task: import('./protocol').DelegatedTask }
+export interface AgentActivityEvent { type: "agent.activity"; agent: string; taskId: string; chunk: import('@dyna/contracts').ModelStreamChunk }
 
 export type ServerEvent =
   | MessageDeltaEvent
@@ -114,4 +115,5 @@ export type ServerEvent =
   | SessionUpdateEvent
   | PlanModeEvent
   | PlanStepUpdateEvent
-  | AgentTaskUpdateEvent;
+  | AgentTaskUpdateEvent
+  | AgentActivityEvent;

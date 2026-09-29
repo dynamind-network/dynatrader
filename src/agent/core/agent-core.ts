@@ -94,7 +94,59 @@ IMPORTANT RULES:
 - Do NOT describe your reasoning process in prose. Think silently, then act.
 - If you have a direct answer, give it. Don't prefix with "Based on my analysis..." or "After reviewing...".
 - Use tools when needed, respond with the result. Skip the commentary.
+- Read tool outputs in pages with offset when a file is large; do not set a tiny maxSize.
+- When a tool result points to a UUID text artifact, inspect that path with read or grep and only bring relevant sections into context.
+- For exec, use the native shell named by the tool (PowerShell on Windows, Bash on Unix); normal shell syntax is supported. If a command fails, use its error output to correct the command instead of repeating it unchanged.
+- For long-running commands, set run_in_background=true or use the task ID returned after 15 seconds. Inspect with task_output/task_list and stop with task_stop.
 `;
+
+function toolCompletionFallback(results: ReadonlyArray<{ result: ToolResult }>): string {
+  const succeeded = results.filter(({ result }) => result.success).length;
+  const failed = results.length - succeeded;
+  const outcome = failed > 0 ? `${succeeded} succeeded, ${failed} failed` : `${succeeded} succeeded`;
+  return `Tool work finished (${outcome}). The results are available in the tool entries above.`;
+}
+
+function serializeToolResultForModel(result: ToolResult): string {
+  const serialized = JSON.stringify(result);
+  return result.success
+    ? serialized
+    : `Tool call failed. Read the error, correct the arguments or choose a different approach, and do not repeat the same failed call unchanged.\n${serialized}`;
+}
+
+function parseToolArguments(raw: string): { args?: Record<string, unknown>; error?: string } {
+  try {
+    const value: unknown = JSON.parse(raw || '{}');
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return { error: 'Tool arguments must be a JSON object.' };
+    }
+    return { args: value as Record<string, unknown> };
+  } catch (error) {
+    return { error: `Tool arguments were not valid JSON: ${errorMessage(error)}` };
+  }
+}
+
+const MAX_TOOL_ARGUMENT_HISTORY_CHARS = 8 * 1024;
+
+function compactToolCallsForHistory<T extends {
+  id: string;
+  type: 'function';
+  function: { name: string; arguments: string };
+}>(toolCalls: T[]): T[] {
+  return toolCalls.map((toolCall) => {
+    if (toolCall.function.arguments.length <= MAX_TOOL_ARGUMENT_HISTORY_CHARS) return toolCall;
+    const marker = JSON.stringify({
+      _argumentsOmittedFromHistory: true,
+      toolCallId: toolCall.id,
+      originalCharacters: toolCall.function.arguments.length,
+      note: 'Arguments were executed; see the tool result for the outcome.',
+    });
+    return {
+      ...toolCall,
+      function: { ...toolCall.function, arguments: marker },
+    };
+  });
+}
 
 import { ConversationManager, type ConversationConfig } from "./conversation-manager";
 export type { ConversationConfig } from "./conversation-manager";
@@ -109,7 +161,7 @@ export interface AgentCoreConfig {
   defaultMode?: TradeMode;
   contextConfig?: Partial<ContextCompressionConfig>;
   budgetConfig?: { maxIterations: number; maxTimeMs: number; maxMemoryUsage: number; maxApiCalls: number };
-  /** Maximum model/tool turns in one response before yielding a bounded result. */
+  /** Optional model/tool turn bound. Unset uses the time and API budgets. */
   maxToolTurns?: number;
   memoryWriter?: MemoryWriter;
   crossSessionRecall?: CrossSessionRecall;
@@ -192,6 +244,7 @@ export interface DelegationRequest {
   context?: Record<string, unknown>;
   sessionId?: string;
   signal?: AbortSignal;
+  onEvent?: (agent: string, chunk: ModelStreamChunk) => void;
 }
 
 export interface AgentIteration {
@@ -223,6 +276,8 @@ interface ChatOptions {
   allowTools?: boolean;
   maxTokens?: number;
   signal?: AbortSignal;
+  /** Internal: keep executeTurn's surrounding budget instead of starting a chat budget. */
+  preserveBudget?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -278,7 +333,8 @@ export class AgentCore {
   private toolStartTimes: Map<string, number> = new Map();
   private personaCache = new Map<string, string>();
   private cancelRequested = false;
-  private cancelTimeout: ReturnType<typeof setTimeout> | null = null;
+  private activeChatAbortController: AbortController | null = null;
+  private delegateEventHandler?: (agent: string, taskId: string, chunk: ModelStreamChunk) => void;
   private toolResultCache = new Map<string, { tool: string; args: unknown; result: ToolResult }>();
   private activeMemoryRecall: ActiveMemoryRecall | null;
 
@@ -351,12 +407,12 @@ export class AgentCore {
     this.conversationConfig = config.conversationConfig;
     this.contextEngine = new ContextEngine(config.memory, config.contextConfig);
     this.budget = new IterationBudget({
-      maxIterations: config.budgetConfig?.maxIterations || 50,
-      maxTimeMs: config.budgetConfig?.maxTimeMs || 300_000,
-      maxMemoryUsage: config.budgetConfig?.maxMemoryUsage || 100 * 1024 * 1024,
-      maxApiCalls: config.budgetConfig?.maxApiCalls || 200,
+      maxIterations: config.budgetConfig?.maxIterations || 1000,
+      maxTimeMs: config.budgetConfig?.maxTimeMs || 30 * 60_000,
+      maxMemoryUsage: config.budgetConfig?.maxMemoryUsage || 2 * 1024 * 1024 * 1024,
+      maxApiCalls: config.budgetConfig?.maxApiCalls || 1000,
       warningThreshold: 0.8,
-      inactivityTimeoutMs: 120_000,
+      inactivityTimeoutMs: 0,
     });
     this.promptBuilder = new PromptBuilder();
     this.memoryWriter = config.memoryWriter ?? new MemoryWriter(config.memory);
@@ -457,10 +513,10 @@ export class AgentCore {
         permissionsRequired: ["session.spawn"],
         sideEffects: ["spawns_agent"],
         riskLevel: "medium",
-        timeoutMs: 120_000,
+        timeoutMs: 30 * 60_000,
         canRunInParallel: true,
       },
-      execute: async (call) => {
+      execute: async (call, executionContext) => {
         const started = Date.now();
         const task = call.args.task;
         if (typeof task !== "string" || !task.trim()) {
@@ -472,6 +528,8 @@ export class AgentCore {
             agent: typeof call.args.agent === "string" ? call.args.agent : undefined,
             context: call.args.context && typeof call.args.context === "object" ? call.args.context as Record<string, unknown> : undefined,
             sessionId: call.correlationId,
+            signal: executionContext?.signal,
+            onEvent: (agent, chunk) => this.delegateEventHandler?.(agent, call.id ?? call.correlationId ?? "child", chunk),
           });
           return { success: true, data: result, durationMs: Date.now() - started, truncated: false };
         } catch (error) {
@@ -884,11 +942,12 @@ Explore the repository and design an implementation plan. You are strictly read-
     const modelRouter = this.config.modelRouter;
     if (!modelRouter) return { content: "Model router not configured.", reasoningContent, toolCallResults, usage };
 
-    for (let turn = -1; turn < (this.config.maxToolTurns ?? 12); turn++) {
+    for (let turn = -1; this.config.maxToolTurns == null || turn < this.config.maxToolTurns; turn++) {
       this.syncModelContextWindow();
       if (this.cancelRequested) break;
       if (signal?.aborted) throw signal.reason ?? new DOMException("Agent request cancelled", "AbortError");
       if (!this.budget.canStartIteration()) break;
+      this.budget.startIteration();
       this.graduatedLoopDetector.resetForStep();
       // Drain mid-turn steering messages
       if (this.steeringInbox) {
@@ -1041,29 +1100,94 @@ Explore the repository and design an implementation plan. You are strictly read-
             usage.totalTokens += retryResponse.usage.totalTokens;
           }
         } else {
-          // Still no tools — require a real visible response
           content = retryResponse.content?.trim() || response.content?.trim() || "";
           if (!normalizeVisibleText(content)) {
-            throw new Error("Model returned no visible output.");
+            if (toolCallResults.length > 0) {
+              content = toolCompletionFallback(toolCallResults);
+              break;
+            }
+            const recovery = await modelRouter.call({
+              ...retryRequest,
+              tools: undefined,
+              messages: [
+                ...retryRequest.messages,
+                { role: "assistant", content: "The previous attempt returned no usable answer." },
+                { role: "user", content: "Return a short plain-text status or answer. Do not call tools." },
+              ],
+            }, this.resolveRoutingTaskName('analysis'));
+            this.budget.recordApiCall();
+            if (recovery.usage) {
+              usage.promptTokens += recovery.usage.promptTokens;
+              usage.completionTokens += recovery.usage.completionTokens;
+              usage.totalTokens += recovery.usage.totalTokens;
+            }
+            content = recovery.content?.trim() || "";
+            if (!normalizeVisibleText(content)) {
+              content = "The provider returned no visible answer after a recovery request. The runtime received neither text nor a tool call; inspect the provider response for this model.";
+            }
           }
           break;
         }
       } else {
         content = response.content?.trim() || "";
         if (!normalizeVisibleText(content)) {
-          throw new Error("Model returned no visible output.");
+          if (toolCallResults.length > 0) {
+            content = toolCompletionFallback(toolCallResults);
+            break;
+          }
+          const recovery = await modelRouter.call({
+            ...request,
+            tools: undefined,
+            messages: [
+              ...request.messages,
+              { role: "assistant", content: "The previous attempt returned no usable answer." },
+              { role: "user", content: "Return a short plain-text status or answer. Do not call tools." },
+            ],
+          }, this.resolveRoutingTaskName('analysis'));
+          this.budget.recordApiCall();
+          if (recovery.usage) {
+            usage.promptTokens += recovery.usage.promptTokens;
+            usage.completionTokens += recovery.usage.completionTokens;
+            usage.totalTokens += recovery.usage.totalTokens;
+          }
+          content = recovery.content?.trim() || "";
+          if (!normalizeVisibleText(content)) {
+            content = "The provider returned no visible answer after a recovery request. The runtime received neither text nor a tool call; inspect the provider response for this model.";
+          }
+          break;
         }
         break;
       }
 
-      messages.push({ role: "assistant", content: null, tool_calls: response.toolCalls });
+      messages.push({
+        role: "assistant",
+        content: null,
+        tool_calls: compactToolCallsForHistory(response.toolCalls),
+      });
       this.stateMachine.transition("tool_executing");
 
       // Build tool calls
-      const toolCalls: ToolCall[] = response.toolCalls.map(tc => ({
-        tool: tc.function.name, args: JSON.parse(tc.function.arguments),
-        id: tc.id, correlationId: `chat-${Date.now()}`,
-      }));
+      const toolCalls: ToolCall[] = [];
+      for (const tc of response.toolCalls) {
+        const parsed = parseToolArguments(tc.function.arguments);
+        if (parsed.error) {
+          const result: ToolResult = {
+            success: false,
+            error: `${parsed.error} The ${tc.function.name} tool was not run.`,
+            durationMs: 0,
+            truncated: false,
+          };
+          toolCallResults.push({ tool: tc.function.name, args: {}, result, durationMs: 0 });
+          messages.push({ role: 'tool', tool_call_id: tc.id, content: serializeToolResultForModel(result) });
+          continue;
+        }
+        toolCalls.push({
+          tool: tc.function.name,
+          args: parsed.args!,
+          id: tc.id,
+          correlationId: `chat-${Date.now()}`,
+        });
+      }
 
       // Pre-tool-call hooks
       for (const toolCall of toolCalls) {
@@ -1078,7 +1202,7 @@ Explore the repository and design an implementation plan. You are strictly read-
       const authorization = await this.partitionApprovedToolCalls(toolCalls);
       for (const { call: toolCall, result } of authorization.denied) {
         toolCallResults.push({ tool: toolCall.tool, args: toolCall.args, result, durationMs: result.durationMs });
-        messages.push({ role: "tool", tool_call_id: toolCall.id!, content: JSON.stringify(result) });
+        messages.push({ role: "tool", tool_call_id: toolCall.id!, content: serializeToolResultForModel(result) });
       }
       if (authorization.approved.length === 0) {
         this.stateMachine.transition("running");
@@ -1240,7 +1364,11 @@ Explore the repository and design an implementation plan. You are strictly read-
     }
 
     if (!normalizeVisibleText(content)) {
-      throw new Error("Model returned no visible output.");
+      if (toolCallResults.length > 0) {
+        content = toolCompletionFallback(toolCallResults);
+      } else {
+        content = "The provider response contained no visible text or tool results. The runtime completed its recovery attempts; inspect the provider response for this model.";
+      }
     }
     return { content, reasoningContent, toolCallResults, usage };
   }
@@ -1355,6 +1483,7 @@ Explore the repository and design an implementation plan. You are strictly read-
 
   private async chatInternal(message: string, options: ChatOptions | undefined, sessionKey: string): Promise<ChatResponse> {
     const startTime = Date.now();
+    if (!options?.preserveBudget) this.budget.reset();
     const templateName = this.resolveTemplateName('chat', options?.templateName);
     const conversation = this.getConversation(options?.sessionId);
     if (sessionKey !== "default") {
@@ -1635,6 +1764,13 @@ Explore the repository and design an implementation plan. You are strictly read-
 
   private async chatStreamInternal(message: string, options: ChatOptions | undefined, sessionKey: string): Promise<AsyncIterable<ModelStreamChunk>> {
     const startTime = Date.now();
+    this.budget.reset();
+    this.cancelRequested = false;
+    const requestController = new AbortController();
+    this.activeChatAbortController = requestController;
+    const requestSignal = options?.signal
+      ? AbortSignal.any([options.signal, requestController.signal])
+      : requestController.signal;
     const templateName = this.resolveTemplateName('chat', options?.templateName);
     const conversation = this.getConversation(options?.sessionId);
     if (sessionKey !== "default") {
@@ -1651,6 +1787,9 @@ Explore the repository and design an implementation plan. You are strictly read-
     return (async function* () {
       let goalTokens = 0;
       let goalToolCalls = 0;
+      let successfulToolCalls = 0;
+      let failedToolCalls = 0;
+      let finalAssistantTextProduced = false;
       try {
         const agentCtx = await self.ensureContext(options?.sessionId);
         const memoryContext = await self.buildMemoryContext(message);
@@ -1713,8 +1852,13 @@ Explore the repository and design an implementation plan. You are strictly read-
           return;
         }
 
-        // Stream through tool loop (max 4 turns)
-        for (let turn = -1; turn < (self.config.maxToolTurns ?? 12); turn++) {
+        // Keep working until the per-prompt time/API budget is exhausted.
+        // A turn-count bound applies only when a caller explicitly sets one.
+        for (let turn = -1; ; turn++) {
+          if (self.config.maxToolTurns != null && turn >= self.config.maxToolTurns) break;
+          if (!self.budget.canStartIteration()) break;
+          self.budget.startIteration();
+          finalAssistantTextProduced = false;
           if (self.cancelRequested) {
             self.safeTransition("stopping");
             self.safeTransition("idle");
@@ -1729,7 +1873,7 @@ Explore the repository and design an implementation plan. You are strictly read-
           messages, tools: tools.length > 0 ? tools : undefined,
             maxTokens: self.resolveChatMaxTokens(promptFootprintTokens, options?.maxTokens),
             temperature: 0.3,
-            signal: options?.signal,
+            signal: requestSignal,
         };
 
         const analysisTaskName = self.resolveRoutingTaskName('analysis');
@@ -1772,6 +1916,7 @@ Explore the repository and design an implementation plan. You are strictly read-
               self.recoveryManager.recordSuccess();
               streamSuccess = true;
             } catch (error) {
+              if (requestSignal.aborted) throw error;
               const action = self.recoveryManager.recordFailure((error as Error).message);
               // On-error hooks
               await self.hooksManager.run('on-error', { error: error instanceof Error ? error.message : "Unknown error" });
@@ -1813,7 +1958,8 @@ Explore the repository and design an implementation plan. You are strictly read-
           self.budget.recordApiCall();
 
           // If we got content and no tool calls, we're done
-          if (contentBuffer.trim() && toolCalls.length === 0) {
+          if (normalizeVisibleText(contentBuffer) && toolCalls.length === 0) {
+            finalAssistantTextProduced = true;
             const loopSeverity = self.graduatedLoopDetector.recordOutput(contentBuffer);
             conversation.addMessage({ role: "assistant", content: contentBuffer, timestamp: new Date() });
             self.recordSessionMessage(options?.sessionId, { role: "assistant", content: contentBuffer, timestamp: new Date() });
@@ -1833,22 +1979,123 @@ Explore the repository and design an implementation plan. You are strictly read-
           }
 
           // If no content and no tool calls, done
-          if (!contentBuffer.trim() && toolCalls.length === 0) {
-            self.safeTransition("error");
-            self.safeTransition("idle");
-            yield { type: "error" as const, error: "Model returned no visible output." };
-            return;
+          if (!normalizeVisibleText(contentBuffer) && toolCalls.length === 0) {
+            if (successfulToolCalls + failedToolCalls > 0) {
+              const outcome = failedToolCalls > 0
+                ? `${successfulToolCalls} succeeded, ${failedToolCalls} failed`
+                : `${successfulToolCalls} succeeded`;
+              const fallback = `Tool work finished (${outcome}). The results are available in the tool entries above.`;
+              conversation.addMessage({ role: "assistant", content: fallback, timestamp: new Date() });
+              self.recordSessionMessage(options?.sessionId, { role: "assistant", content: fallback, timestamp: new Date() });
+              finalAssistantTextProduced = true;
+              yield { type: "content" as const, content: fallback };
+              break;
+            }
+
+            // Some OpenAI-compatible endpoints close an SSE stream without
+            // delivering its final text/tool-call frame. Retry once through
+            // the non-streaming endpoint before reporting an empty response.
+            let retryResponse;
+            try {
+              retryResponse = await modelRouter.call(request, analysisTaskName);
+            } catch (error) {
+              self.safeTransition("error");
+              self.safeTransition("idle");
+              yield {
+                type: "error" as const,
+                error: `The streaming reply was empty and the non-streaming retry failed: ${errorMessage(error)}`,
+              };
+              return;
+            }
+            if (retryResponse.usage) goalTokens += retryResponse.usage.totalTokens ?? 0;
+            self.budget.recordApiCall();
+            contentBuffer = retryResponse.content?.trim() ?? "";
+            toolCalls = retryResponse.toolCalls ?? [];
+            if (contentBuffer) yield { type: "content" as const, content: contentBuffer };
+            for (const toolCall of toolCalls) {
+              yield { type: "tool_call" as const, toolCall };
+            }
+            if (!normalizeVisibleText(contentBuffer) && toolCalls.length === 0) {
+              try {
+                const textRecovery = await modelRouter.call({
+                  ...request,
+                  tools: undefined,
+                  messages: [
+                    ...request.messages,
+                    { role: "assistant", content: "The previous attempt returned no usable answer." },
+                    { role: "user", content: "Return a short plain-text status or answer. Do not call tools." },
+                  ],
+                }, analysisTaskName);
+                self.budget.recordApiCall();
+                if (textRecovery.usage) goalTokens += textRecovery.usage.totalTokens ?? 0;
+                const recoveredText = textRecovery.content?.trim() ?? "";
+                if (normalizeVisibleText(recoveredText)) {
+                  conversation.addMessage({ role: "assistant", content: recoveredText, timestamp: new Date() });
+                  self.recordSessionMessage(options?.sessionId, { role: "assistant", content: recoveredText, timestamp: new Date() });
+                  yield { type: "content" as const, content: recoveredText };
+                  yield { type: "done" as const, usage: textRecovery.usage };
+                  finalAssistantTextProduced = true;
+                  break;
+                }
+              } catch (error) {
+                self.safeTransition("error");
+                self.safeTransition("idle");
+                yield {
+                  type: "error" as const,
+                  error: `The provider stream and two recovery requests failed: ${errorMessage(error)}`,
+                };
+                return;
+              }
+
+              self.safeTransition("error");
+              self.safeTransition("idle");
+              yield {
+                type: "error" as const,
+                error: `The ${request.model ?? "selected model"} provider returned neither visible text nor tool calls after two retries. Inspect the provider response parser and model configuration.`,
+              };
+              return;
+            }
+            if (contentBuffer && toolCalls.length === 0) {
+              finalAssistantTextProduced = true;
+              conversation.addMessage({ role: "assistant", content: contentBuffer, timestamp: new Date() });
+              self.recordSessionMessage(options?.sessionId, { role: "assistant", content: contentBuffer, timestamp: new Date() });
+              yield { type: "done" as const, usage: retryResponse.usage };
+              break;
+            }
           }
 
           // Execute tool calls
-          messages.push({ role: "assistant", content: contentBuffer || null, tool_calls: toolCalls });
+          messages.push({
+            role: "assistant",
+            content: contentBuffer || null,
+            tool_calls: compactToolCallsForHistory(toolCalls),
+          });
           self.stateMachine.transition("tool_executing");
 
           // Build tool calls and execute in parallel where possible
-          const toolCallInputs: ToolCall[] = toolCalls.map(tc => ({
-            tool: tc.function.name, args: JSON.parse(tc.function.arguments),
-            id: tc.id, correlationId: `chat-${Date.now()}`,
-          }));
+          const toolCallInputs: ToolCall[] = [];
+          for (const [toolIndex, tc] of toolCalls.entries()) {
+            const parsed = parseToolArguments(tc.function.arguments);
+            const toolCallId = tc.id || `invalid-${turn}-${toolIndex}`;
+            if (parsed.error) {
+              const result: ToolResult = {
+                success: false,
+                error: `${parsed.error} The ${tc.function.name} tool was not run.`,
+                durationMs: 0,
+                truncated: false,
+              };
+              failedToolCalls += 1;
+              yield { type: 'tool_result' as const, toolResult: { toolCallId, result } };
+              messages.push({ role: 'tool', tool_call_id: toolCallId, content: serializeToolResultForModel(result) });
+              continue;
+            }
+            toolCallInputs.push({
+              tool: tc.function.name,
+              args: parsed.args!,
+              id: toolCallId,
+              correlationId: `chat-${Date.now()}`,
+            });
+          }
           goalToolCalls += toolCallInputs.length;
 
           // Pre-tool-call hooks
@@ -1865,8 +2112,9 @@ Explore the repository and design an implementation plan. You are strictly read-
 
           const authorization = await self.partitionApprovedToolCalls(toolCallInputs);
           for (const { call: toolCall, result } of authorization.denied) {
+            failedToolCalls += 1;
             yield { type: "tool_result" as const, toolResult: { toolCallId: toolCall.id!, result } };
-            messages.push({ role: "tool", tool_call_id: toolCall.id!, content: JSON.stringify(result) });
+            messages.push({ role: "tool", tool_call_id: toolCall.id!, content: serializeToolResultForModel(result) });
           }
           if (authorization.approved.length === 0) {
             self.stateMachine.transition("running");
@@ -1896,16 +2144,23 @@ Explore the repository and design an implementation plan. You are strictly read-
             {
               sessionId: sessionKey,
               stepIndex: turn,
-              signal: options?.signal
-                ? AbortSignal.any([options.signal, AbortSignal.timeout(self.config.budgetConfig?.maxTimeMs ?? 300_000)])
-                : AbortSignal.timeout(self.config.budgetConfig?.maxTimeMs ?? 300_000),
+              signal: AbortSignal.any([requestSignal, AbortSignal.timeout(self.config.budgetConfig?.maxTimeMs ?? 300_000)]),
               tracker: self.graduatedLoopDetector,
               maxWaveSize: self.maxWaveSize,
             }
           );
+          if (requestSignal.aborted) {
+            self.safeTransition("stopping");
+            self.safeTransition("idle");
+            yield { type: "content" as const, content: "(Cancelled)" };
+            yield { type: "done" as const };
+            return;
+          }
           
           for (const { call: toolCall, result } of batchResult.results) {
             if (!result) continue;
+            if (result.success) successfulToolCalls += 1;
+            else failedToolCalls += 1;
             const elapsed = toolCall.id ? Date.now() - (self.toolStartTimes.get(toolCall.id) ?? Date.now()) : 0;
             if (toolCall.id) {
               yield {
@@ -1919,7 +2174,7 @@ Explore the repository and design an implementation plan. You are strictly read-
               };
             }
             yield { type: "tool_result" as const, toolResult: { toolCallId: toolCall.id!, result } };
-            messages.push({ role: "tool", tool_call_id: toolCall.id!, content: JSON.stringify(result) });
+            messages.push({ role: "tool", tool_call_id: toolCall.id!, content: serializeToolResultForModel(result) });
           }
 
           // Clean up tool start times
@@ -1941,12 +2196,25 @@ Explore the repository and design an implementation plan. You are strictly read-
             batchResult.results.filter(r => r.result).map(r => r.result!),
           );
           if (streamBatchVerdict.level === "critical" || streamBatchVerdict.level === "breaker") {
+            finalAssistantTextProduced = true;
             yield { type: "content" as const, content: "(Loop detected — stopping to prevent infinite tool calling.)" };
             break;
           }
 
           toolCalls = [];
           contentBuffer = "";
+        }
+
+        // If the turn budget ended immediately after tool execution, give the
+        // user a concrete completion summary instead of an empty-response error.
+        if (!finalAssistantTextProduced && successfulToolCalls + failedToolCalls > 0) {
+          const outcome = failedToolCalls > 0
+            ? `${successfulToolCalls} succeeded, ${failedToolCalls} failed`
+            : `${successfulToolCalls} succeeded`;
+          const fallback = `Tool run reached its turn limit (${outcome}). The complete tool results are shown above; any oversized result can be read from its UUID text file.`;
+          conversation.addMessage({ role: "assistant", content: fallback, timestamp: new Date() });
+          self.recordSessionMessage(options?.sessionId, { role: "assistant", content: fallback, timestamp: new Date() });
+          yield { type: "content" as const, content: fallback };
         }
 
         await self.runCompaction(options?.sessionId);
@@ -1969,9 +2237,21 @@ Explore the repository and design an implementation plan. You are strictly read-
 
         yield { type: "done" as const };
       } catch (error) {
+        if (requestSignal.aborted) {
+          self.safeTransition("stopping");
+          self.safeTransition("idle");
+          yield { type: "content" as const, content: "(Cancelled)" };
+          yield { type: "done" as const };
+          return;
+        }
         self.safeTransition("error");
         self.safeTransition("idle");
         yield { type: "error" as const, error: error instanceof Error ? error.message : "Unknown error" };
+      } finally {
+        if (self.activeChatAbortController === requestController) {
+          self.activeChatAbortController = null;
+          self.cancelRequested = false;
+        }
       }
     })();
   }
@@ -2062,6 +2342,7 @@ Explore the repository and design an implementation plan. You are strictly read-
         sessionId: sessionKey,
         templateName: this.resolveTemplateName('strategy', templateName),
         triggerDreamCycle: false,
+        preserveBudget: true,
       });
 
       const strategy: SkillManifest = {
@@ -2210,6 +2491,10 @@ Explore the repository and design an implementation plan. You are strictly read-
     this.registerDelegationTool();
   }
 
+  setDelegateEventHandler(handler: (agent: string, taskId: string, chunk: ModelStreamChunk) => void): void {
+    this.delegateEventHandler = handler;
+  }
+
   setToolPolicy(sessionId: string | undefined, allowedTools?: string[], disallowedTools?: string[]): void {
     const id = sessionId ?? "default";
     this.toolPolicies.set(id, {
@@ -2272,23 +2557,8 @@ Explore the repository and design an implementation plan. You are strictly read-
   // -------------------------------------------------------------------------
 
   cancel(): void {
-    if (this.cancelRequested) {
-      // Second cancel within 2s = force quit
-      this.cancelRequested = false;
-      if (this.cancelTimeout) clearTimeout(this.cancelTimeout);
-      this.cancelTimeout = null;
-      this.safeTransition("stopping");
-      this.safeTransition("idle");
-      return;
-    }
-
     this.cancelRequested = true;
-
-    // Reset after 2s window
-    this.cancelTimeout = setTimeout(() => {
-      this.cancelRequested = false;
-      this.cancelTimeout = null;
-    }, 2000);
+    this.activeChatAbortController?.abort(new DOMException("Task cancelled by user", "AbortError"));
   }
 
   isCancelled(): boolean { return this.cancelRequested; }

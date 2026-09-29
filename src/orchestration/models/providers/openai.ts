@@ -16,6 +16,86 @@ const OPENAI_MODEL_COSTS: Record<string, [number, number]> = {
   'gpt-3.5-turbo-0125': [0.0005, 0.0015],
 };
 
+type PendingStreamToolCall = { id: string; name: string; arguments: string };
+
+function flushPendingToolCalls(
+  pendingToolCalls: Map<number, PendingStreamToolCall>,
+): ModelStreamChunk[] {
+  const chunks: ModelStreamChunk[] = [];
+  for (const toolCall of pendingToolCalls.values()) {
+    if (!toolCall.id || !toolCall.name) continue;
+    chunks.push({
+      type: 'tool_call',
+      toolCall: {
+        id: toolCall.id,
+        type: 'function',
+        function: { name: toolCall.name, arguments: toolCall.arguments || '{}' },
+      },
+    });
+  }
+  pendingToolCalls.clear();
+  return chunks;
+}
+
+function parseStreamLine(
+  line: string,
+  pendingToolCalls: Map<number, PendingStreamToolCall>
+): ModelStreamChunk[] {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('data:')) return [];
+  const payload = trimmed.slice(5).trimStart();
+  if (payload === '[DONE]') {
+    return [...flushPendingToolCalls(pendingToolCalls), { type: 'done' }];
+  }
+
+  try {
+    const parsed = JSON.parse(payload) as {
+      choices?: Array<{
+        delta?: {
+          content?: string | null;
+          tool_calls?: Array<{
+            index: number;
+            id?: string;
+            function?: { name?: string; arguments?: string };
+          }>;
+        };
+        finish_reason?: string | null;
+      }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    };
+    const chunks: ModelStreamChunk[] = [];
+    const choice = parsed.choices?.[0];
+    const delta = choice?.delta;
+    if (delta?.content) chunks.push({ type: 'content', content: delta.content });
+
+    for (const toolDelta of delta?.tool_calls ?? []) {
+      const current = pendingToolCalls.get(toolDelta.index) ?? { id: '', name: '', arguments: '' };
+      if (toolDelta.id) current.id = toolDelta.id;
+      if (toolDelta.function?.name) current.name += toolDelta.function.name;
+      if (toolDelta.function?.arguments) current.arguments += toolDelta.function.arguments;
+      pendingToolCalls.set(toolDelta.index, current);
+    }
+
+    if (choice?.finish_reason) {
+      chunks.push(...flushPendingToolCalls(pendingToolCalls));
+      chunks.push({
+        type: 'done',
+        usage: parsed.usage
+          ? {
+              promptTokens: parsed.usage.prompt_tokens ?? 0,
+              completionTokens: parsed.usage.completion_tokens ?? 0,
+              totalTokens: parsed.usage.total_tokens ?? 0,
+            }
+          : undefined,
+      });
+    }
+    return chunks;
+  } catch {
+    // Ignore malformed or non-JSON SSE lines.
+    return [];
+  }
+}
+
 export interface OpenAIProviderConfig {
   model?: string;
   apiKey?: string;
@@ -143,62 +223,34 @@ export class OpenAIProvider implements ModelProvider {
 
     const decoder = new TextDecoder();
     let buffer = '';
-    const pendingToolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+    const pendingToolCalls = new Map<number, PendingStreamToolCall>();
 
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          buffer += decoder.decode();
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
-          if (!trimmed.startsWith('data: ')) continue;
-
-          try {
-            const parsed = JSON.parse(trimmed.slice(6)) as {
-              choices?: Array<{ delta: {
-                content?: string;
-                tool_calls?: Array<{
-                  index: number;
-                  id?: string;
-                  function?: { name?: string; arguments?: string };
-                }>;
-              }; finish_reason?: string | null }>;
-            };
-            const choice = parsed.choices?.[0];
-            const delta = choice?.delta?.content;
-            if (delta) {
-              yield { type: 'content' as const, content: delta };
-            }
-            for (const toolDelta of choice?.delta?.tool_calls ?? []) {
-              const current = pendingToolCalls.get(toolDelta.index) ?? { id: '', name: '', arguments: '' };
-              if (toolDelta.id) current.id = toolDelta.id;
-              if (toolDelta.function?.name) current.name += toolDelta.function.name;
-              if (toolDelta.function?.arguments) current.arguments += toolDelta.function.arguments;
-              pendingToolCalls.set(toolDelta.index, current);
-            }
-            if (choice?.finish_reason) {
-              for (const toolCall of [...pendingToolCalls.values()]) {
-                if (toolCall.id && toolCall.name) {
-                  yield { type: 'tool_call' as const, toolCall: {
-                    id: toolCall.id,
-                    type: 'function' as const,
-                    function: { name: toolCall.name, arguments: toolCall.arguments || '{}' },
-                  } };
-                }
-              }
-              pendingToolCalls.clear();
-            }
-          } catch {
-            // Skip malformed JSON chunks
-          }
+          for (const chunk of parseStreamLine(line, pendingToolCalls)) yield chunk;
         }
       }
+
+      // Some OpenAI-compatible servers close the stream without a final newline.
+      // Process that last SSE frame instead of silently dropping the model reply.
+      for (const line of buffer.split('\n')) {
+        for (const chunk of parseStreamLine(line, pendingToolCalls)) yield chunk;
+      }
+      // Some compatible providers omit both finish_reason and [DONE]. Preserve
+      // any complete streamed tool calls when the HTTP body closes regardless.
+      const pendingAtEof = flushPendingToolCalls(pendingToolCalls);
+      for (const chunk of pendingAtEof) yield chunk;
     } finally {
       reader.releaseLock();
     }

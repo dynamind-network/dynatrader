@@ -21,7 +21,7 @@ import { errorMessage } from '../../utils/errors';
 import { MemoryStoreImpl } from '@dyna/memory-core';
 import { ModelRouterImpl, OpenAIProvider, AnthropicProvider, OllamaProvider, LMStudioProvider, OpenRouterProvider, DeepSeekProvider, GoogleProvider } from '@dyna/model-router';
 import type { ModelProvider } from '@dyna/contracts';
-import { ToolRegistryImpl, ReadTool, GlobTool, GrepTool, WriteTool, EditTool, ExecTool, WebFetchTool, WebSearchTool, BrowserTool, VisionTool, InboxDeliverTool, TelegramSendTool, VoiceTranscriptionTool, TtsTool, MemorySearchTool, MemoryWriteTool, MarketDataTool, SpawnSubagentTool, SessionsListTool, SessionsHistoryTool, SessionsSendTool, SessionSearchTool, SessionStatusTool, AgentBusTool, FleetTool } from '@dyna/tools-runtime';
+import { ToolRegistryImpl, ReadTool, GlobTool, GrepTool, WriteTool, EditTool, ExecTool, TaskOutputTool, TaskListTool, TaskStopTool, WebFetchTool, WebSearchTool, BrowserTool, VisionTool, InboxDeliverTool, TelegramSendTool, VoiceTranscriptionTool, TtsTool, MemorySearchTool, MemoryWriteTool, MarketDataTool, SpawnSubagentTool, SessionsListTool, SessionsHistoryTool, SessionsSendTool, SessionSearchTool, SessionStatusTool, AgentBusTool, FleetTool } from '@dyna/tools-runtime';
 import { AgentCore, GoalManager, SkillFactory, CrossSessionRecall, runPostTurnHooks } from '@dyna/agent-core';
 import { TurnController } from '@dyna/agent-core';
 import { SteeringInbox } from '@dyna/agent-core';
@@ -238,8 +238,8 @@ export async function initializeComponents(
   components.toolResultCompressor = new ToolResultCompressor({
     enabled: compressToolResults,
     contextWindow: 128000,
-    maxToolResultTokens: 500,
-    llmSummarizeThreshold: 1000,
+    maxToolResultTokens: 12_000,
+    llmSummarizeThreshold: 16_000,
     useLlmSummarization: !!components.modelRouter,
   });
 
@@ -284,7 +284,8 @@ export async function initializeComponents(
   components.toolRegistry = new ToolRegistryImpl({
     auditTrail: components.auditTrail,
     cacheEnabled: true,
-    defaultMaxOutputLength: 24 * 1024,
+    defaultMaxOutputLength: 64 * 1024,
+    outputArtifactDirectory: join(workspacePath, '.dynatrader', 'tool-results'),
     cacheTtlMs: 120_000,
   });
   registerBuiltInTools(components, workspacePath, workspace.config ?? null, logger);
@@ -603,15 +604,12 @@ function registerBuiltInTools(
 ): void {
   const registry = components.toolRegistry!;
 
-  // Trading-only default: general-purpose tools (web, browser, exec, voice)
-  // are opt-in via config (tools.general.enabled) so the out-of-box agent
-  // behaves as a dedicated trading assistant. Workspace file tools stay on —
-  // the agent needs them to read its own skills/memory.
-  const generalToolsEnabled =
-    (workspaceConfig as Record<string, unknown> | null | undefined)?.tools !== undefined &&
-    ((workspaceConfig as Record<string, unknown>).tools as Record<string, unknown> | undefined)?.general !== undefined
-      ? (((workspaceConfig as Record<string, unknown>).tools as Record<string, unknown>).general as Record<string, unknown> | undefined)?.enabled === true
-      : process.env['DYNA_GENERAL_TOOLS'] === 'true';
+  // Coding tools are available by default; workspaces can explicitly disable
+  // them through tools.general.enabled=false or DYNA_GENERAL_TOOLS=false.
+  const generalConfig = ((workspaceConfig as Record<string, unknown> | null | undefined)?.tools as Record<string, unknown> | undefined)?.general as Record<string, unknown> | undefined;
+  const generalToolsEnabled = generalConfig?.enabled === false || process.env['DYNA_GENERAL_TOOLS'] === 'false'
+    ? false
+    : true;
 
   registry.register(new ReadTool({ allowedDirectories: [workspacePath], workspaceRoot: workspacePath }));
   registry.register(new GlobTool([workspacePath], workspacePath));
@@ -620,7 +618,11 @@ function registerBuiltInTools(
   registry.register(new EditTool({ allowedDirectories: [workspacePath], workspaceRoot: workspacePath }));
 
   if (generalToolsEnabled) {
-    registry.register(new ExecTool({ defaultCwd: workspacePath }));
+    const execTool = new ExecTool({ defaultCwd: workspacePath, workspaceRoot: workspacePath });
+    registry.register(execTool);
+    registry.register(new TaskOutputTool(execTool.taskManager));
+    registry.register(new TaskListTool(execTool.taskManager));
+    registry.register(new TaskStopTool(execTool.taskManager));
     registry.register(new WebFetchTool());
     registry.register(new WebSearchTool({ braveApiKey: process.env.BRAVE_API_KEY, tavilyApiKey: process.env.TAVILY_API_KEY, searxngBaseUrl: process.env.SEARXNG_BASE_URL }));
     registry.register(new BrowserTool({ userDataDir: join(workspacePath, 'browser-sessions') }));

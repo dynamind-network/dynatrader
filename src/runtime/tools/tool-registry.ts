@@ -6,11 +6,15 @@ import type {
   ToolCategory,
 } from '@dyna/contracts';
 import type { AuditTrail } from '@dyna/audit';
-import { packText } from '../context-packager';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 
 export interface ToolRegistryConfig {
   auditTrail?: AuditTrail;
   defaultMaxOutputLength?: number;
+  /** Workspace-local directory for complete tool results that exceed the inline limit. */
+  outputArtifactDirectory?: string;
   /** Enable caching for read-only tools. Default: false */
   cacheEnabled?: boolean;
   /** Cache TTL in milliseconds. Default: 300_000 (5 min) */
@@ -23,6 +27,7 @@ export class ToolRegistryImpl implements ToolRegistry {
   private handlers = new Map<string, ToolHandler>();
   private auditTrail?: AuditTrail;
   private maxOutputLength: number;
+  private outputArtifactDirectory: string;
   private cacheEnabled: boolean;
   private cacheTtlMs: number;
   private cacheBypassPatterns: string[];
@@ -30,7 +35,8 @@ export class ToolRegistryImpl implements ToolRegistry {
 
   constructor(config?: ToolRegistryConfig) {
     this.auditTrail = config?.auditTrail;
-    this.maxOutputLength = config?.defaultMaxOutputLength ?? 100 * 1024;
+    this.maxOutputLength = config?.defaultMaxOutputLength ?? 64 * 1024;
+    this.outputArtifactDirectory = config?.outputArtifactDirectory ?? path.join(process.cwd(), '.dynatrader', 'tool-results');
     this.cacheEnabled = config?.cacheEnabled ?? false;
     this.cacheTtlMs = config?.cacheTtlMs ?? 300_000;
     this.cacheBypassPatterns = config?.cacheBypassPatterns ?? ['refresh', 'recheck', 'reload', 'update'];
@@ -68,6 +74,7 @@ export class ToolRegistryImpl implements ToolRegistry {
     const restricted = new ToolRegistryImpl({
       auditTrail: this.auditTrail,
       defaultMaxOutputLength: this.maxOutputLength,
+      outputArtifactDirectory: this.outputArtifactDirectory,
       cacheEnabled: this.cacheEnabled,
       cacheTtlMs: this.cacheTtlMs,
       cacheBypassPatterns: this.cacheBypassPatterns,
@@ -84,7 +91,7 @@ export class ToolRegistryImpl implements ToolRegistry {
     return restricted;
   }
 
-  async execute(call: ToolCall): Promise<ToolResult> {
+  async execute(call: ToolCall, context?: { signal?: AbortSignal }): Promise<ToolResult> {
     const start = Date.now();
 
     const handler = this.handlers.get(call.tool);
@@ -109,21 +116,21 @@ export class ToolRegistryImpl implements ToolRegistry {
         return JSON.parse(JSON.stringify(cached.result));
       }
       // Cache miss — execute and store
-      const finalResult = await this.executeInternal(call, handler, start);
+      const finalResult = await this.executeInternal(call, handler, start, context);
       this.cache.set(cacheKey, { result: finalResult, expiresAt: Date.now() + this.cacheTtlMs });
       return JSON.parse(JSON.stringify(finalResult));
     }
 
-    return this.executeInternal(call, handler, start);
+    return this.executeInternal(call, handler, start, context);
   }
 
-  private async executeInternal(call: ToolCall, handler: ToolHandler, start: number): Promise<ToolResult> {
+  private async executeInternal(call: ToolCall, handler: ToolHandler, start: number, context?: { signal?: AbortSignal }): Promise<ToolResult> {
     const timeout = handler.definition.timeoutMs;
 
     let result: ToolResult;
 
     try {
-      const executionPromise = handler.execute(call);
+      const executionPromise = handler.execute(call, context);
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(`Tool '${call.tool}' timed out after ${timeout}ms`)), timeout),
       );
@@ -141,38 +148,57 @@ export class ToolRegistryImpl implements ToolRegistry {
 
     const durationMs = Date.now() - start;
 
-    // Apply truncation if result data is too large
     let truncated = result.truncated;
     let finalData = result.data;
+    let finalStdout = result.stdout;
+    let finalStderr = result.stderr;
+    let finalError = result.error;
 
-    if (typeof finalData === 'string' && finalData.length > this.maxOutputLength) {
-      finalData = packText(finalData, this.maxOutputLength).text;
-      truncated = true;
-    } else if (typeof finalData === 'object' && finalData !== null) {
-      // Check stdout/stderr fields in data
-      const dataObj = finalData as Record<string, unknown>;
-      if (typeof dataObj.stdout === 'string' && (dataObj.stdout as string).length > this.maxOutputLength) {
-        dataObj.stdout = packText(dataObj.stdout as string, this.maxOutputLength).text;
-        truncated = true;
-      }
-      if (typeof dataObj.stderr === 'string' && (dataObj.stderr as string).length > this.maxOutputLength) {
-        dataObj.stderr = packText(dataObj.stderr as string, this.maxOutputLength).text;
-        truncated = true;
-      }
-      if (typeof dataObj.content === 'string' && (dataObj.content as string).length > this.maxOutputLength) {
-        dataObj.content = packText(dataObj.content as string, this.maxOutputLength).text;
-        truncated = true;
-      }
-    }
+    const fullOutput = {
+      data: result.data,
+      artifacts: result.artifacts,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      error: result.error,
+    };
+    const serializedOutput = JSON.stringify(fullOutput);
+    const outputBytes = Buffer.byteLength(serializedOutput, 'utf8');
+    let outputArtifactId: string | undefined;
 
-    // Also truncate top-level stdout/stderr if present
-    if (typeof result.stdout === 'string' && result.stdout.length > this.maxOutputLength) {
-      result.stdout = packText(result.stdout, this.maxOutputLength).text;
-      truncated = true;
-    }
-    if (typeof result.stderr === 'string' && result.stderr.length > this.maxOutputLength) {
-      result.stderr = packText(result.stderr, this.maxOutputLength).text;
-      truncated = true;
+    if (outputBytes > this.maxOutputLength) {
+      const callId = call.id ?? randomUUID();
+      const artifactId = randomUUID();
+      const filename = `${artifactId}.txt`;
+      const artifactPath = path.join(this.outputArtifactDirectory, filename);
+      const artifactContents = [
+        `Tool: ${call.tool}`,
+        `Tool call ID: ${callId}`,
+        `Full result size: ${outputBytes} bytes`,
+        '',
+        'Full, untruncated tool result (JSON):',
+        JSON.stringify(fullOutput, null, 2),
+        '',
+      ].join('\n');
+
+      try {
+        await mkdir(this.outputArtifactDirectory, { recursive: true });
+        await writeFile(artifactPath, artifactContents, { encoding: 'utf8', flag: 'wx' });
+        outputArtifactId = artifactId;
+        const readPath = path.relative(process.cwd(), artifactPath).split(path.sep).join('/');
+        const reference = `Complete tool result saved to ${readPath} (artifact ${artifactId}, tool call ${callId}, ${outputBytes} bytes). Read this file with the read tool for the full output.`;
+        finalData = reference;
+        finalStdout = undefined;
+        finalStderr = undefined;
+        finalError = result.error === undefined ? undefined : reference;
+        truncated = true;
+      } catch (error) {
+        // Preserve the previous bounded behavior if local artifact storage is unavailable.
+        finalData = `Tool output exceeded the ${this.maxOutputLength}-byte inline limit and could not be saved: ${(error as Error).message}`;
+        finalStdout = undefined;
+        finalStderr = undefined;
+        finalError = String(finalData);
+        truncated = true;
+      }
     }
 
     const finalResult: ToolResult = {
@@ -181,17 +207,20 @@ export class ToolRegistryImpl implements ToolRegistry {
       truncated,
     };
 
-    if (result.error !== undefined) {
-      finalResult.error = result.error;
+    if (finalError !== undefined) {
+      finalResult.error = finalError;
     }
     if (finalData !== undefined) {
       finalResult.data = finalData;
     }
-    if (result.stdout !== undefined) {
-      finalResult.stdout = result.stdout;
+    if (finalStdout !== undefined) {
+      finalResult.stdout = finalStdout;
     }
-    if (result.stderr !== undefined) {
-      finalResult.stderr = result.stderr;
+    if (finalStderr !== undefined) {
+      finalResult.stderr = finalStderr;
+    }
+    if (result.artifacts !== undefined) {
+      finalResult.artifacts = result.artifacts;
     }
 
     // Audit trail
@@ -208,6 +237,7 @@ export class ToolRegistryImpl implements ToolRegistry {
           correlationId: call.correlationId,
           durationMs,
           truncated,
+          outputArtifactId,
         },
       });
     }
