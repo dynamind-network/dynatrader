@@ -14,6 +14,7 @@ import {
   isKnownProvider,
   listProviderNames,
   reloadProviders,
+  refreshModels,
 } from '../core/providers.js';
 
 export function registerBuiltinCommands(): void {
@@ -742,13 +743,15 @@ function createCommandCommand(): SlashCommand {
 function createReloadCommand(): SlashCommand {
   return {
     name: 'reload',
-    description: 'Reload models and config from YAML files',
+    description: 'Reload provider config and refresh the model catalog',
     category: 'config',
     handler: async () => {
       try {
         await reloadProviders();
+        const catalogUpdated = await refreshModels(true);
         const providers = listProviderNames();
-        return `Models reloaded from YAML. Providers: ${providers.join(', ')}`;
+        const catalogStatus = catalogUpdated ? 'Model catalog refreshed.' : 'Using the bundled model catalog; refresh was unavailable.';
+        return `${catalogStatus} Providers: ${providers.join(', ')}`;
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         return `Failed to reload models: ${msg}`;

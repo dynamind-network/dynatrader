@@ -77,7 +77,7 @@ export type { ModelRequest, ModelResponse, ModelStreamChunk } from '@dyna/contra
 // =============================================================================
 // Provider Registry (shared between core and terminal)
 // =============================================================================
-export { PROVIDERS, initProvidersFromYAML, reloadProviders } from './providers/registry';
+export { PROVIDERS, initProvidersFromYAML, reloadProviders, refreshModels } from './providers/registry';
 export { loadProvidersFromYAML, invalidateProvidersCache } from './providers/yaml-loader';
 export type { LoadOptions } from './providers/yaml-loader';
 export {

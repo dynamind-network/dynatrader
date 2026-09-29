@@ -25,6 +25,7 @@ interface ModelsYAML {
 
 let _cache: Record<string, ProviderEntry> | null = null;
 let _cacheTimestamp = 0;
+let _bundledModelIds: Record<string, Set<string>> = {};
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_YAML_SIZE = 1024 * 1024;
@@ -188,6 +189,10 @@ export interface LoadOptions {
   force?: boolean;
 }
 
+export function getBundledModelIds(): Record<string, Set<string>> {
+  return _bundledModelIds;
+}
+
 export async function loadProvidersFromYAML(
   options: LoadOptions = {},
 ): Promise<Record<string, ProviderEntry>> {
@@ -208,6 +213,12 @@ export async function loadProvidersFromYAML(
     : path.join(thisDir, 'models.default.yaml');
   const defaultYAML = await readYAMLFile(defaultYAMLPath);
   if (defaultYAML) {
+    _bundledModelIds = Object.fromEntries(
+      Object.entries(defaultYAML.providers ?? {}).map(([name, provider]) => [
+        name,
+        new Set((provider.models ?? []).map((model) => model.id).filter((id) => typeof id === 'string')),
+      ]),
+    );
     providers = mergeProviders(providers, defaultYAML);
   }
 

@@ -43,7 +43,7 @@ export type {
   ChatResponse,
 } from './types.js';
 
-export { PROVIDERS, reloadProviders, initProvidersFromYAML } from './registry.js';
+export { PROVIDERS, reloadProviders, initProvidersFromYAML, refreshModels } from './registry.js';
 export { loadProvidersFromYAML, invalidateProvidersCache } from './yaml-loader.js';
 
 const PROVIDER_FACTORIES: Record<string, (apiKey: string) => AIProvider> = {

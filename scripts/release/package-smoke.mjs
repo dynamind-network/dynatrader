@@ -104,6 +104,7 @@ try {
   const packagedFiles = new Set(artifact.files.map(({ path }) => path));
   const requiredFiles = [
     'dist/entry/cli.js',
+    'dist/models.default.yaml',
     'dist/ui/cli.js',
     'dist/ui/ui/App.js',
     'dist/ui/core/providers/index.js',
@@ -126,7 +127,7 @@ try {
   run(process.execPath, [cli, '--version'], { cwd: consumerDir, timeout: 30_000 });
   run(process.execPath, [cli, '--help'], { cwd: consumerDir, timeout: 30_000 });
 
-  console.log(`Package smoke passed: ${artifact.filename} (${artifact.files.length} files); UI runtime imports resolve and CLI version/help run in a clean consumer.`);
+  console.log(`Package smoke passed: ${artifact.filename} (${artifact.files.length} files); provider fallback is bundled, UI runtime imports resolve, and CLI version/help run in a clean consumer.`);
 } finally {
   await rm(workDir, { recursive: true, force: true });
 }

@@ -8,6 +8,7 @@ export {
   PROVIDERS,
   reloadProviders,
   initProvidersFromYAML,
+  refreshModels,
   createProvider,
   findProviderForModel,
   resolveDefaultModel,

@@ -14,6 +14,7 @@ import {
   createSystemPrompt,
   findProviderForModel,
   listCatalogModels,
+  refreshModels,
   EFFORT_LEVELS,
   type EffortLevel,
   type CatalogModel,
@@ -692,6 +693,9 @@ function AppContent({ apiKeys, config, initialPrompt, sessionId }: AppProps) {
       if (screen === 'models') {
         setModelPickerPhase('models');
         setCatalogModels(listCatalogModels(resolvedApiKeys));
+        void refreshModels().then((updated) => {
+          if (updated) setCatalogModels(listCatalogModels(resolvedApiKeys));
+        });
       }
       navigateScreen(screen);
     },

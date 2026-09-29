@@ -1,8 +1,8 @@
 # DynaTrader - Default Model Configuration
-# This file ships with the package and defines all supported providers/models.
+# This file provides provider defaults and an offline model snapshot. The model picker refreshes its built-in catalog from models.dev.
 # To override, create ~/.dynatrader/models.yaml or <workspace>/.dynatrader/models.yaml
 #
-# To update models: edit the YAML and run /reload in the terminal, or restart.
+# To customize providers or add private models, create ~/.dynatrader/models.yaml or <workspace>/.dynatrader/models.yaml.
 
 providers:
   anthropic:
@@ -106,16 +106,16 @@ providers:
     env:
       - DEEPSEEK_API_KEY
     baseUrl: "https://api.deepseek.com"
-    defaultModel: "deepseek-chat"
+    defaultModel: "deepseek-flash"
     models:
-      - id: "deepseek-chat"
-        name: "DeepSeek Chat (V3.2)"
-        contextWindow: 128000
-        maxOutput: 8192
-      - id: "deepseek-reasoner"
-        name: "DeepSeek Reasoner (V3.2)"
-        contextWindow: 128000
-        maxOutput: 65536
+      - id: "deepseek-flash"
+        name: "DeepSeek V4.1 Flash"
+        contextWindow: 1000000
+        maxOutput: 393216
+      - id: "deepseek-v4-pro"
+        name: "DeepSeek V4 Pro"
+        contextWindow: 1000000
+        maxOutput: 393216
 
   google:
     displayName: "Google (Gemini)"
