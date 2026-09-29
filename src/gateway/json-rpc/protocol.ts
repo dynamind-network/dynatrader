@@ -30,6 +30,10 @@ export const RpcMethods = {
   PROMPT_APPROVAL_MODE_SET: "prompt.approval_mode.set",
   CONVERSATION_COMPACT: "conversation.compact",
   TOOL_LIST: "tool.list",
+  MEMORY_SEARCH: "memory.search",
+  MEMORY_WRITE: "memory.write",
+  MEMORY_STATS: "memory.stats",
+  DECISION_METRICS: "decision.metrics",
   AGENT_DELEGATE: "agent.delegate",
   AGENT_DELEGATE_START: "agent.delegate.start",
   AGENT_DELEGATE_STATUS: "agent.delegate.status",
@@ -183,6 +187,12 @@ export interface AgentDelegateCancelResult { cancelled: boolean; task?: Delegate
 export interface AgentDelegateListResult { tasks: DelegatedTask[] }
 export interface ToolPolicySetParams { sessionId?: string; allowedTools?: string[]; disallowedTools?: string[] }
 export interface ToolPolicySetResult { configured: true; availableTools: string[] }
+export interface MemorySearchParams { scope: string; text: string; topK?: number }
+export interface MemorySearchResult { results: Array<{ id: string; score: number; payload: unknown; timestamp: string }>; count: number; scope: string; query: string }
+export interface MemoryWriteParams { scope: string; kind: string; payload: Record<string, unknown>; summary?: string }
+export interface MemoryWriteResult { id: string; scope: string; kind: string }
+export interface MemoryStatsResult { summary: string }
+export interface DecisionMetricsResult { metrics: import('../../agent/core/decision-models').DecisionMetrics }
 export interface ApprovalResolveParams { requestId: string; approved: boolean }
 export interface ApprovalResolveResult { resolved: boolean }
 

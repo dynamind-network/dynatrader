@@ -56,6 +56,12 @@ import type {
   DelegatedTask,
   ToolPolicySetParams,
   ToolPolicySetResult,
+  MemorySearchParams,
+  MemorySearchResult,
+  MemoryWriteParams,
+  MemoryWriteResult,
+  MemoryStatsResult,
+  DecisionMetricsResult,
   ApprovalResolveParams,
   ApprovalResolveResult,
   SessionSetPersonaParams,
@@ -226,6 +232,14 @@ export class JsonRpcServer {
         return this.handleCompact(params);
       case RpcMethods.TOOL_LIST:
         return this.handleToolList(params as { sessionId?: string });
+      case RpcMethods.MEMORY_SEARCH:
+        return this.handleMemorySearch(params as unknown as MemorySearchParams);
+      case RpcMethods.MEMORY_WRITE:
+        return this.handleMemoryWrite(params as unknown as MemoryWriteParams);
+      case RpcMethods.MEMORY_STATS:
+        return this.handleMemoryStats();
+      case RpcMethods.DECISION_METRICS:
+        return this.handleDecisionMetrics();
       case RpcMethods.AGENT_DELEGATE:
         return this.handleAgentDelegate(params as unknown as AgentDelegateParams);
       case RpcMethods.AGENT_DELEGATE_START:
@@ -671,6 +685,32 @@ export class JsonRpcServer {
     this.pendingApprovals.delete(params.requestId);
     pending.resolve(params.approved);
     return { resolved: true };
+  }
+
+  private async handleMemorySearch(params: MemorySearchParams): Promise<MemorySearchResult> {
+    if (!params.scope?.trim() || !params.text?.trim()) throw new Error('Memory search requires scope and text.');
+    const results = await this.agent.searchMemory(params.scope.trim(), params.text.trim(), params.topK);
+    return {
+      results: results.map((item) => ({ id: item.id, score: item.score, payload: item.payload, timestamp: item.timestamp.toISOString() })),
+      count: results.length,
+      scope: params.scope.trim(),
+      query: params.text.trim(),
+    };
+  }
+
+  private async handleMemoryWrite(params: MemoryWriteParams): Promise<MemoryWriteResult> {
+    if (!params.scope?.trim() || !params.kind?.trim() || !params.payload || typeof params.payload !== 'object' || Array.isArray(params.payload)) {
+      throw new Error('Memory write requires scope, kind, and an object payload.');
+    }
+    return this.agent.writeMemory({ ...params, scope: params.scope.trim(), kind: params.kind.trim() });
+  }
+
+  private async handleMemoryStats(): Promise<MemoryStatsResult> {
+    return { summary: await this.agent.getMemoryStats() };
+  }
+
+  private handleDecisionMetrics(): DecisionMetricsResult {
+    return { metrics: this.agent.getDecisionMetrics() };
   }
 
   private handleApprovalModeSet(params: { approvalMode?: 'default' | 'auto_edit' | 'yolo' }): { approvalMode: string } {

@@ -45,6 +45,10 @@ const RPC = {
   PROMPT_APPROVAL_MODE_SET: 'prompt.approval_mode.set',
   CONVERSATION_COMPACT: 'conversation.compact',
   TOOL_LIST: 'tool.list',
+  MEMORY_SEARCH: 'memory.search',
+  MEMORY_WRITE: 'memory.write',
+  MEMORY_STATS: 'memory.stats',
+  DECISION_METRICS: 'decision.metrics',
   AGENT_DELEGATE: 'agent.delegate',
   AGENT_DELEGATE_START: 'agent.delegate.start',
   AGENT_DELEGATE_CANCEL: 'agent.delegate.cancel',
@@ -743,6 +747,35 @@ export class AgentLoop {
       }>;
     }>(RPC.TOOL_LIST);
     return result.tools;
+  }
+
+  async searchMemory(scope: string, text: string, topK = 20): Promise<{
+    results: Array<{ id: string; score: number; payload: unknown; timestamp: string }>;
+    count: number;
+    scope: string;
+    query: string;
+  }> {
+    return this.client.call(RPC.MEMORY_SEARCH, { scope, text, topK });
+  }
+
+  async writeMemory(input: { scope: string; kind: string; payload: Record<string, unknown>; summary?: string }): Promise<{ id: string; scope: string; kind: string }> {
+    return this.client.call(RPC.MEMORY_WRITE, input);
+  }
+
+  async getMemoryStats(): Promise<string> {
+    const result = await this.client.call<{ summary: string }>(RPC.MEMORY_STATS);
+    return result.summary;
+  }
+
+  async getDecisionMetrics(): Promise<{
+    calls: number; failures: number; latencyMs: number; inputTokens: number; outputTokens: number;
+    byKind: Record<string, number>; outcomes: Record<string, number>;
+  }> {
+    const result = await this.client.call<{ metrics: {
+      calls: number; failures: number; latencyMs: number; inputTokens: number; outputTokens: number;
+      byKind: Record<string, number>; outcomes: Record<string, number>;
+    } }>(RPC.DECISION_METRICS);
+    return result.metrics;
   }
 
   async delegateTask(

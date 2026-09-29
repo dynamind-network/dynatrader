@@ -68,6 +68,18 @@ export interface CommandContext {
   onForkSession?: (newTitle?: string) => Promise<{ success: boolean; message: string }>;
   onBtw?: (question: string) => Promise<string>;
   onExportSession?: (format: 'markdown' | 'json') => Promise<{ success: boolean; message: string }>;
+  onMemorySearch?: (scope: string, text: string) => Promise<{
+    results: Array<{ id: string; score: number; payload: unknown; timestamp: string }>;
+    count: number;
+    scope: string;
+    query: string;
+  }>;
+  onMemoryWrite?: (input: { scope: string; kind: string; payload: Record<string, unknown>; summary?: string }) => Promise<{ id: string; scope: string; kind: string }>;
+  onMemoryStats?: () => Promise<string>;
+  onDecisionMetrics?: () => Promise<{
+    calls: number; failures: number; latencyMs: number; inputTokens: number; outputTokens: number;
+    byKind: Record<string, number>; outcomes: Record<string, number>;
+  }>;
 }
 
 export type CommandResult = string | { content: string; artifact: ToolArtifact };

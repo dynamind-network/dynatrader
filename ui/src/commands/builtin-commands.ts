@@ -28,6 +28,8 @@ export function registerBuiltinCommands(): void {
   registry.register(createTasksCommand());
   registry.register(createMcpCommand());
   registry.register(createCompactCommand());
+  registry.register(createMemoryCommand());
+  registry.register(createDecisionsCommand());
   registry.register(createConnectCommand());
   registry.register(createDisconnectCommand());
   registry.register(createExitCommand());
@@ -41,6 +43,72 @@ export function registerBuiltinCommands(): void {
   registry.register(createForkCommand());
   registry.register(createBtwCommand());
   registry.register(createExportCommand());
+}
+
+function createMemoryCommand(): SlashCommand {
+  return {
+    name: 'memory',
+    description: 'View, search, or add persistent agent memory',
+    category: 'agent',
+    argumentHint: '[stats|search [--scope <scope>] <query>|add <scope> <kind> <text>]',
+    handler: async (args, context) => {
+      const [action = 'help', ...restParts] = args.trim().split(/\s+/);
+      const rest = restParts.join(' ').trim();
+      if (action === 'stats') {
+        if (!context.onMemoryStats) return 'Runtime memory is unavailable.';
+        return context.onMemoryStats();
+      }
+      if (action === 'search' || action === 'view') {
+        if (!rest) return 'Usage: /memory search <query>';
+        if (!context.onMemorySearch) return 'Runtime memory is unavailable.';
+        const scoped = rest.match(/^--scope\s+(\S+)\s+([\s\S]+)$/);
+        const scope = scoped?.[1] ?? 'agent_memory';
+        const query = scoped?.[2]?.trim() ?? rest;
+        if (!query) return 'Usage: /memory search [--scope <scope>] <query>';
+        const result = await context.onMemorySearch(scope, query);
+        if (result.count === 0) return `No memories matched "${query}" in ${scope}.`;
+        return [
+          `Memory matches (${result.count}) for "${query}" in ${scope}:`,
+          ...result.results.map((item) => `\n[${item.id}] score ${item.score.toFixed(2)} · ${new Date(item.timestamp).toLocaleString()}\n${JSON.stringify(item.payload, null, 2)}`),
+        ].join('\n');
+      }
+      if (action === 'add') {
+        const match = rest.match(/^(\S+)\s+(\S+)\s+([\s\S]+)$/);
+        if (!match) return 'Usage: /memory add <scope> <kind> <text>';
+        if (!context.onMemoryWrite) return 'Runtime memory is unavailable.';
+        const [, scope, kind, text] = match;
+        const saved = await context.onMemoryWrite({ scope: scope!, kind: kind!, payload: { text: text! }, summary: text });
+        return `Saved ${saved.kind} memory in ${saved.scope} (${saved.id}).`;
+      }
+      return [
+        'DynaTrader persistent memory',
+        '/memory stats                         Show the agent memory summary',
+        '/memory search <query>                Search agent_memory',
+        '/memory search --scope <scope> <query> Search another memory scope',
+        '/memory add <scope> <kind> <text>    Save an entry to runtime memory',
+      ].join('\n');
+    },
+  };
+}
+
+function createDecisionsCommand(): SlashCommand {
+  return {
+    name: 'decisions',
+    description: 'Show harness decision-model usage and outcomes',
+    category: 'agent',
+    handler: async (_args, context) => {
+      if (!context.onDecisionMetrics) return 'Decision-model metrics are unavailable.';
+      const metrics = await context.onDecisionMetrics();
+      const lines = [
+        `Decision calls: ${metrics.calls} · failures: ${metrics.failures}`,
+        `Latency: ${metrics.latencyMs} ms total · tokens: ${metrics.inputTokens} in / ${metrics.outputTokens} out`,
+        ...Object.entries(metrics.byKind).map(([kind, count]) => `  ${kind}: ${count}`),
+      ];
+      const outcomes = Object.entries(metrics.outcomes);
+      if (outcomes.length > 0) lines.push('', 'Outcomes:', ...outcomes.map(([name, count]) => `  ${name}: ${count}`));
+      return lines.join('\n');
+    },
+  };
 }
 
 function createPlanCommand(): SlashCommand {

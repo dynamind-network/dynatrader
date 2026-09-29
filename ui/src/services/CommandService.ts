@@ -181,6 +181,22 @@ export class CommandService {
             message: 'Session compaction is unavailable.',
           },
         onListTools: async () => this.options.agentLoop?.listAvailableTools() ?? [],
+        onMemorySearch: async (scope, text) => {
+          if (!this.options.agentLoop) throw new Error('Runtime memory is unavailable.');
+          return this.options.agentLoop.searchMemory(scope, text);
+        },
+        onMemoryWrite: async (input) => {
+          if (!this.options.agentLoop) throw new Error('Runtime memory is unavailable.');
+          return this.options.agentLoop.writeMemory(input);
+        },
+        onMemoryStats: async () => {
+          if (!this.options.agentLoop) throw new Error('Runtime memory is unavailable.');
+          return this.options.agentLoop.getMemoryStats();
+        },
+        onDecisionMetrics: async () => {
+          if (!this.options.agentLoop) throw new Error('Decision-model metrics are unavailable.');
+          return this.options.agentLoop.getDecisionMetrics();
+        },
         onListDelegatedTasks: async () => this.options.agentLoop?.listDelegatedTasks() ?? [],
         onCancelDelegatedTask: async (taskId: string) =>
           this.options.agentLoop?.cancelDelegatedTask(taskId) ?? false,

@@ -23,9 +23,14 @@ const mockAgentCore = {
   cancel: vi.fn(),
   compactConversation: vi.fn().mockReturnValue({ compacted: false, message: "", messageCount: 0 }),
   listAvailableTools: vi.fn().mockReturnValue([]),
+  searchMemory: vi.fn().mockResolvedValue([]),
+  writeMemory: vi.fn().mockResolvedValue({ id: 'mem-test', scope: 'test', kind: 'note' }),
+  getMemoryStats: vi.fn().mockResolvedValue('Found 0 events in scope "agent_memory".'),
+  getDecisionMetrics: vi.fn().mockReturnValue({ calls: 0, failures: 0, latencyMs: 0, inputTokens: 0, outputTokens: 0, byKind: {}, outcomes: {} }),
   delegate: vi.fn().mockResolvedValue({}),
   setToolPolicy: vi.fn(),
   setToolApprovalHandler: vi.fn(),
+  setDelegateEventHandler: vi.fn(),
   onStateChange: vi.fn().mockReturnValue(vi.fn()),
   getState: vi.fn().mockReturnValue("idle"),
   enterPlanMode: vi.fn(),
@@ -267,5 +272,19 @@ describe("JsonRpcServer auth", () => {
     } finally {
       state.processing = wasProcessing;
     }
+  });
+
+  it('routes terminal memory search to the runtime memory store', async () => {
+    vi.mocked(mockAgentCore.searchMemory).mockResolvedValue([
+      { id: 'mem-a', score: 0.9, payload: { text: 'persisted choice' }, timestamp: new Date('2026-09-29T00:00:00Z') },
+    ]);
+    await sendLine(JSON.stringify({ jsonrpc: '2.0', id: 20, method: RpcMethods.MEMORY_SEARCH, params: { scope: 'agent_memory', text: 'choice' } }));
+    expect(vi.mocked(mockAgentCore.searchMemory)).toHaveBeenCalledWith('agent_memory', 'choice', undefined);
+    expect(lastResponse()).toMatchObject({ id: 20, result: { count: 1, scope: 'agent_memory', query: 'choice' } });
+  });
+
+  it('rejects empty memory searches', async () => {
+    await sendLine(JSON.stringify({ jsonrpc: '2.0', id: 21, method: RpcMethods.MEMORY_SEARCH, params: { scope: 'agent_memory', text: ' ' } }));
+    expect(lastResponse()).toMatchObject({ id: 21, error: { message: expect.stringContaining('requires scope and text') } });
   });
 });
