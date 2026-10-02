@@ -272,7 +272,39 @@ for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const) {
 // Model provider auto-detection
 // ---------------------------------------------------------------------------
 
-function registerModelProviders(modelRouter: ModelRouterImpl): void {
+/**
+ * Fetch the model catalog the hosted API is willing to serve.
+ *
+ * Best-effort: a failed or slow catalog fetch must not stop the agent booting.
+ * The provider still registers and is selectable; its model picker simply falls
+ * back to the default model until a refresh succeeds.
+ */
+async function discoverHostedModels(
+  modelsUrl: string,
+  apiKey: string,
+): Promise<string[] | undefined> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const response = await fetch(modelsUrl, {
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!response.ok) return undefined;
+    const payload = (await response.json()) as { data?: unknown; models?: unknown };
+    const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.models) ? payload.models : [];
+    const ids = rows
+      .map((row) => (typeof row === 'string' ? row : (row as { id?: string })?.id))
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    return ids.length > 0 ? ids : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function registerModelProviders(modelRouter: ModelRouterImpl): Promise<void> {
   if (process.env['OPENAI_API_KEY']) {
     try {
       modelRouter.registerProvider(new OpenAIProvider());
@@ -284,6 +316,31 @@ function registerModelProviders(modelRouter: ModelRouterImpl): void {
   if (process.env['ANTHROPIC_API_KEY']) {
     try {
       modelRouter.registerProvider(new AnthropicProvider());
+    } catch {
+      // Provider registration failed — non-fatal
+    }
+  }
+
+  // The hosted DynaMind API, as an OpenAI-compatible provider.
+  //
+  // This is what makes signing in sufficient: a user never has to supply a
+  // third-party model key. DYNAMIND_API_KEY doubles as the model credential, so
+  // the one key issued at sign-in also authorizes inference and lands in our
+  // own metering and billing rather than the user's provider account.
+  const dynamindKey = process.env['DYNAMIND_API_KEY'];
+  if (dynamindKey) {
+    const apiBase = (process.env['DYNAMIND_API_URL'] ?? 'https://api.dynamind.network').replace(/\/$/, '');
+    try {
+      modelRouter.registerProvider(new OpenAIProvider({
+        id: 'dynamind',
+        name: 'DynaMind',
+        apiKey: dynamindKey,
+        // Our proxy exposes OpenAI-compatible chat completions under /models.
+        baseUrl: `${apiBase}/api/v1/models`,
+        model: process.env['DYNAMIND_MODEL'] ?? 'llama-3.3-70b-versatile',
+        keyHint: 'DynaMind API key not found. Sign in to DynaMind, or set DYNAMIND_API_KEY.',
+        models: await discoverHostedModels(`${apiBase}/api/v1/models`, dynamindKey),
+      }));
     } catch {
       // Provider registration failed — non-fatal
     }
@@ -352,7 +409,7 @@ async function main(): Promise<void> {
   const modelRouter = new ModelRouterImpl({
     workspacePath: process.cwd(),
   });
-  registerModelProviders(modelRouter);
+  await registerModelProviders(modelRouter);
   startupStage('model providers registered');
 
   // 4. Create tool registry (minimal set for stdio mode)

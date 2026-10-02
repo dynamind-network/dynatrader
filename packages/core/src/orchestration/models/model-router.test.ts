@@ -18,10 +18,16 @@ vi.mock('@dyna/audit', () => {
 });
 
 // --- Mock providers for testing ---
-function createMockProvider(id: string, name: string, shouldFail = false): ModelProvider {
+function createMockProvider(
+  id: string,
+  name: string,
+  shouldFail = false,
+  models?: readonly string[],
+): ModelProvider {
   return {
     id,
     name,
+    ...(models ? { models } : {}),
     async call(request: ModelRequest): Promise<ModelResponse> {
       if (shouldFail) {
         throw new Error(`Provider ${id} failed`);
@@ -426,6 +432,48 @@ describe('ModelRouterImpl', () => {
       const states = router2.getCircuitStates();
       expect(states[0]!.state).toBe(CircuitState.OPEN);
       expect(states[0]!.failureCount).toBe(3);
+    });
+  });
+
+  describe('listModels', () => {
+    it('addresses each model as provider/model so switchModel can resolve it', () => {
+      const router = new ModelRouterImpl();
+      router.registerProvider(createMockProvider('dynamind', 'DynaMind', false, [
+        'llama-3.3-70b-versatile',
+        'mixtral-8x7b-32768',
+      ]));
+
+      expect(router.listModels()).toEqual([
+        { id: 'dynamind/llama-3.3-70b-versatile', provider: 'dynamind', supportsStreaming: false },
+        { id: 'dynamind/mixtral-8x7b-32768', provider: 'dynamind', supportsStreaming: false },
+      ]);
+
+      // The whole point of the provider-prefixed id.
+      expect(() => router.switchModel('dynamind/llama-3.3-70b-versatile')).not.toThrow();
+    });
+
+    it('lists a provider that declares no catalog as a single selectable entry', () => {
+      const router = new ModelRouterImpl();
+      router.registerProvider(createMockProvider('ollama', 'Ollama'));
+
+      expect(router.listModels()).toEqual([
+        { id: 'ollama', provider: 'ollama', supportsStreaming: false },
+      ]);
+      expect(() => router.switchModel('ollama')).not.toThrow();
+    });
+
+    it('does not conflate two providers that both expose the same model name', () => {
+      const router = new ModelRouterImpl();
+      router.registerProvider(createMockProvider('openai', 'OpenAI', false, ['gpt-4o-mini']));
+      router.registerProvider(createMockProvider('dynamind', 'DynaMind', false, ['gpt-4o-mini']));
+
+      // Previously every entry reported the provider id, so a model catalog
+      // rendered as one row per provider and no model was individually
+      // addressable.
+      expect(router.listModels().map((m) => m.id).sort()).toEqual([
+        'dynamind/gpt-4o-mini',
+        'openai/gpt-4o-mini',
+      ]);
     });
   });
 });

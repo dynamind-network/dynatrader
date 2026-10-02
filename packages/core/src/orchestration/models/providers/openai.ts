@@ -103,11 +103,26 @@ export interface OpenAIProviderConfig {
   baseUrl?: string;
   maxTokens?: number;
   temperature?: number;
+  /**
+   * Provider id and display name. Defaults identify OpenAI itself.
+   *
+   * Any OpenAI-compatible endpoint can be registered as a first-class provider,
+   * which is how the hosted DynaMind API is exposed to the agent. The id is not
+   * cosmetic: ModelRouter.switchModel splits `provider/model` and rejects a
+   * prefix that is not a registered provider, so model pickers must be able to
+   * address it by name.
+   */
+  id?: string;
+  name?: string;
+  models?: readonly string[];
+  /** Overrides the "set OPENAI_API_KEY" part of the missing-key error. */
+  keyHint?: string;
 }
 
 export class OpenAIProvider implements ModelProvider {
-  readonly id: string = 'openai';
-  readonly name: string = 'OpenAI';
+  readonly id: string;
+  readonly name: string;
+  readonly models?: readonly string[];
 
   private model: string;
   private apiKey: string;
@@ -118,8 +133,15 @@ export class OpenAIProvider implements ModelProvider {
   constructor(config?: OpenAIProviderConfig) {
     const key = config?.apiKey ?? process.env['OPENAI_API_KEY'];
     if (!key) {
-      throw new Error('OpenAI API key not found. Set OPENAI_API_KEY environment variable or pass apiKey in config.');
+      throw new Error(
+        config?.keyHint
+          ? config.keyHint
+          : 'OpenAI API key not found. Set OPENAI_API_KEY environment variable or pass apiKey in config.'
+      );
     }
+    this.id = config?.id ?? 'openai';
+    this.name = config?.name ?? 'OpenAI';
+    if (config?.models?.length) this.models = [...config.models];
     this.apiKey = key;
     this.model = config?.model ?? 'gpt-4o-mini';
     this.baseUrl = config?.baseUrl ?? 'https://api.openai.com/v1';

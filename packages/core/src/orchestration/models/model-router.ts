@@ -114,12 +114,22 @@ export class ModelRouterImpl implements ModelRouter {
   listModels(): Array<{ id: string; provider: string; supportsStreaming: boolean }> {
     const models: Array<{ id: string; provider: string; supportsStreaming: boolean }> = [];
 
-    for (const [id, provider] of this.providers) {
-      models.push({
-        id: provider.id,
-        provider: provider.id,
-        supportsStreaming: !!provider.stream,
-      });
+    for (const provider of this.providers.values()) {
+      const supportsStreaming = !!provider.stream;
+      // Ids are `provider/model` because switchModel() resolves a model by its
+      // provider prefix -- a bare model name can never be switched to.
+      const available = provider.models?.length
+        ? provider.models
+        // A provider that declares no catalog is still selectable, so surface it
+        // as a single entry addressed by provider alone.
+        : [undefined];
+      for (const model of available) {
+        models.push({
+          id: model ? `${provider.id}/${model}` : provider.id,
+          provider: provider.id,
+          supportsStreaming,
+        });
+      }
     }
 
     return models;

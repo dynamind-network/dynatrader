@@ -488,6 +488,12 @@ export interface ModelResponse {
 export interface ModelProvider {
   readonly id: string;
   readonly name: string;
+  /**
+   * Model ids this provider can serve, used to populate model pickers.
+   * Optional: a provider that declares none is still selectable and is listed
+   * as a single entry by ModelRouter.listModels().
+   */
+  readonly models?: readonly string[];
   call(request: ModelRequest): Promise<ModelResponse>;
   stream?(request: ModelRequest): AsyncIterable<ModelStreamChunk>;
   getContextWindowTokens?(model?: string): number | undefined;
