@@ -10,14 +10,14 @@
  * Other plugins can override any capability by registering the same one.
  */
 
-import type { DynaPlugin, PluginContext } from "dynatrader";
-import { createMarketDataProvider, type DynaMindMarketDataConfig } from "./market-data";
-import { createSignalProvider, type DynaMindSignalConfig } from "./signals";
-import { createRiskProvider, type DynaMindRiskConfig } from "./risk";
-import { createNewsProvider, type DynaMindNewsConfig } from "./news";
+import type { DynaPlugin, PluginContext } from "@dyna/core";
 import { createBacktestProvider, type DynaMindBacktestConfig } from "./backtest";
 import { createDeFiProvider, type DynaMindDeFiConfig } from "./defi";
 import { createMacroProvider, type DynaMindMacroConfig } from "./macro";
+import { createMarketDataProvider, type DynaMindMarketDataConfig } from "./market-data";
+import { createNewsProvider, type DynaMindNewsConfig } from "./news";
+import { createRiskProvider, type DynaMindRiskConfig } from "./risk";
+import { createSignalProvider, type DynaMindSignalConfig } from "./signals";
 
 // ---------------------------------------------------------------------------
 // Plugin Config
@@ -36,7 +36,7 @@ export default function createDynaMindPlugin(
   userConfig: Partial<DynaMindPluginConfig> = {},
 ): DynaPlugin {
   const config: DynaMindPluginConfig = {
-    baseUrl: userConfig.baseUrl ?? process.env["DYNAMIND_API_URL"] ?? "http://localhost:3000",
+    baseUrl: userConfig.baseUrl ?? process.env["DYNAMIND_API_URL"] ?? "https://api.dynamind.network",
     apiKey: userConfig.apiKey ?? process.env["DYNAMIND_API_KEY"],
   };
 
@@ -78,11 +78,13 @@ export default function createDynaMindPlugin(
   };
 }
 
-// Re-export all provider types
-export type { DynaMindMarketDataConfig } from "./market-data";
-export type { DynaMindSignalConfig } from "./signals";
-export type { DynaMindRiskConfig } from "./risk";
-export type { DynaMindNewsConfig } from "./news";
 export type { DynaMindBacktestConfig } from "./backtest";
 export type { DynaMindDeFiConfig } from "./defi";
 export type { DynaMindMacroConfig } from "./macro";
+// Re-export all provider types
+export type { DynaMindMarketDataConfig } from "./market-data";
+export { createMarketDataProvider } from "./market-data";
+export type { DynaMindNewsConfig } from "./news";
+export { createNewsProvider } from "./news";
+export type { DynaMindRiskConfig } from "./risk";
+export type { DynaMindSignalConfig } from "./signals";
