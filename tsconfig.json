@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "Preserve",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
@@ -22,109 +24,311 @@
     "isolatedModules": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["bun"],
+    "types": [
+      "bun"
+    ],
     "rootDir": ".",
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@dyna/contracts": ["src/types/index.ts"],
-      "@dyna/contracts/*": ["src/types/*"],
-      "@dyna/event-bus": ["src/events/index.ts"],
-      "@dyna/event-bus/*": ["src/events/*"],
-      "@dyna/audit": ["src/audit/index.ts"],
-      "@dyna/audit/*": ["src/audit/*"],
-      "@dyna/risk-core": ["src/risk/core/index.ts"],
-      "@dyna/risk-core/*": ["src/risk/core/*"],
-      "@dyna/policy-engine": ["src/risk/policy/index.ts"],
-      "@dyna/policy-engine/*": ["src/risk/policy/*"],
-      "@dyna/exchange-ccxt": ["src/market/exchange/index.ts"],
-      "@dyna/exchange-ccxt/*": ["src/market/exchange/*"],
-      "@dyna/backtest": ["src/market/backtest/index.ts"],
-      "@dyna/backtest/*": ["src/market/backtest/*"],
-      "@dyna/indicators": ["src/market/indicators/index.ts"],
-      "@dyna/indicators/*": ["src/market/indicators/*"],
-      "@dyna/position-sizing": ["src/market/sizing/index.ts"],
-      "@dyna/position-sizing/*": ["src/market/sizing/*"],
-      "@dyna/scanner": ["src/market/scanner/index.ts"],
-      "@dyna/scanner/*": ["src/market/scanner/*"],
-      "@dyna/memory-core": ["src/memory/core/index.ts"],
-      "@dyna/memory-core/*": ["src/memory/core/*"],
-      "@dyna/memory-runtime": ["src/memory/runtime/index.ts"],
-      "@dyna/memory-runtime/*": ["src/memory/runtime/*"],
-      "@dyna/agent-core": ["src/agent/core/index.ts"],
-      "@dyna/agent-core/*": ["src/agent/core/*"],
-      "@dyna/agent-cron": ["src/agent/cron/index.ts"],
-      "@dyna/agent-cron/*": ["src/agent/cron/*"],
-      "@dyna/memory-sqlite": ["src/memory/sqlite/index.ts"],
-      "@dyna/memory-sqlite/*": ["src/memory/sqlite/*"],
-      "@dyna/multiagent": ["src/agent/multi/index.ts"],
-      "@dyna/multiagent/*": ["src/agent/multi/*"],
-      "@dyna/bot-templates": ["src/agent/templates/index.ts"],
-      "@dyna/bot-templates/*": ["src/agent/templates/*"],
-      "@dyna/tools-runtime": ["src/runtime/tools/index.ts"],
-      "@dyna/tools-runtime/*": ["src/runtime/tools/*"],
-      "@dyna/plugin-runtime": ["src/runtime/plugins/index.ts"],
-      "@dyna/plugin-runtime/*": ["src/runtime/plugins/*"],
-      "@dyna/skill-runtime": ["src/runtime/skills/index.ts"],
-      "@dyna/skill-runtime/*": ["src/runtime/skills/*"],
-      "@dyna/subagent-runtime": ["src/runtime/subagents/index.ts"],
-      "@dyna/subagent-runtime/*": ["src/runtime/subagents/*"],
-      "@dyna/mcp-runtime": ["src/runtime/mcp/index.ts"],
-      "@dyna/mcp-runtime/*": ["src/runtime/mcp/*"],
-      "@dyna/webhook-runtime": ["src/runtime/webhooks/index.ts"],
-      "@dyna/webhook-runtime/*": ["src/runtime/webhooks/*"],
-      "@dyna/notification-runtime": ["src/runtime/notifications/index.ts"],
-      "@dyna/notification-runtime/*": ["src/runtime/notifications/*"],
-      "@dyna/command-router": ["src/runtime/commands/index.ts"],
-      "@dyna/command-router/*": ["src/runtime/commands/*"],
-      "@dyna/channel-runtime": ["src/runtime/channels/index.ts"],
-      "@dyna/channel-runtime/*": ["src/runtime/channels/*"],
-      "@dyna/auth-runtime": ["src/governance/auth/index.ts"],
-      "@dyna/auth-runtime/*": ["src/governance/auth/*"],
-      "@dyna/permission-runtime": ["src/governance/permissions/index.ts"],
-      "@dyna/permission-runtime/*": ["src/governance/permissions/*"],
-      "@dyna/approval-engine": ["src/governance/approval/index.ts"],
-      "@dyna/approval-engine/*": ["src/governance/approval/*"],
-      "@dyna/run-cards": ["src/governance/run-cards/index.ts"],
-      "@dyna/run-cards/*": ["src/governance/run-cards/*"],
-      "@dyna/gateway": ["src/gateway/core/index.ts"],
-      "@dyna/gateway/*": ["src/gateway/core/*"],
-      "@dyna/channels-core": ["src/gateway/channels/index.ts"],
-      "@dyna/channels-core/*": ["src/gateway/channels/*"],
-      "@dyna/telegram-gateway": ["src/gateway/telegram/index.ts"],
-      "@dyna/telegram-gateway/*": ["src/gateway/telegram/*"],
-      "@dyna/context-compressor": ["src/context/index.ts"],
-      "@dyna/context-compressor/*": ["src/context/*"],
-      "@dyna/observability": ["src/monitoring/observability/index.ts"],
-      "@dyna/observability/*": ["src/monitoring/observability/*"],
-      "@dyna/performance-core": ["src/monitoring/performance/index.ts"],
-      "@dyna/performance-core/*": ["src/monitoring/performance/*"],
-      "@dyna/security-boundary": ["src/monitoring/security/index.ts"],
-      "@dyna/security-boundary/*": ["src/monitoring/security/*"],
-      "@dyna/orchestration/workspace": ["src/orchestration/workspace/index.ts"],
-      "@dyna/orchestration/workspace/*": ["src/orchestration/workspace/*"],
-      "@dyna/types": ["src/types/index.ts"],
-      "@dyna/types/*": ["src/types/*"],
-      "@dyna/strategy-ir": ["src/agent/strategy/index.ts"],
-      "@dyna/strategy-ir/*": ["src/agent/strategy/*"],
-      "@dyna/workspace": ["src/orchestration/workspace/index.ts"],
-      "@dyna/workspace/*": ["src/orchestration/workspace/*"],
-      "@dyna/manifest-loader": ["src/orchestration/manifest/index.ts"],
-      "@dyna/manifest-loader/*": ["src/orchestration/manifest/*"],
-      "@dyna/model-router": ["src/orchestration/models/index.ts"],
-      "@dyna/model-router/*": ["src/orchestration/models/*"],
-      "@dyna/interactive-prompts": ["src/orchestration/interactive/index.ts"],
-      "@dyna/interactive-prompts/*": ["src/orchestration/interactive/*"],
-      "@dyna/a2a-runtime": ["src/orchestration/a2a/index.ts"],
-      "@dyna/a2a-runtime/*": ["src/orchestration/a2a/*"],
-      "@dyna/trpc": ["src/orchestration/trpc/index.ts"],
-      "@dyna/trpc/*": ["src/orchestration/trpc/*"],
-      "@dyna/execution": ["src/runtime/execution/index.ts"],
-      "@dyna/execution/*": ["src/runtime/execution/*"]
+      "@dyna/contracts": [
+        "packages/core/src/types/index.ts"
+      ],
+      "@dyna/contracts/*": [
+        "packages/core/src/types/*"
+      ],
+      "@dyna/event-bus": [
+        "packages/core/src/events/index.ts"
+      ],
+      "@dyna/event-bus/*": [
+        "packages/core/src/events/*"
+      ],
+      "@dyna/audit": [
+        "packages/core/src/audit/index.ts"
+      ],
+      "@dyna/audit/*": [
+        "packages/core/src/audit/*"
+      ],
+      "@dyna/risk-core": [
+        "packages/core/src/risk/core/index.ts"
+      ],
+      "@dyna/risk-core/*": [
+        "packages/core/src/risk/core/*"
+      ],
+      "@dyna/policy-engine": [
+        "packages/core/src/risk/policy/index.ts"
+      ],
+      "@dyna/policy-engine/*": [
+        "packages/core/src/risk/policy/*"
+      ],
+      "@dyna/exchange-ccxt": [
+        "packages/core/src/market/exchange/index.ts"
+      ],
+      "@dyna/exchange-ccxt/*": [
+        "packages/core/src/market/exchange/*"
+      ],
+      "@dyna/backtest": [
+        "packages/core/src/market/backtest/index.ts"
+      ],
+      "@dyna/backtest/*": [
+        "packages/core/src/market/backtest/*"
+      ],
+      "@dyna/indicators": [
+        "packages/core/src/market/indicators/index.ts"
+      ],
+      "@dyna/indicators/*": [
+        "packages/core/src/market/indicators/*"
+      ],
+      "@dyna/position-sizing": [
+        "packages/core/src/market/sizing/index.ts"
+      ],
+      "@dyna/position-sizing/*": [
+        "packages/core/src/market/sizing/*"
+      ],
+      "@dyna/scanner": [
+        "packages/core/src/market/scanner/index.ts"
+      ],
+      "@dyna/scanner/*": [
+        "packages/core/src/market/scanner/*"
+      ],
+      "@dyna/memory-core": [
+        "packages/core/src/memory/core/index.ts"
+      ],
+      "@dyna/memory-core/*": [
+        "packages/core/src/memory/core/*"
+      ],
+      "@dyna/memory-runtime": [
+        "packages/core/src/memory/runtime/index.ts"
+      ],
+      "@dyna/memory-runtime/*": [
+        "packages/core/src/memory/runtime/*"
+      ],
+      "@dyna/agent-core": [
+        "packages/core/src/agent/core/index.ts"
+      ],
+      "@dyna/agent-core/*": [
+        "packages/core/src/agent/core/*"
+      ],
+      "@dyna/agent-cron": [
+        "packages/core/src/agent/cron/index.ts"
+      ],
+      "@dyna/agent-cron/*": [
+        "packages/core/src/agent/cron/*"
+      ],
+      "@dyna/memory-sqlite": [
+        "packages/core/src/memory/sqlite/index.ts"
+      ],
+      "@dyna/memory-sqlite/*": [
+        "packages/core/src/memory/sqlite/*"
+      ],
+      "@dyna/multiagent": [
+        "packages/core/src/agent/multi/index.ts"
+      ],
+      "@dyna/multiagent/*": [
+        "packages/core/src/agent/multi/*"
+      ],
+      "@dyna/bot-templates": [
+        "packages/core/src/agent/templates/index.ts"
+      ],
+      "@dyna/bot-templates/*": [
+        "packages/core/src/agent/templates/*"
+      ],
+      "@dyna/tools-runtime": [
+        "packages/core/src/runtime/tools/index.ts"
+      ],
+      "@dyna/tools-runtime/*": [
+        "packages/core/src/runtime/tools/*"
+      ],
+      "@dyna/plugin-runtime": [
+        "packages/core/src/runtime/plugins/index.ts"
+      ],
+      "@dyna/plugin-runtime/*": [
+        "packages/core/src/runtime/plugins/*"
+      ],
+      "@dyna/skill-runtime": [
+        "packages/core/src/runtime/skills/index.ts"
+      ],
+      "@dyna/skill-runtime/*": [
+        "packages/core/src/runtime/skills/*"
+      ],
+      "@dyna/subagent-runtime": [
+        "packages/core/src/runtime/subagents/index.ts"
+      ],
+      "@dyna/subagent-runtime/*": [
+        "packages/core/src/runtime/subagents/*"
+      ],
+      "@dyna/mcp-runtime": [
+        "packages/core/src/runtime/mcp/index.ts"
+      ],
+      "@dyna/mcp-runtime/*": [
+        "packages/core/src/runtime/mcp/*"
+      ],
+      "@dyna/webhook-runtime": [
+        "packages/core/src/runtime/webhooks/index.ts"
+      ],
+      "@dyna/webhook-runtime/*": [
+        "packages/core/src/runtime/webhooks/*"
+      ],
+      "@dyna/notification-runtime": [
+        "packages/core/src/runtime/notifications/index.ts"
+      ],
+      "@dyna/notification-runtime/*": [
+        "packages/core/src/runtime/notifications/*"
+      ],
+      "@dyna/command-router": [
+        "packages/core/src/runtime/commands/index.ts"
+      ],
+      "@dyna/command-router/*": [
+        "packages/core/src/runtime/commands/*"
+      ],
+      "@dyna/channel-runtime": [
+        "packages/core/src/runtime/channels/index.ts"
+      ],
+      "@dyna/channel-runtime/*": [
+        "packages/core/src/runtime/channels/*"
+      ],
+      "@dyna/auth-runtime": [
+        "packages/core/src/governance/auth/index.ts"
+      ],
+      "@dyna/auth-runtime/*": [
+        "packages/core/src/governance/auth/*"
+      ],
+      "@dyna/permission-runtime": [
+        "packages/core/src/governance/permissions/index.ts"
+      ],
+      "@dyna/permission-runtime/*": [
+        "packages/core/src/governance/permissions/*"
+      ],
+      "@dyna/approval-engine": [
+        "packages/core/src/governance/approval/index.ts"
+      ],
+      "@dyna/approval-engine/*": [
+        "packages/core/src/governance/approval/*"
+      ],
+      "@dyna/run-cards": [
+        "packages/core/src/governance/run-cards/index.ts"
+      ],
+      "@dyna/run-cards/*": [
+        "packages/core/src/governance/run-cards/*"
+      ],
+      "@dyna/gateway": [
+        "packages/core/src/gateway/core/index.ts"
+      ],
+      "@dyna/gateway/*": [
+        "packages/core/src/gateway/core/*"
+      ],
+      "@dyna/channels-core": [
+        "packages/core/src/gateway/channels/index.ts"
+      ],
+      "@dyna/channels-core/*": [
+        "packages/core/src/gateway/channels/*"
+      ],
+      "@dyna/telegram-gateway": [
+        "packages/core/src/gateway/telegram/index.ts"
+      ],
+      "@dyna/telegram-gateway/*": [
+        "packages/core/src/gateway/telegram/*"
+      ],
+      "@dyna/context-compressor": [
+        "packages/core/src/context/index.ts"
+      ],
+      "@dyna/context-compressor/*": [
+        "packages/core/src/context/*"
+      ],
+      "@dyna/observability": [
+        "packages/core/src/monitoring/observability/index.ts"
+      ],
+      "@dyna/observability/*": [
+        "packages/core/src/monitoring/observability/*"
+      ],
+      "@dyna/performance-core": [
+        "packages/core/src/monitoring/performance/index.ts"
+      ],
+      "@dyna/performance-core/*": [
+        "packages/core/src/monitoring/performance/*"
+      ],
+      "@dyna/security-boundary": [
+        "packages/core/src/monitoring/security/index.ts"
+      ],
+      "@dyna/security-boundary/*": [
+        "packages/core/src/monitoring/security/*"
+      ],
+      "@dyna/orchestration/workspace": [
+        "packages/core/src/orchestration/workspace/index.ts"
+      ],
+      "@dyna/orchestration/workspace/*": [
+        "packages/core/src/orchestration/workspace/*"
+      ],
+      "@dyna/types": [
+        "packages/core/src/types/index.ts"
+      ],
+      "@dyna/types/*": [
+        "packages/core/src/types/*"
+      ],
+      "@dyna/strategy-ir": [
+        "packages/core/src/agent/strategy/index.ts"
+      ],
+      "@dyna/strategy-ir/*": [
+        "packages/core/src/agent/strategy/*"
+      ],
+      "@dyna/workspace": [
+        "packages/core/src/orchestration/workspace/index.ts"
+      ],
+      "@dyna/workspace/*": [
+        "packages/core/src/orchestration/workspace/*"
+      ],
+      "@dyna/manifest-loader": [
+        "packages/core/src/orchestration/manifest/index.ts"
+      ],
+      "@dyna/manifest-loader/*": [
+        "packages/core/src/orchestration/manifest/*"
+      ],
+      "@dyna/model-router": [
+        "packages/core/src/orchestration/models/index.ts"
+      ],
+      "@dyna/model-router/*": [
+        "packages/core/src/orchestration/models/*"
+      ],
+      "@dyna/interactive-prompts": [
+        "packages/core/src/orchestration/interactive/index.ts"
+      ],
+      "@dyna/interactive-prompts/*": [
+        "packages/core/src/orchestration/interactive/*"
+      ],
+      "@dyna/a2a-runtime": [
+        "packages/core/src/orchestration/a2a/index.ts"
+      ],
+      "@dyna/a2a-runtime/*": [
+        "packages/core/src/orchestration/a2a/*"
+      ],
+      "@dyna/trpc": [
+        "packages/core/src/orchestration/trpc/index.ts"
+      ],
+      "@dyna/trpc/*": [
+        "packages/core/src/orchestration/trpc/*"
+      ],
+      "@dyna/execution": [
+        "packages/core/src/runtime/execution/index.ts"
+      ],
+      "@dyna/execution/*": [
+        "packages/core/src/runtime/execution/*"
+      ],
+      "@dyna/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@dyna/core/kernel": [
+        "packages/core/src/kernel/index.ts"
+      ],
+      "@dyna/core/hooks": [
+        "packages/core/src/agent/core/event-hooks/index.ts"
+      ],
+      "@dyna/core/*": [
+        "packages/core/src/*"
+      ]
     }
   },
   "include": [
-    "src/**/*.ts"
+    "packages/core/src/**/*.ts"
   ],
   "exclude": [
     "node_modules",

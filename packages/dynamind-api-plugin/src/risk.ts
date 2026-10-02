@@ -14,7 +14,8 @@ import type {
   RiskGateRequest,
   RiskGateResult,
   PluginCircuitBreakerConfig as CircuitBreakerConfig,
-} from "dynatrader";
+} from "@dyna/core";
+import { requestDynaMindApi } from "./http.js";
 
 export interface DynaMindRiskConfig {
   baseUrl: string;
@@ -22,7 +23,6 @@ export interface DynaMindRiskConfig {
   /** Fallback config if API is unavailable */
   fallbackConfig?: CircuitBreakerConfig;
 }
-
 const DEFAULT_FALLBACK_CONFIG: CircuitBreakerConfig = {
   dailyLossThreshold: 0.05,
   weeklyLossThreshold: 0.10,
@@ -32,35 +32,21 @@ const DEFAULT_FALLBACK_CONFIG: CircuitBreakerConfig = {
 };
 
 export function createRiskProvider(config: DynaMindRiskConfig): RiskProvider {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.apiKey) {
-    headers["Authorization"] = `Bearer ${config.apiKey}`;
-  }
-
   const fallback = config.fallbackConfig ?? DEFAULT_FALLBACK_CONFIG;
 
   return {
     async evaluateTrade(request: RiskGateRequest): Promise<RiskGateResult> {
       try {
-        const resp = await fetch(`${config.baseUrl}/api/v1/risk/evaluate`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(request),
-          signal: AbortSignal.timeout(5_000),
-        });
-
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status}`);
-        }
-
-        const data = (await resp.json()) as {
+        const data = await requestDynaMindApi<{
           approved: boolean;
           reason: string;
           reductions: string[];
           mandatory_reasoning: string;
-        };
+        }>(config, "/api/v1/risk/evaluate", {
+          method: "POST",
+          body: request,
+          timeoutMs: 5_000,
+        });
 
         return {
           approved: data.approved,

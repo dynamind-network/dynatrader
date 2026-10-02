@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "dynatrader": "file:../..",
     "typescript": "catalog:",
     "tsup": "catalog:"
   },
@@ -26,5 +25,8 @@
       "defi",
       "macro"
     ]
+  },
+  "dependencies": {
+    "@dyna/core": "^1.0.0"
   }
 }

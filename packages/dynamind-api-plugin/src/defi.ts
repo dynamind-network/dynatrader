@@ -10,30 +10,16 @@ import type {
   DeFiChain as Chain,
   DeFiProtocol as Protocol,
   DeFiPool as Pool,
-} from "dynatrader";
+} from "@dyna/core";
+import { requestDynaMindApi } from "./http.js";
 
 export interface DynaMindDeFiConfig {
   baseUrl: string;
   apiKey?: string;
 }
-
 export function createDeFiProvider(config: DynaMindDeFiConfig): DeFiProvider {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.apiKey) {
-    headers["Authorization"] = `Bearer ${config.apiKey}`;
-  }
-
   async function request<T>(path: string): Promise<T> {
-    const resp = await fetch(`${config.baseUrl}${path}`, {
-      headers,
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!resp.ok) {
-      throw new Error(`DynaMind API ${resp.status}: ${resp.statusText}`);
-    }
-    return resp.json() as Promise<T>;
+    return requestDynaMindApi<T>(config, path, { timeoutMs: 10_000 });
   }
 
   return {

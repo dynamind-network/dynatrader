@@ -101,27 +101,39 @@ For a single configured CCXT exchange, the generic aliases `EXCHANGE_API_KEY` an
 
 See `.env.example` for all available environment variables.
 
-### Workspace
+### State and agent workspace
 
-The init wizard creates your workspace at `~/.dynatrader/`:
+The init wizard keeps private runtime state separate from editable agent-owned files:
 
 ```
 ~/.dynatrader/
   config.yaml          # Runtime configuration
-  profiles.yaml        # Agent profiles
+  auth.json            # Owner and approval configuration
+  auth-profiles.json   # Optional rotating model credentials
+  state.db             # Sessions and trading records
+  audit.jsonl          # Audit trail
+  memory/              # Persistent memory store
+  runs/                # Trade run history
+  logs/                # Runtime logs
+  cron/                # Scheduled jobs
+
+~/.dynatrader/workspace/
+  AGENTS.md            # Agent instructions
   SOUL.md              # Agent personality
   IDENTITY.md          # Agent identity
   USER.md              # Your preferences
-  MEMORY.md            # Hot memory
-  HEARTBEAT.md         # Health check schedule
-  memory/              # Persistent memory store
-  logs/                # Session logs
-  runs/                # Trade run history
-  cron/                # Scheduled jobs
+  MEMORY.md            # Agent-owned memory
+  HEARTBEAT.md         # Health check instructions
   skills/              # Learned skills
   agents/              # Sub-agent configs
   policies/            # Safety policies
 ```
+
+The TUI also supports provider credentials from `~/.dynamind/auth.json`, settings, and environment variables. Keep all credentials in those stores or environment variables; do not put them in agent workspace files.
+
+### DynaMind Data API
+
+DynaTrader uses the hosted DynaMind Data API by default for market data, signals, risk, news, and analytics. The Free plan includes 1,000 requests/day for basic price data on one endpoint; historical OHLCV and additional endpoints require a plan that includes them. Create a free key in the [DynaMind Developer Portal](https://developer.dynamind.network/) and set `DYNAMIND_API_KEY`. Plan and quota errors are shown in the agent response, with no silent fallback. Review [plans and higher usage limits](https://dynamind.network/pricing). Set `DYNAMIND_API_URL` for a self-hosted or DynaMind-compatible API. In the standalone TUI runtime, set `DYNA_MARKET_DATA_PROVIDER=exchange` to use the configured exchange adapter instead; the full runtime also accepts replacement provider plugins in `config.yaml`.
 
 ## Usage
 
@@ -163,22 +175,17 @@ dynatrader --stdio      # Start JSON-RPC gateway on stdio
 
 ```
 dynatrader/
-  src/                  # Core runtime
-    agent/core/         # Agent core (loop, profiles, skills, strategies)
-    agent/multi/        # Opt-in pipeline collaboration
-    agent/profiles/     # Agent profile CRUD manager
-    runtime/            # Tools, hooks, skills, subagents, MCP, webhooks
-    memory/             # SQLite memory with FTS5 and embeddings
-    gateway/            # Telegram, Discord, JSON-RPC gateway
-    market/             # Exchange (CCXT), backtest, indicators, scanner
-    risk/               # Risk engine, boundaries, policy engine
-    cron/               # Scheduled task engine
-    governance/         # Auth, permissions, approval gates, run cards
-    orchestration/      # Workspace, model router, A2A, tRPC
-    entry/              # CLI dispatcher and stdio gateway
-  ui/                   # Terminal UI (Ink/React)
-  workspace/            # Default workspace templates
+  packages/core/                 # @dyna/core SDK and runtime
+    src/                         # Agent, market, risk, execution, orchestration
+  packages/cli/                  # dynatrader binary and daemon
+  packages/ui/                   # @dynatrader/ui terminal interface
+  packages/dynamind-api-plugin/  # Independently released API plugin
+  templates/workspace/           # Safe workspace setup guidance only
+  evals/                         # Benchmarks and evaluation fixtures
+  docs/architecture/             # Package and user-data boundaries
 ```
+
+See [package and workspace layout](docs/architecture/package-and-workspace-layout.md) for release boundaries and user-data paths. Runtime code, credentials, databases, logs, and generated runs stay outside the agent workspace.
 
 ### Agent Model
 

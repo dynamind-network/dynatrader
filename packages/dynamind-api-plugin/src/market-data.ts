@@ -5,40 +5,29 @@
  * Provides: universe discovery, prices, OHLCV, order books, volume.
  */
 
-import type { MarketDataProvider, Candle, OrderBook } from "dynatrader";
+import type { Candle, MarketDataProvider, OrderBook } from "@dyna/core";
+import { requestDynaMindApi } from "./http.js";
 
 export interface DynaMindMarketDataConfig {
   baseUrl: string;
   apiKey?: string;
+  timeoutMs?: number;
 }
-
 export function createMarketDataProvider(
   config: DynaMindMarketDataConfig,
 ): MarketDataProvider {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.apiKey) {
-    headers["Authorization"] = `Bearer ${config.apiKey}`;
-  }
+  const timeoutMs = Math.min(25_000, Math.max(1_000, config.timeoutMs ?? 20_000));
 
   async function request<T>(path: string): Promise<T> {
-    const resp = await fetch(`${config.baseUrl}${path}`, {
-      headers,
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!resp.ok) {
-      throw new Error(`DynaMind API ${resp.status}: ${resp.statusText}`);
-    }
-    return resp.json() as Promise<T>;
+    return requestDynaMindApi<T>(config, path, { timeoutMs });
   }
 
   return {
     async fetchUniverse(): Promise<string[]> {
-      const data = await request<{ pairs: Array<{ symbol: string }> }>(
+      const pairs = await request<string[] | Array<{ symbol: string }>>(
         "/api/v1/pairs",
       );
-      return data.pairs.map((p) => p.symbol);
+      return pairs.map((pair) => typeof pair === "string" ? pair : pair.symbol);
     },
 
     async getPrice(symbol: string): Promise<number> {
@@ -55,17 +44,15 @@ export function createMarketDataProvider(
     ): Promise<Candle[]> {
       const params = new URLSearchParams({ timeframe });
       if (limit) params.set("limit", String(limit));
-      const data = await request<{
-        candles: Array<{
+      const candles = await request<Array<{
           timestamp: number;
           open: number;
           high: number;
           low: number;
           close: number;
           volume: number;
-        }>;
-      }>(`/api/v1/ohlcv/${encodeURIComponent(symbol)}?${params}`);
-      return data.candles.map((c) => ({
+        }>>(`/api/v1/ohlcv/${encodeURIComponent(symbol)}?${params}`);
+      return candles.map((c) => ({
         timestamp: c.timestamp,
         open: c.open,
         high: c.high,
@@ -77,13 +64,14 @@ export function createMarketDataProvider(
 
     async getOrderBook(symbol: string): Promise<OrderBook> {
       const data = await request<{
-        bids: Array<[number, number]>;
-        asks: Array<[number, number]>;
+        bids: Array<[number, number] | { price: number; quantity: number }>;
+        asks: Array<[number, number] | { price: number; quantity: number }>;
+        timestamp?: number;
       }>(`/api/v1/orderbook/${encodeURIComponent(symbol)}`);
       return {
-        bids: data.bids ?? [],
-        asks: data.asks ?? [],
-        timestamp: Date.now(),
+        bids: (data.bids ?? []).map((level) => Array.isArray(level) ? level : [level.price, level.quantity]),
+        asks: (data.asks ?? []).map((level) => Array.isArray(level) ? level : [level.price, level.quantity]),
+        timestamp: data.timestamp ?? Date.now(),
       };
     },
 

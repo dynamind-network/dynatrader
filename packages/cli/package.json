@@ -1,0 +1,57 @@
+{
+  "name": "dynatrader",
+  "version": "3.0.0",
+  "description": "DynaTrader command line and daemon",
+  "type": "module",
+  "bin": {
+    "dynatrader": "./dist/entry/cli.js"
+  },
+  "exports": {
+    "./kernel": {
+      "types": "./kernel.d.ts",
+      "import": "./dist/kernel.js"
+    },
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**/*",
+    "index.d.ts",
+    "kernel.d.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup --config tsup.config.ts",
+    "typecheck": "tsc --noEmit --declaration false --declarationMap false -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dyna/core": "^1.0.0",
+    "@dyna/plugin-dynamind-api": "^1.0.0",
+    "@dynatrader/ui": "^1.0.0",
+    "@msgpack/msgpack": "^3.1.2",
+    "better-sqlite3": "12.11.1",
+    "ccxt": "^4.3.48",
+    "cheerio": "^1.2.0",
+    "discord.js": "14.26.4",
+    "emittery": "^1.0.1",
+    "js-yaml": "^4.1.0",
+    "playwright": "1.61.1",
+    "technicalindicators": "3.1.0",
+    "tiktoken": "^1.0.0",
+    "uuid": "^11.0.0",
+    "viem": "2.55.0",
+    "winston": "^3.10.0",
+    "yaml": "^2.9.0",
+    "zod": "^3.24.0"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

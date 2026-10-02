@@ -58,20 +58,13 @@ bun run typecheck
 
 ```
 dynatrader/
-  src/                  # Core runtime
-    agent/              # Agent core (loop, profiles, skills, strategies)
-    runtime/            # Tools, hooks, skills, subagents, MCP, webhooks
-    memory/             # SQLite memory with FTS5 and embeddings
-    gateway/            # Telegram, Discord, JSON-RPC gateway
-    market/             # Exchange (CCXT), backtest, indicators, scanner
-    risk/               # Risk engine, boundaries, policy engine
-    cron/               # Scheduled task engine
-    governance/         # Auth, permissions, approval gates
-    orchestration/      # Workspace, model router, A2A, tRPC
-    entry/              # CLI dispatcher and stdio gateway
-  ui/                   # Terminal UI (Ink/React)
-  workspace/            # Default workspace templates
-  packages/             # Sub-packages (plugins)
+  packages/core/                 # @dyna/core runtime and SDK
+  packages/cli/                  # dynatrader CLI and daemon
+  packages/ui/                   # @dynatrader/ui
+  packages/dynamind-api-plugin/  # Independently released API plugin
+  templates/workspace/           # Safe workspace setup guidance
+  evals/                         # Behavior checks and benchmarks
+  docs/architecture/             # Package and data-boundary documentation
 ```
 
 ## How to Contribute

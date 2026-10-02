@@ -1,0 +1,68 @@
+{
+  "name": "@dyna/core",
+  "files": [
+    "dist/**/*",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "version": "1.0.0",
+  "description": "DynaTrader agent, market, risk, execution, and orchestration runtime",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./cli": {
+      "import": "./dist/cli.js",
+      "types": "./dist/cli.d.ts"
+    },
+    "./providers": {
+      "import": "./dist/providers/runtime.js",
+      "types": "./dist/providers/runtime.d.ts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks/index.js",
+      "types": "./dist/hooks/index.d.ts"
+    },
+    "./kernel": {
+      "import": "./dist/kernel/index.js",
+      "types": "./dist/kernel/index.d.ts"
+    },
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup --config tsup.config.ts",
+    "typecheck": "tsc --noEmit --declaration false --declarationMap false -p tsconfig.json"
+  },
+  "dependencies": {
+    "@msgpack/msgpack": "^3.1.2",
+    "@trpc/server": "11.18.0",
+    "bcryptjs": "3.0.3",
+    "better-sqlite3": "12.11.1",
+    "ccxt": "^4.3.48",
+    "cheerio": "^1.2.0",
+    "crypto-js": "^4.1.1",
+    "discord.js": "14.26.4",
+    "emittery": "^1.0.1",
+    "glob": "^13.0.6",
+    "js-yaml": "^4.1.0",
+    "jsonwebtoken": "9.0.3",
+    "openai": "^7.4.0",
+    "playwright": "1.61.1",
+    "technicalindicators": "3.1.0",
+    "tiktoken": "^1.0.0",
+    "uuid": "^11.0.0",
+    "viem": "2.55.0",
+    "winston": "^3.10.0",
+    "yaml": "^2.9.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "catalog:",
+    "@types/node": "^22.0.0",
+    "tsup": "catalog:"
+  },
+  "type": "module"
+}

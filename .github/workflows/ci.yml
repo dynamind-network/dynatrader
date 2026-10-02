@@ -18,10 +18,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.1
       - run: bun install --frozen-lockfile
+      - run: bun run --filter @dyna/core build
       - run: bun run typecheck
+      - run: bun run --filter dynatrader typecheck
       - run: bun run typecheck:ui
+      - run: bun run --filter @dyna/plugin-dynamind-api typecheck
 
   lint:
     name: Lint
@@ -30,9 +33,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.1
       - run: bun install --frozen-lockfile
-      - run: bun run typecheck
+      - run: bun run lint
 
   build:
     name: Build
@@ -41,7 +44,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile
+      - run: bun run build:release
+      - run: bun run release:package-smoke
+
+  windows-consumer:
+    name: Windows Package Consumer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
       - run: bun install --frozen-lockfile
       - run: bun run build:release
       - run: bun run release:package-smoke
@@ -53,10 +71,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.1
       - run: bun install --frozen-lockfile
+      - run: bun run --filter @dyna/core build
       - run: node node_modules/vitest/vitest.mjs run --reporter=dot
-      - run: cd ui && bun run test
+      - run: bun run --filter @dynatrader/ui test
+      - run: bun run --filter @dynatrader/ink test
 
   build-ui:
     name: Build UI
@@ -65,22 +85,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.1
       - run: bun install --frozen-lockfile
+      - run: bun run --filter @dyna/core build
       - run: bun run build:ui
 
   all-checks-pass:
     name: All Checks Pass
     runs-on: ubuntu-latest
     if: always()
-    needs: [typecheck, build, test, build-ui]
+    needs: [typecheck, lint, build, test, build-ui, windows-consumer]
     steps:
       - name: Check all jobs
         run: |
           if [ "${{ needs.typecheck.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ] || \
              [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.build-ui.result }}" != "success" ]; then
+             [ "${{ needs.build-ui.result }}" != "success" ] || \
+             [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.windows-consumer.result }}" != "success" ]; then
             echo "One or more jobs failed"
             exit 1
           fi

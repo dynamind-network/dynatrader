@@ -5,30 +5,17 @@
  * Provides: news articles, market sentiment.
  */
 
-import type { NewsProvider, NewsArticle, SentimentData, NewsOptions } from "dynatrader";
+import type { NewsProvider, NewsArticle, SentimentData, NewsOptions } from "@dyna/core";
+import { requestDynaMindApi } from "./http.js";
 
 export interface DynaMindNewsConfig {
   baseUrl: string;
   apiKey?: string;
+  timeoutMs?: number;
 }
-
 export function createNewsProvider(config: DynaMindNewsConfig): NewsProvider {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.apiKey) {
-    headers["Authorization"] = `Bearer ${config.apiKey}`;
-  }
-
   async function request<T>(path: string): Promise<T> {
-    const resp = await fetch(`${config.baseUrl}${path}`, {
-      headers,
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!resp.ok) {
-      throw new Error(`DynaMind API ${resp.status}: ${resp.statusText}`);
-    }
-    return resp.json() as Promise<T>;
+    return requestDynaMindApi<T>(config, path, { timeoutMs: config.timeoutMs ?? 10_000 });
   }
 
   return {

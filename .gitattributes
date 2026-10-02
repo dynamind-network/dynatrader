@@ -1,0 +1,27 @@
+# Normalize line endings in the repository so local checkouts and CI agree.
+#
+# This matters most for the src/ -> packages/ move: without it, core.autocrlf
+# rewrites every one of those files on checkout and the migration commit
+# carries thousands of spurious line-ending changes that bury the real moves.
+* text=auto eol=lf
+
+# Native/binary files must never be line-ending normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.node binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tgz binary
+*.woff binary
+*.woff2 binary
+*.mp3 binary
+*.mp4 binary

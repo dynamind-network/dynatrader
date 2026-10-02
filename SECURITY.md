@@ -40,10 +40,18 @@ DynaTrader handles sensitive credentials for exchanges, LLM providers, and messa
 ### Trading Safety
 
 - **Paper mode by default:** All trading starts in paper mode
-- **Approval gates:** Live trades require explicit approval
+- **Approval gates:** Live and micro-live orders require a valid, unexpired approval token; strict mode cannot disable this gate
 - **Circuit breakers:** Automatic halt on anomalous behavior
-- **Position limits:** Configurable maximum position sizes
-- **Drawdown protection:** Automatic stop on excessive losses
+- **Position limits:** Configurable maximum position notional as a fraction of account equity
+- **Live risk snapshots:** Live and micro-live orders require a fresh exchange equity, daily-PnL, and open-position snapshot; unsupported or stale snapshots fail closed
+- **Drawdown protection:** Paper and supported live venues reject orders at the configured daily loss limit
+
+### Node and Python REPLs
+
+- **Code execution:** REPL source runs in persistent child processes as the current OS user. Treat every REPL call as arbitrary code execution with that user's filesystem and network access.
+- **Approval:** REPL tools are critical-risk operations and must pass the normal tool approval flow. Automatic approval removes that per-call gate.
+- **Process isolation only:** The child process has a minimal environment and is terminated on cancellation or timeout, but Windows does not restrict its user permissions, filesystem access, network access, or child-process creation. Do not treat it as a sandbox; use a restricted OS account or container before enabling automatic approval for untrusted code.
+- **Session state:** Each conversation gets persistent Node and Python state for the life of the runtime. Runtime shutdown terminates the workers.
 
 ### Network Security
 

@@ -10,32 +10,18 @@ import type {
   Signal,
   ConsensusSignal,
   AccuracyStats,
-} from "dynatrader";
+} from "@dyna/core";
+import { requestDynaMindApi } from "./http.js";
 
 export interface DynaMindSignalConfig {
   baseUrl: string;
   apiKey?: string;
 }
-
 export function createSignalProvider(
   config: DynaMindSignalConfig,
 ): SignalProvider {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.apiKey) {
-    headers["Authorization"] = `Bearer ${config.apiKey}`;
-  }
-
   async function request<T>(path: string): Promise<T> {
-    const resp = await fetch(`${config.baseUrl}${path}`, {
-      headers,
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!resp.ok) {
-      throw new Error(`DynaMind API ${resp.status}: ${resp.statusText}`);
-    }
-    return resp.json() as Promise<T>;
+    return requestDynaMindApi<T>(config, path, { timeoutMs: 15_000 });
   }
 
   return {

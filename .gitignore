@@ -1,3 +1,4 @@
+**/dist/
 node_modules/
 dist/
 *.tgz
@@ -9,6 +10,8 @@ logs/
 memory/
 !src/memory/
 !src/memory/**
+!packages/core/src/memory/
+!packages/core/src/memory/**
 runs/
 vector-memory/
 compressed-memory/
@@ -16,6 +19,8 @@ compressed-memory/
 .env.*
 !.env.example
 *.log
+__pycache__/
+*.py[cod]
 .turbo/
 .cache/
 *.tsbuildinfo
@@ -26,4 +31,29 @@ workspace/logs/
 .vscode/
 .idea/
 evals/output/
-skills/
+/skills/
+
+# Runtime state homes. .dynatrader/ is the documented state root (tracked
+# above); .dynamind/ is the older checkpoint location still written by the
+# CLI, and workspace/ was the pre-migration one. Templates are the only
+# workspace content that belongs in the repo.
+.dynamind/
+workspace/
+!templates/workspace/
+
+# Agent/tool scratch output.
+.hermes/
+.workspace/
+
+# Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Stray scratch files from local sessions.
+eth.txt
+btc_ultimate_money.txt
+workspace-note.txt
+
+# Drifted duplicate of the root profiles.yaml.
+packages/ui/profiles.yaml

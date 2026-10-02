@@ -10,34 +10,22 @@ import type {
   PluginBacktestConfig as BacktestConfig,
   PluginBacktestResult as BacktestResult,
   PluginStrategyInfo as StrategyInfo,
-} from "dynatrader";
+} from "@dyna/core";
+import { requestDynaMindApi } from "./http.js";
 
 export interface DynaMindBacktestConfig {
   baseUrl: string;
   apiKey?: string;
 }
-
 export function createBacktestProvider(
   config: DynaMindBacktestConfig,
 ): BacktestProvider {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.apiKey) {
-    headers["Authorization"] = `Bearer ${config.apiKey}`;
-  }
-
   async function request<T>(path: string, body?: unknown): Promise<T> {
-    const resp = await fetch(`${config.baseUrl}${path}`, {
-      method: body ? "POST" : "GET",
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(30_000),
+    return requestDynaMindApi<T>(config, path, {
+      method: body === undefined ? "GET" : "POST",
+      body,
+      timeoutMs: 30_000,
     });
-    if (!resp.ok) {
-      throw new Error(`DynaMind API ${resp.status}: ${resp.statusText}`);
-    }
-    return resp.json() as Promise<T>;
   }
 
   return {

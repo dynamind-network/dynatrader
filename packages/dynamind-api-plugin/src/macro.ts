@@ -5,30 +5,16 @@
  * Provides: economic events, FOMC schedule.
  */
 
-import type { MacroProvider, MacroEvent, FOMCMeeting } from "dynatrader";
+import type { MacroProvider, MacroEvent, FOMCMeeting } from "@dyna/core";
+import { requestDynaMindApi } from "./http.js";
 
 export interface DynaMindMacroConfig {
   baseUrl: string;
   apiKey?: string;
 }
-
 export function createMacroProvider(config: DynaMindMacroConfig): MacroProvider {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.apiKey) {
-    headers["Authorization"] = `Bearer ${config.apiKey}`;
-  }
-
   async function request<T>(path: string): Promise<T> {
-    const resp = await fetch(`${config.baseUrl}${path}`, {
-      headers,
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!resp.ok) {
-      throw new Error(`DynaMind API ${resp.status}: ${resp.statusText}`);
-    }
-    return resp.json() as Promise<T>;
+    return requestDynaMindApi<T>(config, path, { timeoutMs: 10_000 });
   }
 
   return {
