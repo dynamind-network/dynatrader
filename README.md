@@ -33,8 +33,12 @@
 ## Quick Start
 
 ```bash
-# Install
-npm install -g dynatrader
+# Install from source (npm package coming soon)
+git clone https://github.com/dynamind-network/dynatrader.git
+cd dynatrader
+bun install
+bun run build
+bun link
 
 # Initialize workspace (interactive wizard)
 dynatrader init
@@ -53,13 +57,7 @@ dynatrader trade --mode paper
 - **Node.js >= 22.19.0**
 - **npm** or **bun** (for development)
 
-### Install from npm
-
-```bash
-npm install -g dynatrader
-```
-
-### Install from source
+### Install from source (recommended)
 
 ```bash
 git clone https://github.com/dynamind-network/dynatrader.git
